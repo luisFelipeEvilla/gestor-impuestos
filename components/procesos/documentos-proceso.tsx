@@ -5,25 +5,28 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { subirDocumentoProceso, eliminarDocumentoProceso } from "@/lib/actions/documentos-proceso";
 import {
-  subirDocumentoProceso,
-  eliminarDocumentoProceso,
+  type CategoriaDocumentoNota,
   type EstadoDocumentoProceso,
-} from "@/lib/actions/documentos-proceso";
+} from "@/lib/proceso-categorias";
 
-type DocumentoItem = {
+export type DocumentoItem = {
   id: number;
   nombreOriginal: string;
   mimeType: string;
   tamano: number;
   creadoEn: Date;
+  categoria?: string;
 };
 
 type SubirDocumentoFormProps = {
   procesoId: number;
+  /** Categoría del documento: general, en_contacto, acuerdo_pago, cobro_coactivo */
+  categoria: CategoriaDocumentoNota;
 };
 
-export function SubirDocumentoForm({ procesoId }: SubirDocumentoFormProps) {
+export function SubirDocumentoForm({ procesoId, categoria }: SubirDocumentoFormProps) {
   const [state, formAction] = useActionState(
     (_prev: EstadoDocumentoProceso | null, formData: FormData) =>
       subirDocumentoProceso(formData),
@@ -33,6 +36,7 @@ export function SubirDocumentoForm({ procesoId }: SubirDocumentoFormProps) {
   return (
     <form action={formAction} className="space-y-2">
       <input type="hidden" name="procesoId" value={procesoId} />
+      <input type="hidden" name="categoria" value={categoria} />
       <div className="flex flex-wrap items-end gap-2">
         <div className="grid flex-1 min-w-[200px] gap-1.5">
           <Label htmlFor="archivo" className="text-xs">

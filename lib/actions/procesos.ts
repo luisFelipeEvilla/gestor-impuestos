@@ -11,12 +11,19 @@ const estadoProcesoValues = [
   "pendiente",
   "asignado",
   "notificado",
+  "en_contacto",
   "en_negociacion",
   "cobrado",
   "incobrable",
   "en_cobro_coactivo",
   "suspendido",
 ] as const;
+
+/** No se puede pasar de acuerdo de pago (en_negociacion) o cobro coactivo a cobrado. */
+const ESTADOS_PROHIBIDOS_COBRADO: (typeof estadoProcesoValues)[number][] = [
+  "en_negociacion",
+  "en_cobro_coactivo",
+];
 
 const schemaCrear = z.object({
   impuestoId: z.coerce.number().int().positive("Selecciona un impuesto"),
@@ -274,6 +281,16 @@ export async function cambiarEstadoProceso(
       .where(eq(procesos.id, procesoId));
     if (!proceso) return { error: "Proceso no encontrado." };
 
+    if (
+      nuevoEstado === "cobrado" &&
+      ESTADOS_PROHIBIDOS_COBRADO.includes(proceso.estadoActual as (typeof estadoProcesoValues)[number])
+    ) {
+      return {
+        error:
+          "No se puede pasar a Cobrado desde En negociación o En cobro coactivo. Solo se marca Cobrado cuando el contribuyente realiza el pago desde En contacto.",
+      };
+    }
+
     await db
       .update(procesos)
       .set({ estadoActual: nuevoEstado as (typeof estadoProcesoValues)[number], actualizadoEn: new Date() })
@@ -365,15 +382,22 @@ export async function asignarProceso(
   }
 }
 
+const CATEGORIAS_NOTA = ["general", "en_contacto", "acuerdo_pago", "cobro_coactivo"] as const;
+
 export async function agregarNotaProceso(
   _prev: EstadoGestionProceso | null,
   formData: FormData
 ): Promise<EstadoGestionProceso> {
   const procesoId = Number(formData.get("procesoId"));
   const comentario = (formData.get("comentario") as string)?.trim();
+  const categoriaRaw = (formData.get("categoria") as string)?.trim() || "general";
 
   if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
   if (!comentario || comentario.length === 0) return { error: "Escribe un comentario." };
+  if (!CATEGORIAS_NOTA.includes(categoriaRaw as (typeof CATEGORIAS_NOTA)[number])) {
+    return { error: "Categoría de nota inválida." };
+  }
+  const categoriaNota = categoriaRaw as (typeof CATEGORIAS_NOTA)[number];
 
   try {
     const [proceso] = await db.select({ id: procesos.id }).from(procesos).where(eq(procesos.id, procesoId));
@@ -383,6 +407,7 @@ export async function agregarNotaProceso(
       procesoId,
       tipoEvento: "nota",
       comentario,
+      categoriaNota,
     });
 
     revalidatePath(`/procesos/${procesoId}`);
@@ -397,28 +422,28 @@ export async function agregarNotaProceso(
   }
 }
 
-export async function enviarNotificacionPorCorreo(formData: FormData): Promise<EstadoGestionProceso> {
+export async function enviarNotificacion(formData: FormData): Promise<EstadoGestionProceso> {
   const procesoId = Number(formData.get("procesoId"));
   if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
-  return registrarNotificacion(procesoId, "email");
+  return registrarNotificacion(procesoId);
 }
 
-export async function enviarNotificacionPorMensaje(formData: FormData): Promise<EstadoGestionProceso> {
-  const procesoId = Number(formData.get("procesoId"));
-  if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
-  return registrarNotificacion(procesoId, "sms");
-}
-
-async function registrarNotificacion(
-  procesoId: number,
-  canal: "email" | "sms"
-): Promise<EstadoGestionProceso> {
+async function registrarNotificacion(procesoId: number): Promise<EstadoGestionProceso> {
   try {
     const [proceso] = await db
       .select({ estadoActual: procesos.estadoActual })
       .from(procesos)
       .where(eq(procesos.id, procesoId));
     if (!proceso) return { error: "Proceso no encontrado." };
+
+    const historialNotif = await db
+      .select({ tipoEvento: historialProceso.tipoEvento })
+      .from(historialProceso)
+      .where(eq(historialProceso.procesoId, procesoId));
+    const yaNotificado = historialNotif.some((r) => r.tipoEvento === "notificacion");
+    if (yaNotificado) {
+      return { error: "Este proceso ya fue notificado. Solo se puede notificar una vez." };
+    }
 
     await db
       .update(procesos)
@@ -428,24 +453,23 @@ async function registrarNotificacion(
       })
       .where(eq(procesos.id, procesoId));
 
-    const canalLabel = canal === "email" ? "correo electrónico" : "mensaje de texto";
     await db.insert(historialProceso).values({
       procesoId,
       tipoEvento: "notificacion",
       estadoAnterior: proceso.estadoActual,
       estadoNuevo: "notificado",
-      comentario: `Notificación enviada por ${canalLabel}`,
-      metadata: { canal },
+      comentario: "Notificación enviada",
+      metadata: {},
     });
 
     revalidatePath(`/procesos/${procesoId}`);
     revalidatePath("/procesos");
-    return {};
+    redirect(`/procesos/${procesoId}`);
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
       throw err;
     }
     console.error(err);
-    return { error: `Error al enviar notificación por ${canal === "email" ? "correo" : "mensaje"}.` };
+    return { error: "Error al enviar la notificación." };
   }
 }

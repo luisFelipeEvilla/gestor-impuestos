@@ -10,19 +10,27 @@ import {
   isAllowedMime,
   isAllowedSize,
 } from "@/lib/uploads";
-
-export type EstadoDocumentoProceso = { error?: string };
+import {
+  CATEGORIAS_DOCUMENTO_NOTA,
+  type CategoriaDocumentoNota,
+  type EstadoDocumentoProceso,
+} from "@/lib/proceso-categorias";
 
 export async function subirDocumentoProceso(
   formData: FormData
 ): Promise<EstadoDocumentoProceso> {
   const procesoIdRaw = formData.get("procesoId");
   const procesoId = typeof procesoIdRaw === "string" ? parseInt(procesoIdRaw, 10) : Number(procesoIdRaw);
+  const categoriaRaw = (formData.get("categoria") as string)?.trim() || "general";
   const file = formData.get("archivo") as File | null;
 
   if (!Number.isInteger(procesoId) || procesoId < 1) {
     return { error: "Proceso inválido." };
   }
+  if (!CATEGORIAS_DOCUMENTO_NOTA.includes(categoriaRaw as CategoriaDocumentoNota)) {
+    return { error: "Categoría de documento inválida." };
+  }
+  const categoria = categoriaRaw as CategoriaDocumentoNota;
   if (!file || file.size === 0) {
     return { error: "Selecciona un archivo." };
   }
@@ -54,6 +62,7 @@ export async function subirDocumentoProceso(
 
     await db.insert(documentosProceso).values({
       procesoId,
+      categoria,
       nombreOriginal: file.name,
       rutaArchivo,
       mimeType: file.type,

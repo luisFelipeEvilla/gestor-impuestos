@@ -9,7 +9,7 @@ import {
   historialProceso,
   documentosProceso,
 } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, asc } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -20,12 +20,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { EliminarProcesoButton } from "./botones-proceso";
 import {
-  CambiarEstadoForm,
   AsignarProcesoForm,
-  AgregarNotaForm,
   BotonesNotificacion,
+  CardGeneral,
+  CardEnContacto,
+  CardAcuerdoDePago,
+  CardCobroCoactivo,
 } from "@/components/procesos/acciones-gestion";
-import { ListaDocumentos } from "@/components/procesos/documentos-proceso";
+import { DetalleConHistorial } from "./detalle-con-historial";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -46,7 +48,17 @@ function formatDateTime(value: Date | string | null | undefined): string {
     });
 }
 
-function labelTipoEvento(tipo: string): string {
+const LABEL_CATEGORIA: Record<string, string> = {
+  general: "General",
+  en_contacto: "En contacto",
+  acuerdo_pago: "Acuerdo de pago",
+  cobro_coactivo: "Cobro coactivo",
+};
+
+function labelTipoEvento(
+  tipo: string,
+  categoriaNota?: string | null
+): string {
   const map: Record<string, string> = {
     cambio_estado: "Cambio de estado",
     asignacion: "Asignación",
@@ -54,7 +66,12 @@ function labelTipoEvento(tipo: string): string {
     notificacion: "Notificación",
     pago: "Pago",
   };
-  return map[tipo] ?? tipo;
+  const base = map[tipo] ?? tipo;
+  if (tipo === "nota" && categoriaNota) {
+    const catLabel = LABEL_CATEGORIA[categoriaNota] ?? categoriaNota;
+    return `${base} (${catLabel})`;
+  }
+  return base;
 }
 
 export default async function DetalleProcesoPage({ params }: Props) {
@@ -94,11 +111,12 @@ export default async function DetalleProcesoPage({ params }: Props) {
         estadoAnterior: historialProceso.estadoAnterior,
         estadoNuevo: historialProceso.estadoNuevo,
         comentario: historialProceso.comentario,
+        categoriaNota: historialProceso.categoriaNota,
         fecha: historialProceso.fecha,
       })
       .from(historialProceso)
       .where(eq(historialProceso.procesoId, id))
-      .orderBy(desc(historialProceso.fecha))
+      .orderBy(asc(historialProceso.fecha))
       .limit(50),
     db
       .select({ id: usuarios.id, nombre: usuarios.nombre })
@@ -107,6 +125,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
     db
       .select({
         id: documentosProceso.id,
+        categoria: documentosProceso.categoria,
         nombreOriginal: documentosProceso.nombreOriginal,
         mimeType: documentosProceso.mimeType,
         tamano: documentosProceso.tamano,
@@ -116,6 +135,46 @@ export default async function DetalleProcesoPage({ params }: Props) {
       .where(eq(documentosProceso.procesoId, id))
       .orderBy(desc(documentosProceso.creadoEn)),
   ]);
+
+  const notificacionEvent = historialRows.find((h) => h.tipoEvento === "notificacion");
+  const yaNotificado = !!notificacionEvent;
+  const fechaNotificacion = notificacionEvent?.fecha ?? null;
+
+  type CategoriaKey = "general" | "en_contacto" | "acuerdo_pago" | "cobro_coactivo";
+  const categorias: CategoriaKey[] = ["general", "en_contacto", "acuerdo_pago", "cobro_coactivo"];
+
+  const documentosPorCategoria = categorias.reduce(
+    (acc, cat) => {
+      acc[cat] = documentosRows
+        .filter((d) => (d.categoria ?? "general") === cat)
+        .map((d) => ({
+          id: d.id,
+          nombreOriginal: d.nombreOriginal,
+          mimeType: d.mimeType,
+          tamano: d.tamano,
+          creadoEn: d.creadoEn,
+        }));
+      return acc;
+    },
+    {} as Record<CategoriaKey, { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date }[]>
+  );
+
+  const notasPorCategoria = categorias.reduce(
+    (acc, cat) => {
+      acc[cat] = historialRows
+        .filter(
+          (h) =>
+            h.tipoEvento === "nota" && (h.categoriaNota ?? "general") === cat
+        )
+        .map((h) => ({
+          id: h.id,
+          comentario: h.comentario ?? "",
+          fecha: h.fecha,
+        }));
+      return acc;
+    },
+    {} as Record<CategoriaKey, { id: number; comentario: string; fecha: Date }[]>
+  );
 
   return (
     <div className="p-6 space-y-6">
@@ -131,9 +190,9 @@ export default async function DetalleProcesoPage({ params }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-4">
-
-          <Card className="max-w-xl col-span-3">
+      <DetalleConHistorial
+        formCard={
+          <Card className="max-w-xl">
             <CardHeader>
               <CardTitle>
                 Proceso #{row.id} · {row.impuestoCodigo} – {row.contribuyenteNombre}
@@ -186,17 +245,29 @@ export default async function DetalleProcesoPage({ params }: Props) {
                   <dt className="text-muted-foreground">Creado</dt>
                   <dd>{formatDate(row.creadoEn)}</dd>
                 </div>
+                <div className="pt-2 border-t">
+                  <dt className="text-muted-foreground text-xs mb-1">Asignar responsable</dt>
+                  <dd>
+                    <AsignarProcesoForm
+                      procesoId={row.id}
+                      asignadoAId={row.asignadoAId}
+                      usuarios={usuariosList}
+                    />
+                  </dd>
+                </div>
               </dl>
             </CardContent>
           </Card>
-          <Card className="sticky top-6">
-            <CardHeader>
+        }
+        timelineCard={
+          <Card className="sticky top-6 flex min-h-0 flex-1 flex-col overflow-hidden">
+            <CardHeader className="shrink-0">
               <CardTitle>Historial</CardTitle>
               <CardDescription>
-                Registro de cambios (más recientes primero).
+                Registro de cambios (más antiguos primero).
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="min-h-0 shrink overflow-y-auto">
               {historialRows.length === 0 ? (
                 <p className="text-muted-foreground text-sm">Aún no hay eventos en el historial.</p>
               ) : (
@@ -217,7 +288,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
                       <div className="min-w-0 flex-1 space-y-0.5 pt-0.5">
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
                           <span className="font-medium text-sm">
-                            {labelTipoEvento(h.tipoEvento)}
+                            {labelTipoEvento(h.tipoEvento, h.categoriaNota)}
                           </span>
                           <span className="text-muted-foreground text-xs">
                             {formatDateTime(h.fecha)}
@@ -244,67 +315,49 @@ export default async function DetalleProcesoPage({ params }: Props) {
               )}
             </CardContent>
           </Card>
-      </div>
+        }
+      />
 
-      <Card className="max-w-xl">
-        <CardHeader>
-          <CardTitle>Documentos adjuntos</CardTitle>
-          <CardDescription>
-            Documentos vinculados a este proceso. Ábrelos en una nueva pestaña para ver o descargar.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ListaDocumentos
-            procesoId={row.id}
-            documentos={documentosRows}
-            puedeEliminar={false}
-          />
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <Card className="max-w-xl">
+          <CardHeader>
+            <CardTitle>Notificación</CardTitle>
+            <CardDescription>
+              Primer paso después de asignar: envía la notificación al contribuyente. El estado pasará a &quot;Notificado&quot;.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BotonesNotificacion
+              procesoId={row.id}
+              yaNotificado={yaNotificado}
+              fechaNotificacion={fechaNotificacion}
+            />
+          </CardContent>
+        </Card>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-        <div className="space-y-6 lg:col-span-2">
-          <Card className="max-w-xl">
-            <CardHeader>
-              <CardTitle>Notificación</CardTitle>
-              <CardDescription>
-                Primer paso después de asignar: envía la notificación al contribuyente. El estado pasará a &quot;Notificado&quot;.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <BotonesNotificacion procesoId={row.id} />
-            </CardContent>
-          </Card>
-
-          <Card className="max-w-xl">
-            <CardHeader>
-              <CardTitle>Gestión del proceso</CardTitle>
-              <CardDescription>
-                Cambia el estado, asigna a un usuario o agrega notas. Cada acción queda registrada en el historial.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Cambiar estado</h4>
-                <CambiarEstadoForm procesoId={row.id} estadoActual={row.estadoActual} />
-              </div>
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Asignar responsable</h4>
-                <AsignarProcesoForm
-                  procesoId={row.id}
-                  asignadoAId={row.asignadoAId}
-                  usuarios={usuariosList}
-                />
-              </div>
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Agregar nota</h4>
-                <AgregarNotaForm procesoId={row.id} />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-
+        <CardGeneral
+          procesoId={row.id}
+          documentos={documentosPorCategoria.general}
+          notas={notasPorCategoria.general}
+        />
+        <CardEnContacto
+          procesoId={row.id}
+          estadoActual={row.estadoActual ?? ""}
+          documentos={documentosPorCategoria.en_contacto}
+          notas={notasPorCategoria.en_contacto}
+        />
+        <CardAcuerdoDePago
+          procesoId={row.id}
+          estadoActual={row.estadoActual ?? ""}
+          documentos={documentosPorCategoria.acuerdo_pago}
+          notas={notasPorCategoria.acuerdo_pago}
+        />
+        <CardCobroCoactivo
+          procesoId={row.id}
+          estadoActual={row.estadoActual ?? ""}
+          documentos={documentosPorCategoria.cobro_coactivo}
+          notas={notasPorCategoria.cobro_coactivo}
+        />
       </div>
     </div>
   );

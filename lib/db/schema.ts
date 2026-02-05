@@ -35,6 +35,14 @@ export const tipoEventoHistorialEnum = pgEnum("tipo_evento_historial", [
   "pago",
 ]);
 
+/** Categoría de documentos y notas del proceso: general, en_contacto, acuerdo_pago, cobro_coactivo */
+export const categoriaDocumentoNotaEnum = pgEnum("categoria_documento_nota", [
+  "general",
+  "en_contacto",
+  "acuerdo_pago",
+  "cobro_coactivo",
+]);
+
 // Tabla: usuarios
 export const usuarios = pgTable("usuarios", {
   id: serial("id").primaryKey(),
@@ -110,6 +118,8 @@ export const historialProceso = pgTable("historial_proceso", {
   estadoAnterior: estadoProcesoEnum("estado_anterior"),
   estadoNuevo: estadoProcesoEnum("estado_nuevo"),
   comentario: text("comentario"),
+  /** Solo aplica cuando tipo_evento = 'nota'. Clasifica la nota por etapa. */
+  categoriaNota: categoriaDocumentoNotaEnum("categoria_nota"),
   metadata: jsonb("metadata"),
   fecha: timestamp("fecha", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -120,6 +130,8 @@ export const documentosProceso = pgTable("documentos_proceso", {
   procesoId: integer("proceso_id")
     .notNull()
     .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  /** Clasificación del documento: general, en_contacto, acuerdo_pago, cobro_coactivo */
+  categoria: categoriaDocumentoNotaEnum("categoria").notNull().default("general"),
   nombreOriginal: text("nombre_original").notNull(),
   rutaArchivo: text("ruta_archivo").notNull(),
   mimeType: text("mime_type").notNull(),

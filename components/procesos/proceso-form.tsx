@@ -20,6 +20,7 @@ const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
   { value: "asignado", label: "Asignado" },
   { value: "notificado", label: "Notificado" },
+  { value: "en_contacto", label: "En contacto" },
   { value: "en_negociacion", label: "En negociación" },
   { value: "cobrado", label: "Cobrado" },
   { value: "incobrable", label: "Incobrable" },
