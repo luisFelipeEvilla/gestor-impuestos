@@ -197,7 +197,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
 
       <DetalleConHistorial
         formCard={
-          <Card className="max-w-xl">
+          <Card className="w-full">
             <CardHeader>
               <CardTitle>
                 Proceso #{row.id} · {row.impuestoCodigo} – {row.contribuyenteNombre}
@@ -323,7 +323,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
         }
       />
 
-      <div className="max-w-xl space-y-6">
+      <div className="w-full space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Documentos generales del proceso</CardTitle>
@@ -356,7 +356,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
       </div>
 
       <div className="space-y-6">
-        <Card className="max-w-xl">
+        <Card className="w-full">
           <CardHeader>
             <CardTitle>Notificación</CardTitle>
             <CardDescription>

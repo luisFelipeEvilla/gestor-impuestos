@@ -350,7 +350,7 @@ export function CardEnContacto({
   const activo = estadoActual === "notificado" || estadoActual === "en_contacto";
 
   return (
-    <Card className="max-w-xl">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>En contacto</CardTitle>
         <CardDescription>
@@ -442,7 +442,7 @@ export function CardAcuerdoDePago({
   const activo = estadoActual === "en_negociacion";
 
   return (
-    <Card className="max-w-xl">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>Acuerdo de pago</CardTitle>
         <CardDescription>
@@ -504,7 +504,7 @@ export function CardCobroCoactivo({
   const activo = estadoActual === "en_cobro_coactivo";
 
   return (
-    <Card className="max-w-xl">
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>Cobro coactivo</CardTitle>
         <CardDescription>
