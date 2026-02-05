@@ -13,7 +13,7 @@ export function SignOutButton() {
       type="button"
       variant="ghost"
       size="sm"
-      className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full justify-start font-medium"
+      className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full justify-start rounded-lg font-medium"
       onClick={handleSignOut}
       aria-label="Cerrar sesión"
     >

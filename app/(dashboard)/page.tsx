@@ -1,5 +1,12 @@
 import Link from "next/link";
 import {
+  ClipboardList,
+  Receipt,
+  Building2,
+  Users,
+  Wallet,
+} from "lucide-react";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -164,77 +171,85 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="p-6 space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Dashboard
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
+    <div className="p-6 space-y-8 animate-fade-in">
+      <div className="space-y-1">
+        <div className="flex items-center gap-3">
+          <div className="h-1 w-12 rounded-full bg-primary" aria-hidden />
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Dashboard
+          </h1>
+        </div>
+        <p className="text-muted-foreground text-sm pl-14">
           Resumen de procesos de cobro, vencimientos y montos en gestión (COP).
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-1">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Procesos
             </CardTitle>
+            <ClipboardList className="size-5 text-primary/70" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{totalP}</p>
+            <p className="text-2xl font-bold text-foreground">{totalP}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Total de procesos de cobro
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-2">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Impuestos
             </CardTitle>
+            <Receipt className="size-5 text-primary/70" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{totalI}</p>
+            <p className="text-2xl font-bold text-foreground">{totalI}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Catálogo activo
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-3">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Contribuyentes
             </CardTitle>
+            <Building2 className="size-5 text-primary/70" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{totalC}</p>
+            <p className="text-2xl font-bold text-foreground">{totalC}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Personas o entidades
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-4">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Usuarios
             </CardTitle>
+            <Users className="size-5 text-primary/70" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{totalU}</p>
+            <p className="text-2xl font-bold text-foreground">{totalU}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Administradores y empleados
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-5">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Monto en gestión
             </CardTitle>
+            <Wallet className="size-5 text-primary/70" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatMonto(montoGestion)}</p>
+            <p className="text-2xl font-bold text-primary">{formatMonto(montoGestion)}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Suma de procesos no cobrados/incobrables
             </p>
@@ -306,9 +321,9 @@ export default async function DashboardPage() {
                   <li key={p.id}>
                     <Link
                       href={`/procesos/${p.id}`}
-                      className="flex flex-wrap items-baseline justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-border hover:bg-muted/50"
+                      className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-transparent px-3 py-2.5 text-sm transition-colors hover:border-border hover:bg-accent/50"
                     >
-                      <span className="font-medium">
+                      <span className="font-medium text-foreground">
                         #{p.id} · {p.impuestoCodigo} – {p.contribuyenteNombre}
                       </span>
                       <span className="text-muted-foreground text-xs tabular-nums">
@@ -326,7 +341,7 @@ export default async function DashboardPage() {
             <div className="mt-3">
               <Link
                 href="/procesos"
-                className="text-primary text-sm font-medium hover:underline"
+                className="text-primary text-sm font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
               >
                 Ver todos los procesos →
               </Link>
@@ -352,9 +367,9 @@ export default async function DashboardPage() {
                   <li key={p.id}>
                     <Link
                       href={`/procesos/${p.id}`}
-                      className="flex flex-wrap items-baseline justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-border hover:bg-muted/50"
+                      className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-transparent px-3 py-2.5 text-sm transition-colors hover:border-border hover:bg-accent/50"
                     >
-                      <span className="font-medium">
+                      <span className="font-medium text-foreground">
                         #{p.id} · {p.impuestoCodigo} – {p.contribuyenteNombre}
                       </span>
                       <span className="text-muted-foreground text-xs tabular-nums">
@@ -371,7 +386,7 @@ export default async function DashboardPage() {
             <div className="mt-3">
               <Link
                 href="/procesos"
-                className="text-primary text-sm font-medium hover:underline"
+                className="text-primary text-sm font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
               >
                 Ver todos los procesos →
               </Link>

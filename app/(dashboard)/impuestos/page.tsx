@@ -31,9 +31,14 @@ export default async function ImpuestosPage({ searchParams }: Props) {
     : await db.select().from(impuestos).where(eq(impuestos.activo, true));
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Impuestos</h1>
+    <div className="p-6 space-y-6 animate-fade-in">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-1 w-12 rounded-full bg-primary" aria-hidden />
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Impuestos
+          </h1>
+        </div>
         <div className="flex items-center gap-2">
           <FiltroInactivos verInactivos={verInactivos} />
           <Button asChild>

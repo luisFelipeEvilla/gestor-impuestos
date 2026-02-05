@@ -27,11 +27,14 @@ export default async function ContribuyentesPage() {
     .limit(50);
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Contribuyentes
-        </h1>
+    <div className="p-6 space-y-6 animate-fade-in">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-1 w-12 rounded-full bg-primary" aria-hidden />
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            Contribuyentes
+          </h1>
+        </div>
         <Button asChild>
           <Link href="/contribuyentes/nuevo">Nuevo contribuyente</Link>
         </Button>

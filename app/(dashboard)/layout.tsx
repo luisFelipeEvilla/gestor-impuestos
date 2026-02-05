@@ -9,7 +9,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex min-h-screen">
       <AppSidebar session={session} />
-      <main className="bg-background flex-1 overflow-auto">
+      <main className="bg-background flex-1 overflow-auto border-l border-border/40">
         {children}
       </main>
     </div>
