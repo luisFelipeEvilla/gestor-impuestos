@@ -114,6 +114,19 @@ export const historialProceso = pgTable("historial_proceso", {
   fecha: timestamp("fecha", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Tabla: documentos_proceso (adjuntos almacenados en sistema de archivos local)
+export const documentosProceso = pgTable("documentos_proceso", {
+  id: serial("id").primaryKey(),
+  procesoId: integer("proceso_id")
+    .notNull()
+    .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  nombreOriginal: text("nombre_original").notNull(),
+  rutaArchivo: text("ruta_archivo").notNull(),
+  mimeType: text("mime_type").notNull(),
+  tamano: integer("tamano").notNull(),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // Relaciones Drizzle (para queries con join)
 export const usuariosRelations = relations(usuarios, ({ many }) => ({
   procesosAsignados: many(procesos),
@@ -133,11 +146,16 @@ export const procesosRelations = relations(procesos, ({ one, many }) => ({
   contribuyente: one(contribuyentes),
   asignadoA: one(usuarios),
   historial: many(historialProceso),
+  documentos: many(documentosProceso),
 }));
 
 export const historialProcesoRelations = relations(historialProceso, ({ one }) => ({
   proceso: one(procesos),
   usuario: one(usuarios),
+}));
+
+export const documentosProcesoRelations = relations(documentosProceso, ({ one }) => ({
+  proceso: one(procesos),
 }));
 
 // Tipos inferidos para uso en la app
@@ -151,3 +169,5 @@ export type Proceso = typeof procesos.$inferSelect;
 export type NewProceso = typeof procesos.$inferInsert;
 export type HistorialProceso = typeof historialProceso.$inferSelect;
 export type NewHistorialProceso = typeof historialProceso.$inferInsert;
+export type DocumentoProceso = typeof documentosProceso.$inferSelect;
+export type NewDocumentoProceso = typeof documentosProceso.$inferInsert;

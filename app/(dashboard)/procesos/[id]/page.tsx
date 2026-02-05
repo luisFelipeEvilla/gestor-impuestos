@@ -7,6 +7,7 @@ import {
   contribuyentes,
   usuarios,
   historialProceso,
+  documentosProceso,
 } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import {
@@ -24,6 +25,7 @@ import {
   AgregarNotaForm,
   BotonesNotificacion,
 } from "@/components/procesos/acciones-gestion";
+import { ListaDocumentos } from "@/components/procesos/documentos-proceso";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -84,7 +86,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
 
   if (!row) notFound();
 
-  const [historialRows, usuariosList] = await Promise.all([
+  const [historialRows, usuariosList, documentosRows] = await Promise.all([
     db
       .select({
         id: historialProceso.id,
@@ -102,6 +104,17 @@ export default async function DetalleProcesoPage({ params }: Props) {
       .select({ id: usuarios.id, nombre: usuarios.nombre })
       .from(usuarios)
       .where(eq(usuarios.activo, true)),
+    db
+      .select({
+        id: documentosProceso.id,
+        nombreOriginal: documentosProceso.nombreOriginal,
+        mimeType: documentosProceso.mimeType,
+        tamano: documentosProceso.tamano,
+        creadoEn: documentosProceso.creadoEn,
+      })
+      .from(documentosProceso)
+      .where(eq(documentosProceso.procesoId, id))
+      .orderBy(desc(documentosProceso.creadoEn)),
   ]);
 
   return (
@@ -233,6 +246,21 @@ export default async function DetalleProcesoPage({ params }: Props) {
           </Card>
       </div>
 
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Documentos adjuntos</CardTitle>
+          <CardDescription>
+            Documentos vinculados a este proceso. Ábrelos en una nueva pestaña para ver o descargar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ListaDocumentos
+            procesoId={row.id}
+            documentos={documentosRows}
+            puedeEliminar={false}
+          />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
         <div className="space-y-6 lg:col-span-2">
