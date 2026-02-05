@@ -6,6 +6,7 @@ const navItems = [
   { href: "/procesos", label: "Procesos" },
   { href: "/contribuyentes", label: "Contribuyentes" },
   { href: "/impuestos", label: "Impuestos" },
+  { href: "/usuarios", label: "Usuarios" },
 ] as const;
 
 export function AppSidebar({ className }: { className?: string }) {

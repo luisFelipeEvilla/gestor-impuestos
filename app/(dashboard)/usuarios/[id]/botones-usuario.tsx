@@ -1,23 +1,31 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { eliminarImpuesto, desactivarImpuesto, activarImpuesto } from "@/lib/actions/impuestos";
+import {
+  eliminarUsuario,
+  desactivarUsuario,
+  activarUsuario,
+} from "@/lib/actions/usuarios";
 
 const eliminarAction = async (formData: FormData) => {
-  await eliminarImpuesto(formData);
+  await eliminarUsuario(formData);
 };
 
 const desactivarAction = async (formData: FormData) => {
-  await desactivarImpuesto(formData);
+  await desactivarUsuario(formData);
 };
 
 const activarAction = async (formData: FormData) => {
-  await activarImpuesto(formData);
+  await activarUsuario(formData);
 };
 
-export function EliminarImpuestoButton({ id }: { id: number }) {
+export function EliminarUsuarioButton({ id }: { id: number }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    if (!confirm("¿Eliminar este impuesto? No se puede deshacer. Si hay procesos asociados, la acción fallará.")) {
+    if (
+      !confirm(
+        "¿Eliminar este usuario? No se puede deshacer. Los procesos asignados quedarán sin asignar."
+      )
+    ) {
       e.preventDefault();
     }
   };
@@ -32,9 +40,13 @@ export function EliminarImpuestoButton({ id }: { id: number }) {
   );
 }
 
-export function DesactivarImpuestoButton({ id }: { id: number }) {
+export function DesactivarUsuarioButton({ id }: { id: number }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    if (!confirm("¿Desactivar este impuesto? No aparecerá en el listado de activos ni en nuevos procesos.")) {
+    if (
+      !confirm(
+        "¿Desactivar este usuario? No podrá iniciar sesión hasta que se reactive."
+      )
+    ) {
       e.preventDefault();
     }
   };
@@ -49,7 +61,7 @@ export function DesactivarImpuestoButton({ id }: { id: number }) {
   );
 }
 
-export function ActivarImpuestoButton({ id }: { id: number }) {
+export function ActivarUsuarioButton({ id }: { id: number }) {
   return (
     <form action={activarAction}>
       <input type="hidden" name="id" value={id} />

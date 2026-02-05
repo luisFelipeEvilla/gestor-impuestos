@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EliminarImpuestoButton, DesactivarImpuestoButton } from "./botones-impuesto";
+import { EliminarImpuestoButton, DesactivarImpuestoButton, ActivarImpuestoButton } from "./botones-impuesto";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -33,8 +33,10 @@ export default async function DetalleImpuestoPage({ params }: Props) {
           <Button asChild>
             <Link href={`/impuestos/${impuesto.id}/editar`}>Editar</Link>
           </Button>
-          {impuesto.activo && (
+          {impuesto.activo ? (
             <DesactivarImpuestoButton id={impuesto.id} />
+          ) : (
+            <ActivarImpuestoButton id={impuesto.id} />
           )}
           <EliminarImpuestoButton id={impuesto.id} />
         </div>

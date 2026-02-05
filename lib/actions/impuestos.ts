@@ -153,13 +153,37 @@ export async function desactivarImpuesto(formData: FormData): Promise<EstadoForm
     revalidatePath("/impuestos");
     revalidatePath(`/impuestos/${id}`);
     revalidatePath("/");
-    redirect("/impuestos");
+    redirect("/impuestos?inactivos=1");
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
       throw err;
     }
     console.error(err);
     return { error: "Error al desactivar el impuesto." };
+  }
+}
+
+export async function activarImpuesto(formData: FormData): Promise<EstadoFormImpuesto> {
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id < 1) return { error: "ID inválido." };
+  try {
+    const [updated] = await db
+      .update(impuestos)
+      .set({ activo: true, updatedAt: new Date() })
+      .where(eq(impuestos.id, id))
+      .returning({ id: impuestos.id });
+
+    if (!updated) return { error: "Impuesto no encontrado." };
+    revalidatePath("/impuestos");
+    revalidatePath(`/impuestos/${id}`);
+    revalidatePath("/");
+    redirect(`/impuestos/${id}`);
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
+      throw err;
+    }
+    console.error(err);
+    return { error: "Error al activar el impuesto." };
   }
 }
 
