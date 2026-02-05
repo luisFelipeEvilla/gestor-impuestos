@@ -32,6 +32,7 @@ import {
   ListaDocumentos,
   SubirDocumentoForm,
 } from "@/components/procesos/documentos-proceso";
+import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { DetalleConHistorial } from "./detalle-con-historial";
 
 type Props = { params: Promise<{ id: string }> };
@@ -96,6 +97,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
       numeroResolucion: procesos.numeroResolucion,
       fechaResolucion: procesos.fechaResolucion,
       fechaAplicacionImpuesto: procesos.fechaAplicacionImpuesto,
+      fechaInicioCobroCoactivo: procesos.fechaInicioCobroCoactivo,
       creadoEn: procesos.creadoEn,
       impuestoNombre: impuestos.nombre,
       impuestoCodigo: impuestos.codigo,
@@ -248,7 +250,12 @@ export default async function DetalleProcesoPage({ params }: Props) {
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Fecha límite</dt>
-                  <dd>{formatDate(row.fechaLimite)}</dd>
+                  <dd className="flex flex-wrap items-center gap-2">
+                    <SemaforoFechaLimite fechaLimite={row.fechaLimite} variant="inline" />
+                    <span className="text-muted-foreground text-sm tabular-nums">
+                      {formatDate(row.fechaLimite)}
+                    </span>
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Nº de resolución</dt>
@@ -262,6 +269,12 @@ export default async function DetalleProcesoPage({ params }: Props) {
                   <dt className="text-muted-foreground">Fecha creación/aplicación del impuesto</dt>
                   <dd>{formatDate(row.fechaAplicacionImpuesto)}</dd>
                 </div>
+                {row.fechaInicioCobroCoactivo != null && (
+                  <div>
+                    <dt className="text-muted-foreground">Fecha inicio cobro coactivo</dt>
+                    <dd>{formatDate(row.fechaInicioCobroCoactivo)}</dd>
+                  </div>
+                )}
                 <div>
                   <dt className="text-muted-foreground">Creado en el sistema</dt>
                   <dd>{formatDate(row.creadoEn)}</dd>

@@ -106,6 +106,8 @@ export const procesos = pgTable("procesos", {
   fechaResolucion: date("fecha_resolucion"),
   /** Fecha de creación o aplicación del impuesto (origen del proceso) */
   fechaAplicacionImpuesto: date("fecha_aplicacion_impuesto"),
+  /** Fecha de ingreso a cobro coactivo; si está definida, la prescripción de 5 años se cuenta desde aquí */
+  fechaInicioCobroCoactivo: date("fecha_inicio_cobro_coactivo"),
   /** Fecha de creación del registro en el sistema */
   creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),

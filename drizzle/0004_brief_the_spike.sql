@@ -1,0 +1,1 @@
+ALTER TABLE "procesos" ADD COLUMN "fecha_inicio_cobro_coactivo" date;

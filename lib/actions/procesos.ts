@@ -11,6 +11,28 @@ import {
   crearEvidenciaEnvio,
 } from "@/lib/notificaciones/resend";
 
+/** Años para prescripción: fecha límite = base (aplicación o ingreso a cobro coactivo) + este valor */
+const AÑOS_PRESCRIPCION = 5;
+
+/** Suma años a una fecha ISO (YYYY-MM-DD) y devuelve YYYY-MM-DD */
+function addYears(isoDate: string, years: number): string {
+  const d = new Date(isoDate + "T12:00:00Z");
+  d.setUTCFullYear(d.getUTCFullYear() + years);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Calcula la fecha límite por prescripción: 5 años desde la base.
+ * Base = fecha de ingreso a cobro coactivo si existe, si no fecha de aplicación del impuesto.
+ */
+function computeFechaLimitePrescripcion(
+  fechaAplicacionImpuesto: string | null,
+  fechaInicioCobroCoactivo: string | null
+): string | null {
+  const base = fechaInicioCobroCoactivo ?? fechaAplicacionImpuesto;
+  return base ? addYears(base, AÑOS_PRESCRIPCION) : null;
+}
+
 const estadoProcesoValues = [
   "pendiente",
   "asignado",
@@ -110,6 +132,11 @@ export async function crearProceso(
 
   const tieneAsignacion = asignadoAId != null && asignadoAId > 0;
   const estadoActual = tieneAsignacion ? "asignado" : estadoForm;
+  const fechaAplicacion = parseFecha(fechaAplicacionImpuesto);
+  const fechaLimiteCalculada =
+    fechaAplicacion != null
+      ? computeFechaLimitePrescripcion(fechaAplicacion, null)
+      : parseFecha(fechaLimite);
 
   try {
     const [inserted] = await db
@@ -122,10 +149,11 @@ export async function crearProceso(
         montoCop,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
-        fechaLimite: parseFecha(fechaLimite),
+        fechaLimite: fechaLimiteCalculada,
         numeroResolucion: numeroResolucion?.trim() || null,
         fechaResolucion: parseFecha(fechaResolucion),
-        fechaAplicacionImpuesto: parseFecha(fechaAplicacionImpuesto),
+        fechaAplicacionImpuesto: fechaAplicacion,
+        fechaInicioCobroCoactivo: null,
       })
       .returning({ id: procesos.id });
 
@@ -208,10 +236,21 @@ export async function actualizarProceso(
 
   try {
     const [existing] = await db
-      .select({ estadoActual: procesos.estadoActual, asignadoAId: procesos.asignadoAId })
+      .select({
+        estadoActual: procesos.estadoActual,
+        asignadoAId: procesos.asignadoAId,
+      })
       .from(procesos)
       .where(eq(procesos.id, parsed.data.id));
     if (!existing) return { error: "Proceso no encontrado." };
+
+    const entraCobroCoactivo =
+      existing.estadoActual !== estadoActual && estadoActual === "en_cobro_coactivo";
+    const hoyStr = new Date().toISOString().slice(0, 10);
+    const fechaAplicacion = parseFecha(fechaAplicacionImpuesto);
+    const fechaLimiteFinal = entraCobroCoactivo
+      ? addYears(hoyStr, AÑOS_PRESCRIPCION)
+      : parseFecha(fechaLimite);
 
     const [updated] = await db
       .update(procesos)
@@ -223,10 +262,15 @@ export async function actualizarProceso(
         montoCop,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
-        fechaLimite: parseFecha(fechaLimite),
+        fechaLimite: fechaLimiteFinal,
         numeroResolucion: numeroResolucion?.trim() || null,
         fechaResolucion: parseFecha(fechaResolucion),
-        fechaAplicacionImpuesto: parseFecha(fechaAplicacionImpuesto),
+        fechaAplicacionImpuesto: fechaAplicacion,
+        ...(entraCobroCoactivo
+          ? {
+              fechaInicioCobroCoactivo: hoyStr,
+            }
+          : {}),
         actualizadoEn: new Date(),
       })
       .where(eq(procesos.id, parsed.data.id))
@@ -316,9 +360,20 @@ export async function cambiarEstadoProceso(
       };
     }
 
+    const entraCobroCoactivo = nuevoEstado === "en_cobro_coactivo";
+    const hoyStr = new Date().toISOString().slice(0, 10);
     await db
       .update(procesos)
-      .set({ estadoActual: nuevoEstado as (typeof estadoProcesoValues)[number], actualizadoEn: new Date() })
+      .set({
+        estadoActual: nuevoEstado as (typeof estadoProcesoValues)[number],
+        actualizadoEn: new Date(),
+        ...(entraCobroCoactivo
+          ? {
+              fechaInicioCobroCoactivo: hoyStr,
+              fechaLimite: addYears(hoyStr, AÑOS_PRESCRIPCION),
+            }
+          : {}),
+      })
       .where(eq(procesos.id, procesoId));
 
     await db.insert(historialProceso).values({

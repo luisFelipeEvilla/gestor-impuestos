@@ -217,7 +217,11 @@ export function ProcesoForm({
               type="date"
               defaultValue={formatDateForInput(initialData?.fechaLimite)}
               aria-invalid={!!state?.errores?.fechaLimite}
+              aria-describedby="fechaLimite-hint"
             />
+            <p id="fechaLimite-hint" className="text-muted-foreground text-xs">
+              Se calcula en 5 años desde la fecha de aplicación del impuesto. Si el proceso pasa a cobro coactivo, se recalcula desde esa fecha.
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="numeroResolucion">Nº de resolución (opcional)</Label>
@@ -250,7 +254,11 @@ export function ProcesoForm({
                 type="date"
                 defaultValue={formatDateForInput(initialData?.fechaAplicacionImpuesto)}
                 aria-invalid={!!state?.errores?.fechaAplicacionImpuesto}
+                aria-describedby="fechaAplicacion-hint"
               />
+              <p id="fechaAplicacion-hint" className="text-muted-foreground text-xs">
+                Si se indica, la fecha límite se calcula automáticamente (5 años desde esta fecha).
+              </p>
             </div>
           </div>
           <div className="flex gap-2 pt-2">

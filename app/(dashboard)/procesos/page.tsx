@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { procesos, impuestos, contribuyentes, usuarios } from "@/lib/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, and } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -18,9 +19,41 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
+import { FiltrosProcesos } from "./filtros-procesos";
 
-export default async function ProcesosPage() {
-  const lista = await db
+const ESTADOS_VALIDOS = [
+  "pendiente",
+  "asignado",
+  "notificado",
+  "en_contacto",
+  "en_negociacion",
+  "cobrado",
+  "incobrable",
+  "en_cobro_coactivo",
+  "suspendido",
+] as const;
+
+type Props = { searchParams: Promise<{ estado?: string; vigencia?: string }> };
+
+export default async function ProcesosPage({ searchParams }: Props) {
+  const { estado: estadoParam, vigencia: vigenciaParam } = await searchParams;
+  const estadoActual =
+    estadoParam != null && ESTADOS_VALIDOS.includes(estadoParam as (typeof ESTADOS_VALIDOS)[number])
+      ? estadoParam
+      : null;
+  const vigenciaNum =
+    vigenciaParam != null && /^\d{4}$/.test(vigenciaParam)
+      ? parseInt(vigenciaParam, 10)
+      : null;
+
+  const condiciones = [];
+  if (estadoActual != null) condiciones.push(eq(procesos.estadoActual, estadoActual));
+  if (vigenciaNum != null) condiciones.push(eq(procesos.vigencia, vigenciaNum));
+  const whereCond =
+    condiciones.length > 0 ? and(...condiciones) : undefined;
+
+  const baseQuery = db
     .select({
       id: procesos.id,
       vigencia: procesos.vigencia,
@@ -28,6 +61,7 @@ export default async function ProcesosPage() {
       montoCop: procesos.montoCop,
       estadoActual: procesos.estadoActual,
       numeroResolucion: procesos.numeroResolucion,
+      fechaLimite: procesos.fechaLimite,
       impuestoCodigo: impuestos.codigo,
       impuestoNombre: impuestos.nombre,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
@@ -37,7 +71,11 @@ export default async function ProcesosPage() {
     .from(procesos)
     .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
-    .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
+    .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id));
+
+  const lista = await (whereCond
+    ? baseQuery.where(whereCond)
+    : baseQuery)
     .orderBy(desc(procesos.creadoEn))
     .limit(50);
 
@@ -50,15 +88,25 @@ export default async function ProcesosPage() {
             Procesos de cobro
           </h1>
         </div>
-        <Button asChild>
-          <Link href="/procesos/nuevo">Nuevo proceso</Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Suspense fallback={null}>
+            <FiltrosProcesos
+              estadoActual={estadoActual}
+              vigenciaActual={vigenciaNum}
+            />
+          </Suspense>
+          <Button asChild>
+            <Link href="/procesos/nuevo">Nuevo proceso</Link>
+          </Button>
+        </div>
       </div>
       <Card>
         <CardHeader>
           <CardTitle>Listado</CardTitle>
           <CardDescription>
             Procesos ordenados por fecha de creación (más recientes primero)
+            {(estadoActual != null || vigenciaNum != null) &&
+              " · Filtros aplicados"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -77,6 +125,7 @@ export default async function ProcesosPage() {
                   <TableHead>Nº resolución</TableHead>
                   <TableHead>Monto (COP)</TableHead>
                   <TableHead>Estado</TableHead>
+                  <TableHead className="text-center">Fecha límite</TableHead>
                   <TableHead>Asignado</TableHead>
                   <TableHead className="w-[80px]">Acción</TableHead>
                 </TableRow>
@@ -103,6 +152,13 @@ export default async function ProcesosPage() {
                     </TableCell>
                     <TableCell className="capitalize">
                       {p.estadoActual?.replace(/_/g, " ")}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <SemaforoFechaLimite
+                        fechaLimite={p.fechaLimite}
+                        variant="pill"
+                        className="justify-center"
+                      />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {p.asignadoNombre ?? "—"}

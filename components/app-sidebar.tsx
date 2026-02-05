@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Session } from "next-auth";
 import { cn } from "@/lib/utils";
-import { SignOutButton } from "@/components/auth/sign-out-button";
 import { SidebarNav } from "@/components/sidebar-nav";
 
 type AppSidebarProps = {
@@ -16,11 +15,12 @@ export function AppSidebar({ className, session }: AppSidebarProps) {
   return (
     <aside
       className={cn(
-        "flex w-60 flex-col border-r border-sidebar-border bg-sidebar",
+        "fixed inset-y-0 left-0 z-10 flex h-screen w-60 flex-col border-r border-sidebar-border bg-sidebar",
         className
       )}
       aria-label="Navegación principal"
     >
+      {/* Cabecera: siempre visible arriba */}
       <div className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
         <Link
           href="/"
@@ -37,17 +37,9 @@ export function AppSidebar({ className, session }: AppSidebarProps) {
           <span className="truncate text-[15px]">Gestor Impuestos</span>
         </Link>
       </div>
-      <SidebarNav isAdmin={isAdmin} />
-      <div className="border-sidebar-border border-t p-3">
-        {session?.user && (
-          <p
-            className="text-muted-foreground mb-2 truncate px-2 text-xs font-medium"
-            title={session.user.email}
-          >
-            {session.user.name}
-          </p>
-        )}
-        <SignOutButton />
+      {/* Navegación: crece y hace scroll si hay muchos ítems */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <SidebarNav isAdmin={isAdmin} />
       </div>
     </aside>
   );

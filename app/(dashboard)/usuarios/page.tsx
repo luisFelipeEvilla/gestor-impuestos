@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { usuarios } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, or, ilike, desc } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -18,17 +19,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FiltroInactivosUsuarios } from "./filtro-inactivos";
+import { FiltroInactivosUsuarios } from "@/app/(dashboard)/usuarios/filtro-inactivos";
+import { FiltroBusquedaUsuarios } from "@/app/(dashboard)/usuarios/filtro-busqueda";
 
-type Props = { searchParams: Promise<{ inactivos?: string }> };
+type Props = { searchParams: Promise<{ inactivos?: string; q?: string }> };
 
 export default async function UsuariosPage({ searchParams }: Props) {
-  const { inactivos: inactivosParam } = await searchParams;
+  const { inactivos: inactivosParam, q: query } = await searchParams;
   const verInactivos = inactivosParam === "1";
+  const busqueda = (query ?? "").trim();
 
-  const lista = verInactivos
-    ? await db.select().from(usuarios)
-    : await db.select().from(usuarios).where(eq(usuarios.activo, true));
+  const condiciones = [];
+  if (!verInactivos) condiciones.push(eq(usuarios.activo, true));
+  if (busqueda.length > 0) {
+    condiciones.push(
+      or(
+        ilike(usuarios.nombre, `%${busqueda}%`),
+        ilike(usuarios.email, `%${busqueda}%`)
+      )
+    );
+  }
+  const whereCond =
+    condiciones.length > 0 ? and(...condiciones) : undefined;
+
+  const lista = await (whereCond
+    ? db.select().from(usuarios).where(whereCond)
+    : db.select().from(usuarios))
+    .orderBy(desc(usuarios.createdAt));
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -39,8 +56,11 @@ export default async function UsuariosPage({ searchParams }: Props) {
             Usuarios
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <FiltroInactivosUsuarios verInactivos={verInactivos} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Suspense fallback={null}>
+            <FiltroBusquedaUsuarios valorActual={busqueda} verInactivos={verInactivos} />
+          </Suspense>
+          <FiltroInactivosUsuarios verInactivos={verInactivos} query={busqueda} />
           <Button asChild>
             <Link href="/usuarios/nuevo">Nuevo usuario</Link>
           </Button>
@@ -52,6 +72,7 @@ export default async function UsuariosPage({ searchParams }: Props) {
           <CardDescription>
             Administradores y empleados del sistema
             {verInactivos && " · Mostrando todos (incl. inactivos)"}
+            {busqueda && " · Búsqueda aplicada"}
           </CardDescription>
         </CardHeader>
         <CardContent>

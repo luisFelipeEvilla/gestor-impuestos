@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { contribuyentes } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
+import { desc, or, ilike } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -18,11 +19,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { FiltroBusquedaContribuyentes } from "./filtro-busqueda";
 
-export default async function ContribuyentesPage() {
-  const lista = await db
-    .select()
-    .from(contribuyentes)
+type Props = { searchParams: Promise<{ q?: string }> };
+
+export default async function ContribuyentesPage({ searchParams }: Props) {
+  const { q: query } = await searchParams;
+  const busqueda = (query ?? "").trim();
+  const whereCond =
+    busqueda.length > 0
+      ? or(
+          ilike(contribuyentes.nombreRazonSocial, `%${busqueda}%`),
+          ilike(contribuyentes.nit, `%${busqueda}%`)
+        )
+      : undefined;
+
+  const baseQuery = db.select().from(contribuyentes);
+  const lista = await (whereCond
+    ? baseQuery.where(whereCond)
+    : baseQuery)
     .orderBy(desc(contribuyentes.createdAt))
     .limit(50);
 
@@ -35,15 +50,21 @@ export default async function ContribuyentesPage() {
             Contribuyentes
           </h1>
         </div>
-        <Button asChild>
-          <Link href="/contribuyentes/nuevo">Nuevo contribuyente</Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Suspense fallback={null}>
+            <FiltroBusquedaContribuyentes valorActual={busqueda} />
+          </Suspense>
+          <Button asChild>
+            <Link href="/contribuyentes/nuevo">Nuevo contribuyente</Link>
+          </Button>
+        </div>
       </div>
       <Card>
         <CardHeader>
           <CardTitle>Listado</CardTitle>
           <CardDescription>
             Personas o entidades a las que se realiza el cobro (NIT / cédula)
+            {busqueda && " · Búsqueda aplicada"}
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import {
   ClipboardList,
   Receipt,
@@ -16,6 +17,8 @@ import {
 import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafico-estados";
 import { DashboardGraficoMontoEstados } from "@/components/dashboard/dashboard-grafico-monto-estados";
 import { DashboardGraficoResponsables } from "@/components/dashboard/dashboard-grafico-responsables";
+import { DashboardFiltros } from "@/components/dashboard/dashboard-filtros";
+import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { db } from "@/lib/db";
 import {
   procesos,
@@ -26,6 +29,8 @@ import {
 import { eq, desc, and, gte, lte, sql, notInArray } from "drizzle-orm";
 
 const ESTADOS_CERRADOS = ["cobrado", "incobrable"] as const;
+
+type Props = { searchParams: Promise<{ vigencia?: string }> };
 
 function formatDate(value: Date | string | null | undefined): string {
   if (!value) return "—";
@@ -42,13 +47,24 @@ function formatMonto(value: string | number): string {
   }).format(n);
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: Props) {
+  const { vigencia: vigenciaParam } = await searchParams;
+  const vigenciaNum =
+    vigenciaParam != null && /^\d{4}$/.test(vigenciaParam)
+      ? parseInt(vigenciaParam, 10)
+      : null;
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = today.toISOString().slice(0, 10);
   const in30Days = new Date(today);
   in30Days.setDate(in30Days.getDate() + 30);
   const in30DaysStr = in30Days.toISOString().slice(0, 10);
+
+  const vigenciaCond =
+    vigenciaNum != null ? eq(procesos.vigencia, vigenciaNum) : undefined;
+  const condProcesos = (c: ReturnType<typeof and> | ReturnType<typeof notInArray>) =>
+    vigenciaCond ? and(vigenciaCond, c) : c;
 
   const [
     totalProcesos,
@@ -62,37 +78,56 @@ export default async function DashboardPage() {
     vencimientosProximos,
     procesosRecientes,
   ] = await Promise.all([
-    db.select({ count: sql<number>`count(*)::int` }).from(procesos),
+    vigenciaCond
+      ? db.select({ count: sql<number>`count(*)::int` }).from(procesos).where(vigenciaCond)
+      : db.select({ count: sql<number>`count(*)::int` }).from(procesos),
     db.select({ count: sql<number>`count(*)::int` }).from(impuestos).where(eq(impuestos.activo, true)),
     db.select({ count: sql<number>`count(*)::int` }).from(contribuyentes),
     db.select({ count: sql<number>`count(*)::int` }).from(usuarios).where(eq(usuarios.activo, true)),
-    db
-      .select({ estado: procesos.estadoActual, count: sql<number>`count(*)::int` })
-      .from(procesos)
-      .groupBy(procesos.estadoActual),
+    vigenciaCond
+      ? db
+          .select({ estado: procesos.estadoActual, count: sql<number>`count(*)::int` })
+          .from(procesos)
+          .where(vigenciaCond)
+          .groupBy(procesos.estadoActual)
+      : db
+          .select({ estado: procesos.estadoActual, count: sql<number>`count(*)::int` })
+          .from(procesos)
+          .groupBy(procesos.estadoActual),
     db
       .select({
         total: sql<string>`coalesce(sum(${procesos.montoCop}), 0)::text`,
       })
       .from(procesos)
-      .where(notInArray(procesos.estadoActual, [...ESTADOS_CERRADOS])),
+      .where(condProcesos(notInArray(procesos.estadoActual, [...ESTADOS_CERRADOS]))),
     db
       .select({
         estado: procesos.estadoActual,
         total: sql<string>`coalesce(sum(${procesos.montoCop}), 0)::text`,
       })
       .from(procesos)
-      .where(notInArray(procesos.estadoActual, [...ESTADOS_CERRADOS]))
+      .where(condProcesos(notInArray(procesos.estadoActual, [...ESTADOS_CERRADOS])))
       .groupBy(procesos.estadoActual),
-    db
-      .select({
-        asignadoAId: procesos.asignadoAId,
-        nombre: sql<string | null>`max(${usuarios.nombre})`,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(procesos)
-      .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
-      .groupBy(procesos.asignadoAId),
+    vigenciaCond
+      ? db
+          .select({
+            asignadoAId: procesos.asignadoAId,
+            nombre: sql<string | null>`max(${usuarios.nombre})`,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(procesos)
+          .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
+          .where(vigenciaCond)
+          .groupBy(procesos.asignadoAId)
+      : db
+          .select({
+            asignadoAId: procesos.asignadoAId,
+            nombre: sql<string | null>`max(${usuarios.nombre})`,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(procesos)
+          .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
+          .groupBy(procesos.asignadoAId),
     db
       .select({
         id: procesos.id,
@@ -108,28 +143,37 @@ export default async function DashboardPage() {
       .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
       .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
       .where(
-        and(
-          gte(procesos.fechaLimite, todayStr),
-          lte(procesos.fechaLimite, in30DaysStr)
-        )
+        vigenciaCond
+          ? and(
+              gte(procesos.fechaLimite, todayStr),
+              lte(procesos.fechaLimite, in30DaysStr),
+              vigenciaCond
+            )
+          : and(
+              gte(procesos.fechaLimite, todayStr),
+              lte(procesos.fechaLimite, in30DaysStr)
+            )
       )
       .orderBy(procesos.fechaLimite)
       .limit(10),
-    db
-      .select({
-        id: procesos.id,
-        vigencia: procesos.vigencia,
-        periodo: procesos.periodo,
-        estadoActual: procesos.estadoActual,
-        creadoEn: procesos.creadoEn,
-        contribuyenteNombre: contribuyentes.nombreRazonSocial,
-        impuestoCodigo: impuestos.codigo,
-      })
-      .from(procesos)
-      .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
-      .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
-      .orderBy(desc(procesos.creadoEn))
-      .limit(5),
+    (() => {
+      const base = db
+        .select({
+          id: procesos.id,
+          vigencia: procesos.vigencia,
+          periodo: procesos.periodo,
+          estadoActual: procesos.estadoActual,
+          creadoEn: procesos.creadoEn,
+          contribuyenteNombre: contribuyentes.nombreRazonSocial,
+          impuestoCodigo: impuestos.codigo,
+        })
+        .from(procesos)
+        .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
+        .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id));
+      return (vigenciaCond ? base.where(vigenciaCond) : base)
+        .orderBy(desc(procesos.creadoEn))
+        .limit(5);
+    })(),
   ]);
 
   const totalP = totalProcesos[0]?.count ?? 0;
@@ -172,16 +216,21 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-6 space-y-8 animate-fade-in">
-      <div className="space-y-1">
-        <div className="flex items-center gap-3">
-          <div className="h-1 w-12 rounded-full bg-primary" aria-hidden />
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Dashboard
-          </h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <div className="h-1 w-12 rounded-full bg-primary" aria-hidden />
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Dashboard
+            </h1>
+          </div>
+          <p className="text-muted-foreground text-sm pl-14">
+            Resumen de procesos de cobro, vencimientos y montos en gestión (COP).
+          </p>
         </div>
-        <p className="text-muted-foreground text-sm pl-14">
-          Resumen de procesos de cobro, vencimientos y montos en gestión (COP).
-        </p>
+        <Suspense fallback={null}>
+          <DashboardFiltros vigenciaActual={vigenciaNum} />
+        </Suspense>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -326,8 +375,11 @@ export default async function DashboardPage() {
                       <span className="font-medium text-foreground">
                         #{p.id} · {p.impuestoCodigo} – {p.contribuyenteNombre}
                       </span>
-                      <span className="text-muted-foreground text-xs tabular-nums">
-                        {formatDate(p.fechaLimite)}
+                      <span className="flex items-center gap-2">
+                        <SemaforoFechaLimite fechaLimite={p.fechaLimite} variant="pill" />
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          {formatDate(p.fechaLimite)}
+                        </span>
                       </span>
                       <span className="w-full text-xs capitalize text-muted-foreground">
                         {p.estadoActual?.replace(/_/g, " ")} ·{" "}

@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { db } from "@/lib/db";
 import { impuestos } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and, or, ilike, desc } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -19,16 +20,32 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { FiltroInactivos } from "./filtro-inactivos";
+import { FiltroBusquedaImpuestos } from "./filtro-busqueda";
 
-type Props = { searchParams: Promise<{ inactivos?: string }> };
+type Props = { searchParams: Promise<{ inactivos?: string; q?: string }> };
 
 export default async function ImpuestosPage({ searchParams }: Props) {
-  const { inactivos: inactivosParam } = await searchParams;
+  const { inactivos: inactivosParam, q: query } = await searchParams;
   const verInactivos = inactivosParam === "1";
+  const busqueda = (query ?? "").trim();
 
-  const lista = verInactivos
-    ? await db.select().from(impuestos)
-    : await db.select().from(impuestos).where(eq(impuestos.activo, true));
+  const condiciones = [];
+  if (!verInactivos) condiciones.push(eq(impuestos.activo, true));
+  if (busqueda.length > 0) {
+    condiciones.push(
+      or(
+        ilike(impuestos.codigo, `%${busqueda}%`),
+        ilike(impuestos.nombre, `%${busqueda}%`)
+      )
+    );
+  }
+  const whereCond =
+    condiciones.length > 0 ? and(...condiciones) : undefined;
+
+  const lista = await (whereCond
+    ? db.select().from(impuestos).where(whereCond)
+    : db.select().from(impuestos))
+    .orderBy(desc(impuestos.createdAt));
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -39,8 +56,11 @@ export default async function ImpuestosPage({ searchParams }: Props) {
             Impuestos
           </h1>
         </div>
-        <div className="flex items-center gap-2">
-          <FiltroInactivos verInactivos={verInactivos} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Suspense fallback={null}>
+            <FiltroBusquedaImpuestos valorActual={busqueda} verInactivos={verInactivos} />
+          </Suspense>
+          <FiltroInactivos verInactivos={verInactivos} query={busqueda} />
           <Button asChild>
             <Link href="/impuestos/nuevo">Nuevo impuesto</Link>
           </Button>
@@ -52,6 +72,7 @@ export default async function ImpuestosPage({ searchParams }: Props) {
           <CardDescription>
             Tipos de impuesto (nacional / municipal) para los procesos de cobro
             {verInactivos && " · Mostrando todos (incl. inactivos)"}
+            {busqueda && " · Búsqueda aplicada"}
           </CardDescription>
         </CardHeader>
         <CardContent>
