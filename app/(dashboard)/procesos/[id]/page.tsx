@@ -93,6 +93,9 @@ export default async function DetalleProcesoPage({ params }: Props) {
       estadoActual: procesos.estadoActual,
       asignadoAId: procesos.asignadoAId,
       fechaLimite: procesos.fechaLimite,
+      numeroResolucion: procesos.numeroResolucion,
+      fechaResolucion: procesos.fechaResolucion,
+      fechaAplicacionImpuesto: procesos.fechaAplicacionImpuesto,
       creadoEn: procesos.creadoEn,
       impuestoNombre: impuestos.nombre,
       impuestoCodigo: impuestos.codigo,
@@ -248,7 +251,19 @@ export default async function DetalleProcesoPage({ params }: Props) {
                   <dd>{formatDate(row.fechaLimite)}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Creado</dt>
+                  <dt className="text-muted-foreground">Nº de resolución</dt>
+                  <dd>{row.numeroResolucion ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Fecha de resolución</dt>
+                  <dd>{formatDate(row.fechaResolucion)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Fecha creación/aplicación del impuesto</dt>
+                  <dd>{formatDate(row.fechaAplicacionImpuesto)}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Creado en el sistema</dt>
                   <dd>{formatDate(row.creadoEn)}</dd>
                 </div>
                 <div className="pt-2 border-t">

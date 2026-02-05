@@ -100,6 +100,13 @@ export const procesos = pgTable("procesos", {
     onUpdate: "cascade",
   }),
   fechaLimite: date("fecha_limite"),
+  /** Número de resolución que origina el proceso de cobro */
+  numeroResolucion: text("numero_resolucion"),
+  /** Fecha de la resolución */
+  fechaResolucion: date("fecha_resolucion"),
+  /** Fecha de creación o aplicación del impuesto (origen del proceso) */
+  fechaAplicacionImpuesto: date("fecha_aplicacion_impuesto"),
+  /** Fecha de creación del registro en el sistema */
   creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
 });

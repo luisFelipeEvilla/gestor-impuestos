@@ -27,6 +27,7 @@ export default async function ProcesosPage() {
       periodo: procesos.periodo,
       montoCop: procesos.montoCop,
       estadoActual: procesos.estadoActual,
+      numeroResolucion: procesos.numeroResolucion,
       impuestoCodigo: impuestos.codigo,
       impuestoNombre: impuestos.nombre,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
@@ -70,6 +71,7 @@ export default async function ProcesosPage() {
                   <TableHead>Impuesto</TableHead>
                   <TableHead>Contribuyente</TableHead>
                   <TableHead>Vigencia</TableHead>
+                  <TableHead>Nº resolución</TableHead>
                   <TableHead>Monto (COP)</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Asignado</TableHead>
@@ -90,6 +92,9 @@ export default async function ProcesosPage() {
                       </span>
                     </TableCell>
                     <TableCell>{p.vigencia}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {p.numeroResolucion ?? "—"}
+                    </TableCell>
                     <TableCell>
                       {Number(p.montoCop).toLocaleString("es-CO")}
                     </TableCell>

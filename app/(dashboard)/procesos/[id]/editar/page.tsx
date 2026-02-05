@@ -68,7 +68,7 @@ export default async function EditarProcesoPage({ params }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <SubirDocumentoForm procesoId={proceso.id} />
+          <SubirDocumentoForm procesoId={proceso.id} categoria="general" />
           <ListaDocumentos
             procesoId={proceso.id}
             documentos={documentosRows}

@@ -45,6 +45,9 @@ const schemaCrear = z.object({
     .transform((v) => (v === "" || v === undefined ? undefined : parseInt(v, 10)))
     .refine((v) => v === undefined || (Number.isInteger(v) && v! > 0), "Usuario inválido"),
   fechaLimite: z.string().optional().or(z.literal("")),
+  numeroResolucion: z.string().max(100).optional().or(z.literal("")),
+  fechaResolucion: z.string().optional().or(z.literal("")),
+  fechaAplicacionImpuesto: z.string().optional().or(z.literal("")),
 });
 
 const schemaActualizar = schemaCrear.extend({
@@ -57,7 +60,7 @@ export type EstadoFormProceso = {
 };
 
 /** Returns ISO date string (YYYY-MM-DD) for PostgreSQL date column, or null. */
-function parseFechaLimite(value: string | undefined): string | null {
+function parseFecha(value: string | undefined): string | null {
   if (!value || value.trim() === "") return null;
   const date = new Date(value.trim());
   return Number.isNaN(date.getTime()) ? null : value.trim().slice(0, 10);
@@ -76,6 +79,9 @@ export async function crearProceso(
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
+    numeroResolucion: formData.get("numeroResolucion") || undefined,
+    fechaResolucion: formData.get("fechaResolucion") || undefined,
+    fechaAplicacionImpuesto: formData.get("fechaAplicacionImpuesto") || undefined,
   };
 
   const parsed = schemaCrear.safeParse(raw);
@@ -97,6 +103,9 @@ export async function crearProceso(
     estadoActual: estadoForm,
     asignadoAId,
     fechaLimite,
+    numeroResolucion,
+    fechaResolucion,
+    fechaAplicacionImpuesto,
   } = parsed.data;
 
   const tieneAsignacion = asignadoAId != null && asignadoAId > 0;
@@ -113,7 +122,10 @@ export async function crearProceso(
         montoCop,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
-        fechaLimite: parseFechaLimite(fechaLimite),
+        fechaLimite: parseFecha(fechaLimite),
+        numeroResolucion: numeroResolucion?.trim() || null,
+        fechaResolucion: parseFecha(fechaResolucion),
+        fechaAplicacionImpuesto: parseFecha(fechaAplicacionImpuesto),
       })
       .returning({ id: procesos.id });
 
@@ -165,6 +177,9 @@ export async function actualizarProceso(
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
+    numeroResolucion: formData.get("numeroResolucion") || undefined,
+    fechaResolucion: formData.get("fechaResolucion") || undefined,
+    fechaAplicacionImpuesto: formData.get("fechaAplicacionImpuesto") || undefined,
   };
 
   const parsed = schemaActualizar.safeParse(raw);
@@ -186,6 +201,9 @@ export async function actualizarProceso(
     estadoActual,
     asignadoAId,
     fechaLimite,
+    numeroResolucion,
+    fechaResolucion,
+    fechaAplicacionImpuesto,
   } = parsed.data;
 
   try {
@@ -205,7 +223,10 @@ export async function actualizarProceso(
         montoCop,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
-        fechaLimite: parseFechaLimite(fechaLimite),
+        fechaLimite: parseFecha(fechaLimite),
+        numeroResolucion: numeroResolucion?.trim() || null,
+        fechaResolucion: parseFecha(fechaResolucion),
+        fechaAplicacionImpuesto: parseFecha(fechaAplicacionImpuesto),
         actualizadoEn: new Date(),
       })
       .where(eq(procesos.id, parsed.data.id))
