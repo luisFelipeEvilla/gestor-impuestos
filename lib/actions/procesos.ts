@@ -6,6 +6,10 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { procesos, historialProceso, impuestos, contribuyentes, usuarios } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import {
+  enviarNotificacionCobroPorEmail,
+  crearEvidenciaEnvio,
+} from "@/lib/notificaciones/resend";
 
 const estadoProcesoValues = [
   "pendiente",
@@ -430,11 +434,23 @@ export async function enviarNotificacion(formData: FormData): Promise<EstadoGest
 
 async function registrarNotificacion(procesoId: number): Promise<EstadoGestionProceso> {
   try {
-    const [proceso] = await db
-      .select({ estadoActual: procesos.estadoActual })
+    const [row] = await db
+      .select({
+        estadoActual: procesos.estadoActual,
+        montoCop: procesos.montoCop,
+        vigencia: procesos.vigencia,
+        periodo: procesos.periodo,
+        contribuyenteNombre: contribuyentes.nombreRazonSocial,
+        contribuyenteEmail: contribuyentes.email,
+        impuestoNombre: impuestos.nombre,
+        impuestoCodigo: impuestos.codigo,
+      })
       .from(procesos)
+      .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
+      .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
       .where(eq(procesos.id, procesoId));
-    if (!proceso) return { error: "Proceso no encontrado." };
+
+    if (!row) return { error: "Proceso no encontrado." };
 
     const historialNotif = await db
       .select({ tipoEvento: historialProceso.tipoEvento })
@@ -444,6 +460,33 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
     if (yaNotificado) {
       return { error: "Este proceso ya fue notificado. Solo se puede notificar una vez." };
     }
+
+    const email = row.contribuyenteEmail?.trim();
+    if (!email) {
+      return { error: "El contribuyente no tiene correo electrónico registrado. Agregue un email al contribuyente para enviar la notificación." };
+    }
+
+    const montoCopFormatted = new Intl.NumberFormat("es-CO", {
+      style: "decimal",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(Number(row.montoCop));
+
+    const resultado = await enviarNotificacionCobroPorEmail(email, {
+      nombreContribuyente: row.contribuyenteNombre,
+      impuestoNombre: row.impuestoNombre,
+      impuestoCodigo: row.impuestoCodigo,
+      montoCop: montoCopFormatted,
+      vigencia: row.vigencia,
+      periodo: row.periodo,
+      procesoId,
+    });
+
+    if (!resultado.ok) {
+      return { error: resultado.error };
+    }
+
+    const evidencia = crearEvidenciaEnvio(email, resultado.resendId);
 
     await db
       .update(procesos)
@@ -456,10 +499,10 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
     await db.insert(historialProceso).values({
       procesoId,
       tipoEvento: "notificacion",
-      estadoAnterior: proceso.estadoActual,
+      estadoAnterior: row.estadoActual,
       estadoNuevo: "notificado",
-      comentario: "Notificación enviada",
-      metadata: {},
+      comentario: "Notificación enviada por correo electrónico",
+      metadata: { envios: [evidencia] },
     });
 
     revalidatePath(`/procesos/${procesoId}`);

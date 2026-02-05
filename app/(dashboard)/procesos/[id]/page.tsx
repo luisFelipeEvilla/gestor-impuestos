@@ -117,6 +117,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
         estadoNuevo: historialProceso.estadoNuevo,
         comentario: historialProceso.comentario,
         categoriaNota: historialProceso.categoriaNota,
+        metadata: historialProceso.metadata,
         fecha: historialProceso.fecha,
       })
       .from(historialProceso)
@@ -313,6 +314,21 @@ export default async function DetalleProcesoPage({ params }: Props) {
                         {h.comentario && (
                           <p className="text-muted-foreground text-sm">{h.comentario}</p>
                         )}
+                        {h.tipoEvento === "notificacion" &&
+                          Array.isArray((h.metadata as { envios?: unknown[] } | null)?.envios) &&
+                          (h.metadata as { envios: { canal: string; to: string; sentAt: string; resendId?: string }[] }).envios.length > 0 && (
+                            <div className="mt-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs">
+                              <p className="font-medium text-foreground">Evidencia de envío</p>
+                              {(h.metadata as { envios: { canal: string; to: string; sentAt: string; resendId?: string }[] }).envios.map((envio, i) => (
+                                <p key={i} className="text-muted-foreground mt-0.5">
+                                  {envio.canal}: {envio.to}
+                                  {" · "}
+                                  {new Date(envio.sentAt).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" })}
+                                  {envio.resendId && ` · ID: ${envio.resendId}`}
+                                </p>
+                              ))}
+                            </div>
+                          )}
                       </div>
                     </li>
                   ))}
