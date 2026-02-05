@@ -7,6 +7,7 @@ import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
 import { usuarios } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { requireAdminSession } from "@/lib/auth-server";
 
 const rolValues = ["admin", "empleado"] as const;
 
@@ -40,6 +41,9 @@ export async function crearUsuario(
   _prev: EstadoFormUsuario | null,
   formData: FormData
 ): Promise<EstadoFormUsuario> {
+  const session = await requireAdminSession();
+  if (!session) return { error: "No tienes permiso para realizar esta acción." };
+
   const raw = {
     nombre: formData.get("nombre"),
     email: formData.get("email"),
@@ -93,6 +97,9 @@ export async function actualizarUsuario(
   _prev: EstadoFormUsuario | null,
   formData: FormData
 ): Promise<EstadoFormUsuario> {
+  const session = await requireAdminSession();
+  if (!session) return { error: "No tienes permiso para realizar esta acción." };
+
   const idRaw = formData.get("id");
   const id = typeof idRaw === "string" ? parseInt(idRaw, 10) : Number(idRaw);
   const passwordRaw = formData.get("password");
@@ -165,6 +172,9 @@ export async function actualizarUsuario(
 }
 
 export async function desactivarUsuario(formData: FormData): Promise<EstadoFormUsuario> {
+  const session = await requireAdminSession();
+  if (!session) return { error: "No tienes permiso para realizar esta acción." };
+
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id < 1) return { error: "ID inválido." };
   try {
@@ -189,6 +199,9 @@ export async function desactivarUsuario(formData: FormData): Promise<EstadoFormU
 }
 
 export async function activarUsuario(formData: FormData): Promise<EstadoFormUsuario> {
+  const session = await requireAdminSession();
+  if (!session) return { error: "No tienes permiso para realizar esta acción." };
+
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id < 1) return { error: "ID inválido." };
   try {
@@ -213,6 +226,9 @@ export async function activarUsuario(formData: FormData): Promise<EstadoFormUsua
 }
 
 export async function eliminarUsuario(formData: FormData): Promise<EstadoFormUsuario> {
+  const session = await requireAdminSession();
+  if (!session) return { error: "No tienes permiso para realizar esta acción." };
+
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id < 1) return { error: "ID inválido." };
   try {

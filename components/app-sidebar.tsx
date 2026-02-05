@@ -1,15 +1,25 @@
 import Link from "next/link";
+import type { Session } from "next-auth";
 import { cn } from "@/lib/utils";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 
-const navItems = [
+const navItems: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: "/", label: "Dashboard" },
   { href: "/procesos", label: "Procesos" },
   { href: "/contribuyentes", label: "Contribuyentes" },
   { href: "/impuestos", label: "Impuestos" },
-  { href: "/usuarios", label: "Usuarios" },
-] as const;
+  { href: "/usuarios", label: "Usuarios", adminOnly: true },
+];
 
-export function AppSidebar({ className }: { className?: string }) {
+type AppSidebarProps = {
+  className?: string;
+  session: Session | null;
+};
+
+export function AppSidebar({ className, session }: AppSidebarProps) {
+  const isAdmin = session?.user?.rol === "admin";
+  const items = navItems.filter((item) => !item.adminOnly || isAdmin);
+
   return (
     <aside
       className={cn(
@@ -24,7 +34,7 @@ export function AppSidebar({ className }: { className?: string }) {
         </Link>
       </div>
       <nav className="flex flex-1 flex-col gap-1 p-2" aria-label="Menú">
-        {navItems.map((item) => (
+        {items.map((item) => (
           <Link
             key={item.href}
             href={item.href}
@@ -34,6 +44,14 @@ export function AppSidebar({ className }: { className?: string }) {
           </Link>
         ))}
       </nav>
+      <div className="border-sidebar-border border-t p-2">
+        {session?.user && (
+          <p className="text-muted-foreground mb-1 truncate px-2 text-xs" title={session.user.email}>
+            {session.user.name}
+          </p>
+        )}
+        <SignOutButton />
+      </div>
     </aside>
   );
 }
