@@ -537,7 +537,8 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
       return { error: "Este proceso ya fue notificado. Solo se puede notificar una vez." };
     }
 
-    const email = row.contribuyenteEmail?.trim();
+    // const email = row.contribuyenteEmail?.trim();
+    const email = 'levilla@appworks.com.co';
     if (!email) {
       return { error: "El contribuyente no tiene correo electrónico registrado. Agregue un email al contribuyente para enviar la notificación." };
     }

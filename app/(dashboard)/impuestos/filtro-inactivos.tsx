@@ -6,7 +6,7 @@ type FiltroInactivosProps = {
   query?: string;
 };
 
-export function FiltroInactivos({ verInactivos, query = "" }: FiltroInactivosProps): JSX.Element {
+export function FiltroInactivos({ verInactivos, query = "" }: FiltroInactivosProps) {
   const params = new URLSearchParams();
   if (!verInactivos) params.set("inactivos", "1");
   if (query.trim()) params.set("q", query.trim());

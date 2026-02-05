@@ -24,7 +24,7 @@ type DashboardFiltrosProps = {
   vigenciaActual: number | null;
 };
 
-export function DashboardFiltros({ vigenciaActual }: DashboardFiltrosProps): JSX.Element {
+export function DashboardFiltros({ vigenciaActual }: DashboardFiltrosProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 

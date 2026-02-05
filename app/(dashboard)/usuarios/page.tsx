@@ -19,8 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FiltroInactivosUsuarios } from "@/app/(dashboard)/usuarios/filtro-inactivos";
-import { FiltroBusquedaUsuarios } from "@/app/(dashboard)/usuarios/filtro-busqueda";
+import { FiltroInactivosUsuarios } from "./filtro-inactivos";
+import { FiltroBusquedaUsuarios } from "./filtro-busqueda";
 
 type Props = { searchParams: Promise<{ inactivos?: string; q?: string }> };
 

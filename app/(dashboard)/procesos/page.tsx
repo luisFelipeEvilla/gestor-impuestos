@@ -1,8 +1,14 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { db } from "@/lib/db";
-import { procesos, impuestos, contribuyentes, usuarios } from "@/lib/db/schema";
-import { desc, eq, and } from "drizzle-orm";
+import {
+  procesos,
+  impuestos,
+  contribuyentes,
+  usuarios,
+  historialProceso,
+} from "@/lib/db/schema";
+import { desc, eq, and, or, ilike, inArray, sql } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -34,10 +40,28 @@ const ESTADOS_VALIDOS = [
   "suspendido",
 ] as const;
 
-type Props = { searchParams: Promise<{ estado?: string; vigencia?: string }> };
+const TIPOS_IMPUESTO = ["nacional", "municipal"] as const;
+
+type Props = {
+  searchParams: Promise<{
+    estado?: string;
+    vigencia?: string;
+    contribuyente?: string;
+    asignado?: string;
+    fechaAsignacion?: string;
+    tipoImpuesto?: string;
+  }>;
+};
 
 export default async function ProcesosPage({ searchParams }: Props) {
-  const { estado: estadoParam, vigencia: vigenciaParam } = await searchParams;
+  const params = await searchParams;
+  const estadoParam = params.estado;
+  const vigenciaParam = params.vigencia;
+  const contribuyenteQ = (params.contribuyente ?? "").trim();
+  const asignadoQ = (params.asignado ?? "").trim();
+  const fechaAsignacionParam = params.fechaAsignacion;
+  const tipoImpuestoParam = params.tipoImpuesto;
+
   const estadoActual =
     estadoParam != null && ESTADOS_VALIDOS.includes(estadoParam as (typeof ESTADOS_VALIDOS)[number])
       ? estadoParam
@@ -46,10 +70,55 @@ export default async function ProcesosPage({ searchParams }: Props) {
     vigenciaParam != null && /^\d{4}$/.test(vigenciaParam)
       ? parseInt(vigenciaParam, 10)
       : null;
+  const fechaAsignacion =
+    fechaAsignacionParam != null && /^\d{4}-\d{2}-\d{2}$/.test(fechaAsignacionParam)
+      ? fechaAsignacionParam
+      : null;
+  const tipoImpuesto =
+    tipoImpuestoParam != null && TIPOS_IMPUESTO.includes(tipoImpuestoParam as (typeof TIPOS_IMPUESTO)[number])
+      ? tipoImpuestoParam
+      : null;
+
+  let idsConFechaAsignacion: number[] | null = null;
+  if (fechaAsignacion != null) {
+    const rows = await db
+      .selectDistinct({ procesoId: historialProceso.procesoId })
+      .from(historialProceso)
+      .where(
+        and(
+          eq(historialProceso.tipoEvento, "asignacion"),
+          sql`date(${historialProceso.fecha}) = ${fechaAsignacion}::date`
+        )
+      );
+    idsConFechaAsignacion = rows.map((r) => r.procesoId);
+    if (idsConFechaAsignacion.length === 0) {
+      idsConFechaAsignacion = [-1];
+    }
+  }
 
   const condiciones = [];
   if (estadoActual != null) condiciones.push(eq(procesos.estadoActual, estadoActual));
   if (vigenciaNum != null) condiciones.push(eq(procesos.vigencia, vigenciaNum));
+  if (tipoImpuesto != null) condiciones.push(eq(impuestos.tipo, tipoImpuesto));
+  if (contribuyenteQ.length > 0) {
+    condiciones.push(
+      or(
+        ilike(contribuyentes.nombreRazonSocial, `%${contribuyenteQ}%`),
+        ilike(contribuyentes.nit, `%${contribuyenteQ}%`)
+      )
+    );
+  }
+  if (asignadoQ.length > 0) {
+    condiciones.push(
+      or(
+        ilike(usuarios.nombre, `%${asignadoQ}%`),
+        ilike(usuarios.email, `%${asignadoQ}%`)
+      )
+    );
+  }
+  if (idsConFechaAsignacion != null) {
+    condiciones.push(inArray(procesos.id, idsConFechaAsignacion));
+  }
   const whereCond =
     condiciones.length > 0 ? and(...condiciones) : undefined;
 
@@ -81,7 +150,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 ">
         <div className="flex items-center gap-3">
           <div className="h-1 w-12 rounded-full bg-primary" aria-hidden />
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -93,9 +162,15 @@ export default async function ProcesosPage({ searchParams }: Props) {
             <FiltrosProcesos
               estadoActual={estadoActual}
               vigenciaActual={vigenciaNum}
+              contribuyenteActual={contribuyenteQ}
+              asignadoActual={asignadoQ}
+              fechaAsignacionActual={fechaAsignacion}
+              tipoImpuestoActual={tipoImpuesto}
             />
           </Suspense>
-          <Button asChild>
+        </div>
+        <div className="flex justify-end w-full">
+          <Button asChild className="">
             <Link href="/procesos/nuevo">Nuevo proceso</Link>
           </Button>
         </div>
@@ -105,8 +180,12 @@ export default async function ProcesosPage({ searchParams }: Props) {
           <CardTitle>Listado</CardTitle>
           <CardDescription>
             Procesos ordenados por fecha de creación (más recientes primero)
-            {(estadoActual != null || vigenciaNum != null) &&
-              " · Filtros aplicados"}
+            {(estadoActual != null ||
+              vigenciaNum != null ||
+              contribuyenteQ.length > 0 ||
+              asignadoQ.length > 0 ||
+              fechaAsignacion != null ||
+              tipoImpuesto != null) && " · Filtros aplicados"}
           </CardDescription>
         </CardHeader>
         <CardContent>

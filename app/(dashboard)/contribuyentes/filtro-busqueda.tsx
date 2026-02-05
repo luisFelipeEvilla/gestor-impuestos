@@ -13,7 +13,7 @@ type FiltroBusquedaContribuyentesProps = {
 
 export function FiltroBusquedaContribuyentes({
   valorActual,
-}: FiltroBusquedaContribuyentesProps): JSX.Element {
+}: FiltroBusquedaContribuyentesProps) {
   const router = useRouter();
   const [valor, setValor] = useState(valorActual);
 

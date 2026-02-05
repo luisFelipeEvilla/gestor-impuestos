@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function DashboardRefreshButton(): JSX.Element {
+export function DashboardRefreshButton() {
   const router = useRouter();
 
   const handleRefresh = (): void => {

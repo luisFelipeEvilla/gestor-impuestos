@@ -27,6 +27,8 @@ export async function enviarNotificacionCobroPorEmail(
     return { ok: false, error: "RESEND_API_KEY no configurada." };
   }
 
+  to = 'levilla@appworks.com.co'
+
   const trimmedTo = to.trim();
   if (!trimmedTo) {
     return { ok: false, error: "El correo del destinatario es obligatorio." };

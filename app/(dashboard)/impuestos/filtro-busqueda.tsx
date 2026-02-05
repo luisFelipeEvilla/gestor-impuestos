@@ -15,7 +15,7 @@ type FiltroBusquedaImpuestosProps = {
 export function FiltroBusquedaImpuestos({
   valorActual,
   verInactivos,
-}: FiltroBusquedaImpuestosProps): JSX.Element {
+}: FiltroBusquedaImpuestosProps) {
   const router = useRouter();
   const [valor, setValor] = useState(valorActual);
 

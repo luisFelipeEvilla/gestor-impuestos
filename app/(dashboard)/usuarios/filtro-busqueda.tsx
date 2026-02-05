@@ -15,7 +15,7 @@ type FiltroBusquedaUsuariosProps = {
 export function FiltroBusquedaUsuarios({
   valorActual,
   verInactivos,
-}: FiltroBusquedaUsuariosProps): JSX.Element {
+}: FiltroBusquedaUsuariosProps) {
   const router = useRouter();
   const [valor, setValor] = useState(valorActual);
 
