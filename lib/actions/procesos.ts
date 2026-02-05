@@ -46,10 +46,11 @@ export type EstadoFormProceso = {
   errores?: Record<string, string[]>;
 };
 
-function parseFechaLimite(value: string | undefined): Date | null {
+/** Returns ISO date string (YYYY-MM-DD) for PostgreSQL date column, or null. */
+function parseFechaLimite(value: string | undefined): string | null {
   if (!value || value.trim() === "") return null;
   const date = new Date(value.trim());
-  return Number.isNaN(date.getTime()) ? null : date;
+  return Number.isNaN(date.getTime()) ? null : value.trim().slice(0, 10);
 }
 
 export async function crearProceso(
