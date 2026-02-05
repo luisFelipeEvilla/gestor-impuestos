@@ -11,11 +11,14 @@ const navItems = [
 export function AppSidebar({ className }: { className?: string }) {
   return (
     <aside
-      className={cn("flex w-56 flex-col border-r border-zinc-200 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-900/50", className)}
+      className={cn(
+        "flex w-56 flex-col border-r border-sidebar-border bg-sidebar",
+        className
+      )}
       aria-label="Navegación principal"
     >
-      <div className="flex h-14 items-center border-b border-zinc-200 px-4 dark:border-zinc-800">
-        <Link href="/" className="font-semibold text-zinc-900 dark:text-zinc-50">
+      <div className="flex h-14 items-center border-b border-sidebar-border px-4">
+        <Link href="/" className="font-semibold text-sidebar-foreground">
           Gestor Impuestos
         </Link>
       </div>
@@ -24,7 +27,7 @@ export function AppSidebar({ className }: { className?: string }) {
           <Link
             key={item.href}
             href={item.href}
-            className="rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-50"
+            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md px-3 py-2 text-sm font-medium"
           >
             {item.label}
           </Link>

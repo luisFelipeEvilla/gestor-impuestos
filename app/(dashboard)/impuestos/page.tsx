@@ -1,54 +1,72 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { impuestos } from "@/lib/db/schema";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { eq } from "drizzle-orm";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default async function ImpuestosPage() {
-  const lista = await db.select().from(impuestos).where(impuestos.activo);
+  const lista = await db.select().from(impuestos).where(eq(impuestos.activo, true));
 
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-          Impuestos
-        </h1>
-        <Link href="/impuestos/nuevo" className={cn(buttonVariants.base, buttonVariants.variant.default, buttonVariants.size.default)}>Nuevo impuesto</Link>
+        <h1 className="text-2xl font-semibold tracking-tight">Impuestos</h1>
+        <Button asChild>
+          <Link href="/impuestos/nuevo">Nuevo impuesto</Link>
+        </Button>
       </div>
       <Card>
         <CardHeader>
           <CardTitle>Catálogo</CardTitle>
-          <CardDescription>Tipos de impuesto (nacional / municipal) para los procesos de cobro</CardDescription>
+          <CardDescription>
+            Tipos de impuesto (nacional / municipal) para los procesos de cobro
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {lista.length === 0 ? (
-            <p className="text-sm text-zinc-500">No hay impuestos en el catálogo.</p>
+            <p className="text-muted-foreground text-sm">
+              No hay impuestos en el catálogo.
+            </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                    <th className="pb-2 pr-4 font-medium">Código</th>
-                    <th className="pb-2 pr-4 font-medium">Nombre</th>
-                    <th className="pb-2 pr-4 font-medium">Tipo</th>
-                    <th className="pb-2 pr-4 font-medium">Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lista.map((i) => (
-                    <tr key={i.id} className="border-b border-zinc-100 dark:border-zinc-800">
-                      <td className="py-2 pr-4">{i.codigo}</td>
-                      <td className="py-2 pr-4">{i.nombre}</td>
-                      <td className="py-2 pr-4 capitalize">{i.tipo}</td>
-                      <td className="py-2 pr-4">
-                        <Link href={`/impuestos/${i.id}`} className="text-zinc-900 underline-offset-4 hover:underline dark:text-zinc-50">Ver</Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="w-[80px]">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lista.map((i) => (
+                  <TableRow key={i.id}>
+                    <TableCell>{i.codigo}</TableCell>
+                    <TableCell>{i.nombre}</TableCell>
+                    <TableCell className="capitalize">{i.tipo}</TableCell>
+                    <TableCell>
+                      <Button variant="link" size="sm" asChild>
+                        <Link href={`/impuestos/${i.id}`}>Ver</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

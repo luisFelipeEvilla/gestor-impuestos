@@ -16,7 +16,7 @@ export default function DashboardError({
 
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4 p-6">
-      <p className="text-sm text-red-600 dark:text-red-400">Algo salió mal.</p>
+      <p className="text-destructive text-sm">Algo salió mal.</p>
       <Button onClick={reset} variant="outline">
         Reintentar
       </Button>

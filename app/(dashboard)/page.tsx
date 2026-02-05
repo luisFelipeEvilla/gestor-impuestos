@@ -20,7 +20,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-6">
-      <h1 className="mb-6 text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight">
         Dashboard
       </h1>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -59,12 +59,12 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent>
           {procesosPorEstado.length === 0 ? (
-            <p className="text-sm text-zinc-500">No hay procesos registrados.</p>
+            <p className="text-muted-foreground text-sm">No hay procesos registrados.</p>
           ) : (
             <ul className="space-y-2">
               {procesosPorEstado.map((row) => (
                 <li key={row.estado} className="flex justify-between text-sm">
-                  <span className="capitalize text-zinc-700 dark:text-zinc-300">
+                  <span className="text-muted-foreground capitalize">
                     {row.estado?.replace(/_/g, " ") ?? "—"}
                   </span>
                   <span className="font-medium">{row.count}</span>
