@@ -20,13 +20,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { EliminarProcesoButton } from "./botones-proceso";
 import {
+  AgregarNotaForm,
   AsignarProcesoForm,
   BotonesNotificacion,
-  CardGeneral,
   CardEnContacto,
   CardAcuerdoDePago,
   CardCobroCoactivo,
+  ListaNotas,
 } from "@/components/procesos/acciones-gestion";
+import {
+  ListaDocumentos,
+  SubirDocumentoForm,
+} from "@/components/procesos/documentos-proceso";
 import { DetalleConHistorial } from "./detalle-con-historial";
 
 type Props = { params: Promise<{ id: string }> };
@@ -318,6 +323,38 @@ export default async function DetalleProcesoPage({ params }: Props) {
         }
       />
 
+      <div className="max-w-xl space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Documentos generales del proceso</CardTitle>
+            <CardDescription>
+              Documentos del proceso no asociados a una etapa concreta (en contacto, acuerdo de pago o cobro coactivo).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <SubirDocumentoForm procesoId={row.id} categoria="general" />
+            <ListaDocumentos
+              procesoId={row.id}
+              documentos={documentosPorCategoria.general}
+              puedeEliminar
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Comentarios generales del proceso</CardTitle>
+            <CardDescription>
+              Notas y comentarios generales del proceso (no asociados a una etapa concreta).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <AgregarNotaForm procesoId={row.id} categoria="general" />
+            <ListaNotas notas={notasPorCategoria.general} />
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="space-y-6">
         <Card className="max-w-xl">
           <CardHeader>
@@ -335,11 +372,6 @@ export default async function DetalleProcesoPage({ params }: Props) {
           </CardContent>
         </Card>
 
-        <CardGeneral
-          procesoId={row.id}
-          documentos={documentosPorCategoria.general}
-          notas={notasPorCategoria.general}
-        />
         <CardEnContacto
           procesoId={row.id}
           estadoActual={row.estadoActual ?? ""}
