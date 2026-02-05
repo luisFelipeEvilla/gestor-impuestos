@@ -6,6 +6,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafico-estados";
+import { DashboardGraficoMontoEstados } from "@/components/dashboard/dashboard-grafico-monto-estados";
+import { DashboardGraficoResponsables } from "@/components/dashboard/dashboard-grafico-responsables";
 import { db } from "@/lib/db";
 import {
   procesos,
@@ -47,6 +50,7 @@ export default async function DashboardPage() {
     totalUsuarios,
     procesosPorEstado,
     montoEnGestion,
+    montoPorEstado,
     procesosPorAsignado,
     vencimientosProximos,
     procesosRecientes,
@@ -65,6 +69,14 @@ export default async function DashboardPage() {
       })
       .from(procesos)
       .where(notInArray(procesos.estadoActual, [...ESTADOS_CERRADOS])),
+    db
+      .select({
+        estado: procesos.estadoActual,
+        total: sql<string>`coalesce(sum(${procesos.montoCop}), 0)::text`,
+      })
+      .from(procesos)
+      .where(notInArray(procesos.estadoActual, [...ESTADOS_CERRADOS]))
+      .groupBy(procesos.estadoActual),
     db
       .select({
         asignadoAId: procesos.asignadoAId,
@@ -137,6 +149,19 @@ export default async function DashboardPage() {
       .filter((r): r is NonNullable<typeof r> => Boolean(r)),
     ...procesosPorEstado.filter((r) => r.estado != null && !seen.has(r.estado)),
   ];
+
+  const montoPorEstadoOrdenado: { estado: string; total: number }[] = [];
+  for (const e of ordenEstados) {
+    const row = montoPorEstado.find((r) => r.estado === e);
+    if (row && Number(row.total) > 0) {
+      montoPorEstadoOrdenado.push({ estado: row.estado, total: Number(row.total) });
+    }
+  }
+  for (const r of montoPorEstado) {
+    if (r.estado != null && !ordenEstados.includes(r.estado) && Number(r.total) > 0) {
+      montoPorEstadoOrdenado.push({ estado: r.estado, total: Number(r.total) });
+    }
+  }
 
   return (
     <div className="p-6 space-y-8">
@@ -226,25 +251,7 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {procesosPorEstadoOrdenado.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No hay procesos registrados.
-              </p>
-            ) : (
-              <ul className="space-y-2" role="list">
-                {procesosPorEstadoOrdenado.map((row) => (
-                  <li
-                    key={row.estado}
-                    className="flex items-center justify-between gap-4 text-sm"
-                  >
-                    <span className="capitalize text-foreground">
-                      {row.estado?.replace(/_/g, " ") ?? "—"}
-                    </span>
-                    <span className="font-semibold tabular-nums">{row.count}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <DashboardGraficoEstados data={procesosPorEstadoOrdenado} />
           </CardContent>
         </Card>
 
@@ -256,27 +263,26 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {procesosPorAsignado.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No hay procesos registrados.
-              </p>
-            ) : (
-              <ul className="space-y-2" role="list">
-                {procesosPorAsignado.map((row) => (
-                  <li
-                    key={row.asignadoAId ?? "sin-asignar"}
-                    className="flex items-center justify-between gap-4 text-sm"
-                  >
-                    <span className="text-foreground">
-                      {row.nombre ?? "Sin asignar"}
-                    </span>
-                    <span className="font-semibold tabular-nums">
-                      {row.count}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <DashboardGraficoResponsables
+              data={procesosPorAsignado.map((r) => ({
+                nombre: r.nombre ?? "Sin asignar",
+                count: r.count,
+              }))}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-1">
+        <Card>
+          <CardHeader>
+            <CardTitle>Monto en gestión por estado</CardTitle>
+            <CardDescription>
+              Suma de montos (COP) por estado, excluyendo cobrado e incobrable
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DashboardGraficoMontoEstados data={montoPorEstadoOrdenado} />
           </CardContent>
         </Card>
       </div>
