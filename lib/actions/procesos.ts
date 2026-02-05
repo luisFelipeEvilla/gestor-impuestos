@@ -10,7 +10,6 @@ import { eq } from "drizzle-orm";
 const estadoProcesoValues = [
   "pendiente",
   "asignado",
-  "en_contacto",
   "notificado",
   "en_negociacion",
   "cobrado",
@@ -84,10 +83,13 @@ export async function crearProceso(
     vigencia,
     periodo,
     montoCop,
-    estadoActual,
+    estadoActual: estadoForm,
     asignadoAId,
     fechaLimite,
   } = parsed.data;
+
+  const tieneAsignacion = asignadoAId != null && asignadoAId > 0;
+  const estadoActual = tieneAsignacion ? "asignado" : estadoForm;
 
   try {
     const [inserted] = await db
@@ -108,9 +110,17 @@ export async function crearProceso(
     await db.insert(historialProceso).values({
       procesoId: inserted.id,
       tipoEvento: "cambio_estado",
+      estadoAnterior: tieneAsignacion ? "pendiente" : null,
       estadoNuevo: estadoActual,
       comentario: "Proceso creado",
     });
+    if (tieneAsignacion) {
+      await db.insert(historialProceso).values({
+        procesoId: inserted.id,
+        tipoEvento: "asignacion",
+        comentario: "Proceso asignado al crear",
+      });
+    }
     revalidatePath("/procesos");
     revalidatePath("/");
     redirect(`/procesos/${inserted.id}`);
@@ -238,5 +248,204 @@ export async function eliminarProceso(formData: FormData): Promise<EstadoFormPro
     }
     console.error(err);
     return { error: "Error al eliminar el proceso." };
+  }
+}
+
+// --- Gestión del proceso (cambiar estado, asignar, agregar nota) ---
+
+export type EstadoGestionProceso = { error?: string };
+
+export async function cambiarEstadoProceso(
+  _prev: EstadoGestionProceso | null,
+  formData: FormData
+): Promise<EstadoGestionProceso> {
+  const procesoId = Number(formData.get("procesoId"));
+  const nuevoEstado = formData.get("estadoActual") as string;
+  const comentario = (formData.get("comentario") as string)?.trim() || null;
+
+  if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
+  const estadoValido = estadoProcesoValues.some((e) => e === nuevoEstado);
+  if (!estadoValido) return { error: "Estado no válido." };
+
+  try {
+    const [proceso] = await db
+      .select({ estadoActual: procesos.estadoActual })
+      .from(procesos)
+      .where(eq(procesos.id, procesoId));
+    if (!proceso) return { error: "Proceso no encontrado." };
+
+    await db
+      .update(procesos)
+      .set({ estadoActual: nuevoEstado as (typeof estadoProcesoValues)[number], actualizadoEn: new Date() })
+      .where(eq(procesos.id, procesoId));
+
+    await db.insert(historialProceso).values({
+      procesoId,
+      tipoEvento: "cambio_estado",
+      estadoAnterior: proceso.estadoActual,
+      estadoNuevo: nuevoEstado as (typeof estadoProcesoValues)[number],
+      comentario,
+    });
+
+    revalidatePath(`/procesos/${procesoId}`);
+    revalidatePath("/procesos");
+    return {};
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
+      throw err;
+    }
+    console.error(err);
+    return { error: "Error al cambiar el estado." };
+  }
+}
+
+export async function asignarProceso(
+  _prev: EstadoGestionProceso | null,
+  formData: FormData
+): Promise<EstadoGestionProceso> {
+  const procesoId = Number(formData.get("procesoId"));
+  const asignadoAIdRaw = formData.get("asignadoAId");
+  const asignadoAId =
+    asignadoAIdRaw === "" || asignadoAIdRaw === null ? null : Number(asignadoAIdRaw);
+
+  if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
+  if (asignadoAId !== null && (!Number.isInteger(asignadoAId) || asignadoAId < 1)) {
+    return { error: "Usuario inválido." };
+  }
+
+  try {
+    const [proceso] = await db
+      .select({
+        asignadoAId: procesos.asignadoAId,
+        estadoActual: procesos.estadoActual,
+      })
+      .from(procesos)
+      .where(eq(procesos.id, procesoId));
+    if (!proceso) return { error: "Proceso no encontrado." };
+
+    const pasabaDeSinAsignarAAsignado =
+      proceso.asignadoAId == null && asignadoAId != null;
+    const nuevoEstado = pasabaDeSinAsignarAAsignado
+      ? ("asignado" as const)
+      : proceso.estadoActual;
+
+    await db
+      .update(procesos)
+      .set({
+        asignadoAId,
+        estadoActual: nuevoEstado,
+        actualizadoEn: new Date(),
+      })
+      .where(eq(procesos.id, procesoId));
+
+    await db.insert(historialProceso).values({
+      procesoId,
+      tipoEvento: "asignacion",
+      comentario: asignadoAId ? "Proceso asignado" : "Asignación removida",
+    });
+    if (pasabaDeSinAsignarAAsignado) {
+      await db.insert(historialProceso).values({
+        procesoId,
+        tipoEvento: "cambio_estado",
+        estadoAnterior: proceso.estadoActual,
+        estadoNuevo: "asignado",
+        comentario: "Estado actualizado al asignar responsable",
+      });
+    }
+
+    revalidatePath(`/procesos/${procesoId}`);
+    revalidatePath("/procesos");
+    return {};
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
+      throw err;
+    }
+    console.error(err);
+    return { error: "Error al asignar el proceso." };
+  }
+}
+
+export async function agregarNotaProceso(
+  _prev: EstadoGestionProceso | null,
+  formData: FormData
+): Promise<EstadoGestionProceso> {
+  const procesoId = Number(formData.get("procesoId"));
+  const comentario = (formData.get("comentario") as string)?.trim();
+
+  if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
+  if (!comentario || comentario.length === 0) return { error: "Escribe un comentario." };
+
+  try {
+    const [proceso] = await db.select({ id: procesos.id }).from(procesos).where(eq(procesos.id, procesoId));
+    if (!proceso) return { error: "Proceso no encontrado." };
+
+    await db.insert(historialProceso).values({
+      procesoId,
+      tipoEvento: "nota",
+      comentario,
+    });
+
+    revalidatePath(`/procesos/${procesoId}`);
+    revalidatePath("/procesos");
+    return {};
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
+      throw err;
+    }
+    console.error(err);
+    return { error: "Error al agregar la nota." };
+  }
+}
+
+export async function enviarNotificacionPorCorreo(formData: FormData): Promise<EstadoGestionProceso> {
+  const procesoId = Number(formData.get("procesoId"));
+  if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
+  return registrarNotificacion(procesoId, "email");
+}
+
+export async function enviarNotificacionPorMensaje(formData: FormData): Promise<EstadoGestionProceso> {
+  const procesoId = Number(formData.get("procesoId"));
+  if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
+  return registrarNotificacion(procesoId, "sms");
+}
+
+async function registrarNotificacion(
+  procesoId: number,
+  canal: "email" | "sms"
+): Promise<EstadoGestionProceso> {
+  try {
+    const [proceso] = await db
+      .select({ estadoActual: procesos.estadoActual })
+      .from(procesos)
+      .where(eq(procesos.id, procesoId));
+    if (!proceso) return { error: "Proceso no encontrado." };
+
+    await db
+      .update(procesos)
+      .set({
+        estadoActual: "notificado",
+        actualizadoEn: new Date(),
+      })
+      .where(eq(procesos.id, procesoId));
+
+    const canalLabel = canal === "email" ? "correo electrónico" : "mensaje de texto";
+    await db.insert(historialProceso).values({
+      procesoId,
+      tipoEvento: "notificacion",
+      estadoAnterior: proceso.estadoActual,
+      estadoNuevo: "notificado",
+      comentario: `Notificación enviada por ${canalLabel}`,
+      metadata: { canal },
+    });
+
+    revalidatePath(`/procesos/${procesoId}`);
+    revalidatePath("/procesos");
+    return {};
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
+      throw err;
+    }
+    console.error(err);
+    return { error: `Error al enviar notificación por ${canal === "email" ? "correo" : "mensaje"}.` };
   }
 }

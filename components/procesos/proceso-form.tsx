@@ -19,7 +19,6 @@ import { cn } from "@/lib/utils";
 const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
   { value: "asignado", label: "Asignado" },
-  { value: "en_contacto", label: "En contacto" },
   { value: "notificado", label: "Notificado" },
   { value: "en_negociacion", label: "En negociación" },
   { value: "cobrado", label: "Cobrado" },
@@ -196,6 +195,7 @@ export function ProcesoForm({
               className={cn(
                 "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
               )}
+              aria-describedby="asignadoAId-hint"
             >
               <option value="">Sin asignar</option>
               {usuariosList.map((u) => (
@@ -204,6 +204,9 @@ export function ProcesoForm({
                 </option>
               ))}
             </select>
+            <p id="asignadoAId-hint" className="text-muted-foreground text-xs">
+              Puedes asignar al crear; si asignas, el estado quedará en &quot;Asignado&quot;.
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="fechaLimite">Fecha límite (opcional)</Label>
