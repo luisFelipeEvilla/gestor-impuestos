@@ -21,20 +21,19 @@ export function AppSidebar({ className, session }: AppSidebarProps) {
       aria-label="Navegación principal"
     >
       {/* Cabecera: siempre visible arriba */}
-      <div className="flex h-24 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
+      <div className="flex h-16 shrink-0 items-center border-b border-sidebar-border px-3">
         <Link
           href="/"
-          className="flex items-center gap-2.5 font-semibold text-sidebar-foreground transition-colors hover:text-primary"
+          className="flex items-center justify-center w-full font-semibold text-sidebar-foreground transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring rounded-md"
           aria-label="Ir al inicio"
         >
           <Image
             src="/logo_rr.png"
-            alt=""
+            alt="RR Consultorías"
             width={120}
-            height={120}
-            className="h-32 w-auto object-contain"
+            height={48}
+            className="h-12 w-auto object-contain"
           />
-          {/* <span className="truncate text-[15px]"></span> */}
         </Link>
       </div>
       {/* Navegación: crece y hace scroll si hay muchos ítems */}

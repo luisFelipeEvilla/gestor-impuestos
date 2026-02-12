@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { impuestos } from "@/lib/db/schema";
+import { impuestos, clientes } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   Card,
@@ -20,8 +20,22 @@ export default async function DetalleImpuestoPage({ params }: Props) {
   const id = parseInt(idStr, 10);
   if (Number.isNaN(id)) notFound();
 
-  const [impuesto] = await db.select().from(impuestos).where(eq(impuestos.id, id));
-  if (!impuesto) notFound();
+  const [row] = await db
+    .select({
+      id: impuestos.id,
+      codigo: impuestos.codigo,
+      nombre: impuestos.nombre,
+      tipo: impuestos.tipo,
+      descripcion: impuestos.descripcion,
+      activo: impuestos.activo,
+      clienteId: impuestos.clienteId,
+      clienteNombre: clientes.nombre,
+    })
+    .from(impuestos)
+    .leftJoin(clientes, eq(impuestos.clienteId, clientes.id))
+    .where(eq(impuestos.id, id));
+  if (!row) notFound();
+  const impuesto = row;
 
   return (
     <div className="p-6">
@@ -41,11 +55,12 @@ export default async function DetalleImpuestoPage({ params }: Props) {
           <EliminarImpuestoButton id={impuesto.id} />
         </div>
       </div>
-      <Card className="max-w-xl">
+      <Card className="mx-auto max-w-2xl">
         <CardHeader>
           <CardTitle>{impuesto.nombre}</CardTitle>
           <CardDescription>
             Código: {impuesto.codigo} · Tipo: {impuesto.tipo === "nacional" ? "Nacional" : "Municipal"}
+            {impuesto.clienteNombre && ` · Cliente: ${impuesto.clienteNombre}`}
             {!impuesto.activo && (
               <span className="text-destructive ml-2">· Inactivo</span>
             )}
@@ -53,6 +68,16 @@ export default async function DetalleImpuestoPage({ params }: Props) {
         </CardHeader>
         <CardContent className="space-y-2">
           <dl className="grid gap-2 text-sm">
+            {impuesto.clienteId && impuesto.clienteNombre && (
+              <div>
+                <dt className="text-muted-foreground">Cliente</dt>
+                <dd className="font-medium">
+                  <Link href={`/clientes/${impuesto.clienteId}`} className="text-primary hover:underline">
+                    {impuesto.clienteNombre}
+                  </Link>
+                </dd>
+              </div>
+            )}
             <div>
               <dt className="text-muted-foreground">Código</dt>
               <dd className="font-medium">{impuesto.codigo}</dd>

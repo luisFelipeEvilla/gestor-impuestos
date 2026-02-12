@@ -6,7 +6,9 @@ import {
   LayoutDashboard,
   FolderOpen,
   Building2,
+  Briefcase,
   Receipt,
+  FileText,
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,7 +22,9 @@ const navItems: {
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/procesos", label: "Procesos", icon: FolderOpen },
   { href: "/contribuyentes", label: "Contribuyentes", icon: Building2 },
+  { href: "/clientes", label: "Clientes", icon: Briefcase },
   { href: "/impuestos", label: "Impuestos", icon: Receipt },
+  { href: "/actas", label: "Actas", icon: FileText },
   { href: "/usuarios", label: "Usuarios", icon: Users, adminOnly: true },
 ];
 

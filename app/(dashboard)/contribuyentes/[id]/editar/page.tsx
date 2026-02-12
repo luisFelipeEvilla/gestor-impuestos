@@ -27,7 +27,7 @@ export default async function EditarContribuyentePage({ params }: Props) {
           <Link href={`/contribuyentes/${contribuyente.id}`}>← Ver contribuyente</Link>
         </Button>
       </div>
-      <div className="max-w-lg">
+      <div className="mx-auto max-w-2xl">
         <ContribuyenteForm
           action={actualizarContribuyente}
           initialData={contribuyente}

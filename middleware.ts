@@ -11,9 +11,11 @@ export async function middleware(req: NextRequest) {
 
   const isLoginPage = pathname === "/login";
   const isAuthApi = pathname.startsWith("/api/auth");
+  const isRecuperarPassword =
+    pathname === "/recuperar-password" || pathname.startsWith("/recuperar-password/");
 
-  if (isLoginPage || isAuthApi) {
-    if (token && isLoginPage) {
+  if (isLoginPage || isAuthApi || isRecuperarPassword) {
+    if (token && (isLoginPage || isRecuperarPassword)) {
       return NextResponse.redirect(new URL("/", req.nextUrl.origin));
     }
     return NextResponse.next();

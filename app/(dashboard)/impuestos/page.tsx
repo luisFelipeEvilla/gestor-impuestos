@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { Receipt, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
-import { impuestos } from "@/lib/db/schema";
+import { impuestos, clientes } from "@/lib/db/schema";
 import { eq, and, or, ilike, desc } from "drizzle-orm";
 import {
   Card,
@@ -19,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { FiltroInactivos } from "./filtro-inactivos";
 import { FiltroBusquedaImpuestos } from "./filtro-busqueda";
 
@@ -43,8 +45,29 @@ export default async function ImpuestosPage({ searchParams }: Props) {
     condiciones.length > 0 ? and(...condiciones) : undefined;
 
   const lista = await (whereCond
-    ? db.select().from(impuestos).where(whereCond)
-    : db.select().from(impuestos))
+    ? db
+        .select({
+          id: impuestos.id,
+          codigo: impuestos.codigo,
+          nombre: impuestos.nombre,
+          tipo: impuestos.tipo,
+          activo: impuestos.activo,
+          clienteNombre: clientes.nombre,
+        })
+        .from(impuestos)
+        .leftJoin(clientes, eq(impuestos.clienteId, clientes.id))
+        .where(whereCond)
+    : db
+        .select({
+          id: impuestos.id,
+          codigo: impuestos.codigo,
+          nombre: impuestos.nombre,
+          tipo: impuestos.tipo,
+          activo: impuestos.activo,
+          clienteNombre: clientes.nombre,
+        })
+        .from(impuestos)
+        .leftJoin(clientes, eq(impuestos.clienteId, clientes.id)))
     .orderBy(desc(impuestos.createdAt));
 
   return (
@@ -77,13 +100,16 @@ export default async function ImpuestosPage({ searchParams }: Props) {
         </CardHeader>
         <CardContent>
           {lista.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No hay impuestos en el catálogo.
-            </p>
+            <EmptyState
+              icon={Receipt}
+              message="No hay impuestos en el catálogo. Crea uno desde el botón Nuevo impuesto."
+              action={{ href: "/impuestos/nuevo", label: "Nuevo impuesto →" }}
+            />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Cliente</TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Tipo</TableHead>
@@ -94,6 +120,9 @@ export default async function ImpuestosPage({ searchParams }: Props) {
               <TableBody>
                 {lista.map((i) => (
                   <TableRow key={i.id}>
+                    <TableCell className="text-muted-foreground">
+                      {i.clienteNombre ?? "—"}
+                    </TableCell>
                     <TableCell>{i.codigo}</TableCell>
                     <TableCell>{i.nombre}</TableCell>
                     <TableCell className="capitalize">{i.tipo}</TableCell>
@@ -105,8 +134,10 @@ export default async function ImpuestosPage({ searchParams }: Props) {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Button variant="link" size="sm" asChild>
-                        <Link href={`/impuestos/${i.id}`}>Ver</Link>
+                      <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
+                        <Link href={`/impuestos/${i.id}`}>
+                          Ver <ChevronRight className="size-4" aria-hidden />
+                        </Link>
                       </Button>
                     </TableCell>
                   </TableRow>

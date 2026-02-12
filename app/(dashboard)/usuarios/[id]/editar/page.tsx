@@ -24,7 +24,7 @@ export default async function EditarUsuarioPage({ params }: Props) {
           <Link href={`/usuarios/${usuario.id}`}>← Ver usuario</Link>
         </Button>
       </div>
-      <div className="max-w-lg">
+      <div className="mx-auto max-w-2xl">
         <UsuarioForm
           action={actualizarUsuario}
           initialData={usuario}

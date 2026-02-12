@@ -11,7 +11,7 @@ export default function NuevoContribuyentePage() {
           <Link href="/contribuyentes">← Contribuyentes</Link>
         </Button>
       </div>
-      <div className="max-w-lg">
+      <div className="mx-auto max-w-2xl">
         <ContribuyenteForm action={crearContribuyente} submitLabel="Crear contribuyente" />
       </div>
     </div>

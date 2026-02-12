@@ -11,7 +11,7 @@ export default function NuevoUsuarioPage() {
           <Link href="/usuarios">← Usuarios</Link>
         </Button>
       </div>
-      <div className="max-w-lg">
+      <div className="mx-auto max-w-2xl">
         <UsuarioForm action={crearUsuario} submitLabel="Crear usuario" />
       </div>
     </div>

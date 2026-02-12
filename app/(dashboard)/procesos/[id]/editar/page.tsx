@@ -49,7 +49,7 @@ export default async function EditarProcesoPage({ params }: Props) {
           <Link href={`/procesos/${proceso.id}`}>← Ver proceso</Link>
         </Button>
       </div>
-      <div className="max-w-lg">
+      <div className="mx-auto max-w-3xl">
         <ProcesoForm
           action={actualizarProceso}
           initialData={proceso}
@@ -60,7 +60,7 @@ export default async function EditarProcesoPage({ params }: Props) {
         />
       </div>
 
-      <Card className="max-w-lg">
+      <Card className="mx-auto max-w-3xl">
         <CardHeader>
           <CardTitle>Documentos adjuntos</CardTitle>
           <CardDescription>

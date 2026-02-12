@@ -27,6 +27,14 @@ export function getRelativePath(procesoId: number, storedFileName: string): stri
   return path.join("procesos", String(procesoId), storedFileName);
 }
 
+export function getActaUploadDir(actaId: number): string {
+  return path.join(getUploadRoot(), "actas", String(actaId));
+}
+
+export function getActaRelativePath(actaId: number, storedFileName: string): string {
+  return path.join("actas", String(actaId), storedFileName);
+}
+
 export async function ensureDir(dir: string): Promise<void> {
   await mkdir(dir, { recursive: true });
 }
@@ -80,6 +88,42 @@ export async function deleteProcesoDocument(rutaRelativa: string): Promise<void>
  * Lee un archivo por ruta relativa al upload root.
  */
 export async function readProcesoDocument(rutaRelativa: string): Promise<Buffer> {
+  const root = getUploadRoot();
+  const fullPath = path.join(root, rutaRelativa);
+  return readFile(fullPath);
+}
+
+/**
+ * Guarda un archivo en el directorio del acta. Retorna el nombre del archivo almacenado (no la ruta completa).
+ */
+export async function saveActaDocument(
+  actaId: number,
+  buffer: Buffer,
+  nombreOriginal: string,
+  mimeType: string
+): Promise<string> {
+  const dir = getActaUploadDir(actaId);
+  await ensureDir(dir);
+  const ext = getSafeExtension(nombreOriginal);
+  const storedFileName = `${randomUUID()}${ext ? `.${ext.replace(/^\./, "")}` : ""}`;
+  const fullPath = path.join(dir, storedFileName);
+  await writeFile(fullPath, buffer);
+  return storedFileName;
+}
+
+/**
+ * Elimina un archivo de acta por ruta relativa al upload root.
+ */
+export async function deleteActaDocument(rutaRelativa: string): Promise<void> {
+  const root = getUploadRoot();
+  const fullPath = path.join(root, rutaRelativa);
+  await unlink(fullPath);
+}
+
+/**
+ * Lee un archivo de acta por ruta relativa al upload root.
+ */
+export async function readActaDocument(rutaRelativa: string): Promise<Buffer> {
   const root = getUploadRoot();
   const fullPath = path.join(root, rutaRelativa);
   return readFile(fullPath);

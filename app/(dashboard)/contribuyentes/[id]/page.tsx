@@ -39,7 +39,7 @@ export default async function DetalleContribuyentePage({ params }: Props) {
           <EliminarContribuyenteButton id={contribuyente.id} />
         </div>
       </div>
-      <Card className="max-w-xl">
+      <Card className="mx-auto max-w-2xl">
         <CardHeader>
           <CardTitle>{contribuyente.nombreRazonSocial}</CardTitle>
           <CardDescription>

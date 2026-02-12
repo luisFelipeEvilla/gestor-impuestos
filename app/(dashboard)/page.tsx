@@ -241,7 +241,7 @@ export default async function DashboardPage({ searchParams }: Props) {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Procesos
             </CardTitle>
-            <ClipboardList className="size-5 text-primary/70" />
+            <ClipboardList className="size-5 text-primary/70" aria-hidden />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-foreground">{totalP}</p>
@@ -251,17 +251,62 @@ export default async function DashboardPage({ searchParams }: Props) {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-5">
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-2">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Monto en gestión
             </CardTitle>
-            <Wallet className="size-5 text-primary/70" />
+            <Wallet className="size-5 text-primary/70" aria-hidden />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-primary">{formatMonto(montoGestion)}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Suma de procesos no cobrados/incobrables
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-3">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Impuestos
+            </CardTitle>
+            <Receipt className="size-5 text-primary/70" aria-hidden />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">{totalI}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Tipos de impuesto activos
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-4">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Contribuyentes
+            </CardTitle>
+            <Building2 className="size-5 text-primary/70" aria-hidden />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">{totalC}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Personas o entidades en cartera
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-5">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Usuarios
+            </CardTitle>
+            <Users className="size-5 text-primary/70" aria-hidden />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">{totalU}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Usuarios activos en la plataforma
             </p>
           </CardContent>
         </Card>
@@ -322,9 +367,14 @@ export default async function DashboardPage({ searchParams }: Props) {
           </CardHeader>
           <CardContent>
             {vencimientosProximos.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No hay vencimientos en los próximos 30 días.
-              </p>
+              <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+                <div className="rounded-full bg-muted p-3" aria-hidden>
+                  <ClipboardList className="size-8 text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground text-sm max-w-[240px]">
+                  No hay vencimientos en los próximos 30 días.
+                </p>
+              </div>
             ) : (
               <ul className="space-y-3" role="list">
                 {vencimientosProximos.map((p) => (
@@ -371,9 +421,14 @@ export default async function DashboardPage({ searchParams }: Props) {
           </CardHeader>
           <CardContent>
             {procesosRecientes.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                No hay procesos registrados.
-              </p>
+              <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+                <div className="rounded-full bg-muted p-3" aria-hidden>
+                  <ClipboardList className="size-8 text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground text-sm max-w-[240px]">
+                  No hay procesos registrados.
+                </p>
+              </div>
             ) : (
               <ul className="space-y-3" role="list">
                 {procesosRecientes.map((p) => (

@@ -16,13 +16,16 @@ import type { EstadoFormImpuesto } from "@/lib/actions/impuestos";
 import type { Impuesto } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
+type ClienteOption = { id: number; nombre: string; codigo: string | null };
+
 type ImpuestoFormProps = {
   action: (prev: EstadoFormImpuesto | null, formData: FormData) => Promise<EstadoFormImpuesto>;
   initialData?: Impuesto | null;
   submitLabel: string;
+  clientes: ClienteOption[];
 };
 
-export function ImpuestoForm({ action, initialData, submitLabel }: ImpuestoFormProps) {
+export function ImpuestoForm({ action, initialData, submitLabel, clientes: clientesList }: ImpuestoFormProps) {
   const [state, formAction] = useActionState(action, null);
 
   return (
@@ -45,6 +48,29 @@ export function ImpuestoForm({ action, initialData, submitLabel }: ImpuestoFormP
               {state.error}
             </p>
           )}
+          <div className="grid gap-2">
+            <Label htmlFor="clienteId">Cliente</Label>
+            <select
+              id="clienteId"
+              name="clienteId"
+              defaultValue={initialData?.clienteId ?? ""}
+              className={cn(
+                "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+              )}
+              aria-invalid={!!state?.errores?.clienteId}
+              aria-required="true"
+            >
+              <option value="">Selecciona un cliente</option>
+              {clientesList.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.codigo ? `${c.codigo} – ` : ""}{c.nombre}
+                </option>
+              ))}
+            </select>
+            {state?.errores?.clienteId && (
+              <p className="text-destructive text-xs">{state.errores.clienteId[0]}</p>
+            )}
+          </div>
           <div className="grid gap-2">
             <Label htmlFor="nombre">Nombre</Label>
             <Input

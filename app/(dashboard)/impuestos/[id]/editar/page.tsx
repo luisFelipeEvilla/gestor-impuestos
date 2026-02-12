@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { impuestos } from "@/lib/db/schema";
+import { impuestos, clientes } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { actualizarImpuesto } from "@/lib/actions/impuestos";
 import { ImpuestoForm } from "@/components/impuestos/impuesto-form";
@@ -17,6 +17,12 @@ export default async function EditarImpuestoPage({ params }: Props) {
   const [impuesto] = await db.select().from(impuestos).where(eq(impuestos.id, id));
   if (!impuesto) notFound();
 
+  const clientesList = await db
+    .select({ id: clientes.id, nombre: clientes.nombre, codigo: clientes.codigo })
+    .from(clientes)
+    .where(eq(clientes.activo, true))
+    .orderBy(clientes.nombre);
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center gap-4">
@@ -24,11 +30,12 @@ export default async function EditarImpuestoPage({ params }: Props) {
           <Link href={`/impuestos/${impuesto.id}`}>← Ver impuesto</Link>
         </Button>
       </div>
-      <div className="max-w-lg">
+      <div className="mx-auto max-w-2xl">
         <ImpuestoForm
           action={actualizarImpuesto}
           initialData={impuesto}
           submitLabel="Guardar cambios"
+          clientes={clientesList}
         />
       </div>
     </div>

@@ -20,7 +20,7 @@ export default async function NuevoProcesoPage() {
           <Link href="/procesos">← Procesos</Link>
         </Button>
       </div>
-      <div className="max-w-lg">
+      <div className="mx-auto max-w-3xl">
         <ProcesoForm
           action={crearProceso}
           submitLabel="Crear proceso"

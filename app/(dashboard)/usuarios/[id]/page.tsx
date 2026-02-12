@@ -45,7 +45,7 @@ export default async function DetalleUsuarioPage({ params }: Props) {
           <EliminarUsuarioButton id={usuario.id} />
         </div>
       </div>
-      <Card className="max-w-xl">
+      <Card className="mx-auto max-w-2xl">
         <CardHeader>
           <CardTitle>{usuario.nombre}</CardTitle>
           <CardDescription>

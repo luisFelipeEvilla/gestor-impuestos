@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { FolderOpen, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
 import {
   procesos,
@@ -25,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { FiltrosProcesos } from "./filtros-procesos";
 
@@ -62,9 +64,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const fechaAsignacionParam = params.fechaAsignacion;
   const tipoImpuestoParam = params.tipoImpuesto;
 
-  const estadoActual =
+  const estadoActual: (typeof ESTADOS_VALIDOS)[number] | null =
     estadoParam != null && ESTADOS_VALIDOS.includes(estadoParam as (typeof ESTADOS_VALIDOS)[number])
-      ? estadoParam
+      ? (estadoParam as (typeof ESTADOS_VALIDOS)[number])
       : null;
   const vigenciaNum =
     vigenciaParam != null && /^\d{4}$/.test(vigenciaParam)
@@ -74,9 +76,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
     fechaAsignacionParam != null && /^\d{4}-\d{2}-\d{2}$/.test(fechaAsignacionParam)
       ? fechaAsignacionParam
       : null;
-  const tipoImpuesto =
+  const tipoImpuesto: (typeof TIPOS_IMPUESTO)[number] | null =
     tipoImpuestoParam != null && TIPOS_IMPUESTO.includes(tipoImpuestoParam as (typeof TIPOS_IMPUESTO)[number])
-      ? tipoImpuestoParam
+      ? (tipoImpuestoParam as (typeof TIPOS_IMPUESTO)[number])
       : null;
 
   let idsConFechaAsignacion: number[] | null = null;
@@ -190,9 +192,11 @@ export default async function ProcesosPage({ searchParams }: Props) {
         </CardHeader>
         <CardContent>
           {lista.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No hay procesos. Crea uno desde &quot;Nuevo proceso&quot;.
-            </p>
+            <EmptyState
+              icon={FolderOpen}
+              message="No hay procesos. Crea uno desde el botón Nuevo proceso."
+              action={{ href: "/procesos/nuevo", label: "Crear proceso →" }}
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -243,8 +247,10 @@ export default async function ProcesosPage({ searchParams }: Props) {
                       {p.asignadoNombre ?? "—"}
                     </TableCell>
                     <TableCell>
-                      <Button variant="link" size="sm" asChild>
-                        <Link href={`/procesos/${p.id}`}>Ver</Link>
+                      <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
+                        <Link href={`/procesos/${p.id}`}>
+                          Ver <ChevronRight className="size-4" aria-hidden />
+                        </Link>
                       </Button>
                     </TableCell>
                   </TableRow>

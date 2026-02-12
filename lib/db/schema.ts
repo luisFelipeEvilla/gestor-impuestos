@@ -43,6 +43,23 @@ export const categoriaDocumentoNotaEnum = pgEnum("categoria_documento_nota", [
   "cobro_coactivo",
 ]);
 
+/** Estado del acta de reunión */
+export const estadoActaEnum = pgEnum("estado_acta", [
+  "borrador",
+  "pendiente_aprobacion",
+  "aprobada",
+  "enviada",
+]);
+
+/** Tipo de evento en el historial del acta */
+export const tipoEventoActaEnum = pgEnum("tipo_evento_acta", [
+  "creacion",
+  "edicion",
+  "envio_aprobacion",
+  "aprobacion",
+  "envio_correo",
+]);
+
 // Tabla: usuarios
 export const usuarios = pgTable("usuarios", {
   id: serial("id").primaryKey(),
@@ -51,13 +68,33 @@ export const usuarios = pgTable("usuarios", {
   passwordHash: text("password_hash"),
   rol: rolUsuarioEnum("rol").notNull().default("empleado"),
   activo: boolean("activo").notNull().default(true),
+  /** Hash del token de recuperación de contraseña (SHA-256). Se limpia al restablecer o al expirar. */
+  passwordResetTokenHash: text("password_reset_token_hash"),
+  /** Fecha de expiración del token de recuperación (p. ej. 1 hora). */
+  passwordResetExpiresAt: timestamp("password_reset_expires_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Tabla: impuestos (catálogo)
+// Tabla: clientes (ej. Secretaría de Tránsito, Secretaría de Hacienda)
+export const clientes = pgTable("clientes", {
+  id: serial("id").primaryKey(),
+  nombre: text("nombre").notNull(),
+  codigo: text("codigo").unique(),
+  descripcion: text("descripcion"),
+  activo: boolean("activo").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Tabla: impuestos (catálogo) – cada impuesto pertenece a un cliente
 export const impuestos = pgTable("impuestos", {
   id: serial("id").primaryKey(),
+  /** Cliente al que pertenece el impuesto (ej. Secretaría de Tránsito). Nullable para migración desde datos existentes. */
+  clienteId: integer("cliente_id").references(() => clientes.id, {
+    onDelete: "restrict",
+    onUpdate: "cascade",
+  }),
   nombre: text("nombre").notNull(),
   codigo: text("codigo").notNull().unique(),
   tipo: tipoImpuestoEnum("tipo").notNull(),
@@ -148,13 +185,95 @@ export const documentosProceso = pgTable("documentos_proceso", {
   creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Tabla: actas_reunion
+export const actasReunion = pgTable("actas_reunion", {
+  id: serial("id").primaryKey(),
+  fecha: date("fecha").notNull(),
+  objetivo: text("objetivo").notNull(),
+  contenido: text("contenido"),
+  estado: estadoActaEnum("estado").notNull().default("borrador"),
+  creadoPorId: integer("creado_por_id")
+    .notNull()
+    .references(() => usuarios.id, { onDelete: "restrict", onUpdate: "cascade" }),
+  aprobadoPorId: integer("aprobado_por_id").references(() => usuarios.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Tabla: actas_integrantes (N:M acta – integrantes; nombre/email o usuario del sistema)
+export const actasIntegrantes = pgTable("actas_integrantes", {
+  id: serial("id").primaryKey(),
+  actaId: integer("acta_id")
+    .notNull()
+    .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  nombre: text("nombre").notNull(),
+  email: text("email").notNull(),
+  usuarioId: integer("usuario_id").references(() => usuarios.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+});
+
+// Tabla: documentos_acta (adjuntos por acta)
+export const documentosActa = pgTable("documentos_acta", {
+  id: serial("id").primaryKey(),
+  actaId: integer("acta_id")
+    .notNull()
+    .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  nombreOriginal: text("nombre_original").notNull(),
+  rutaArchivo: text("ruta_archivo").notNull(),
+  mimeType: text("mime_type").notNull(),
+  tamano: integer("tamano").notNull(),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Tabla: historial_acta (registro de modificaciones)
+export const historialActa = pgTable("historial_acta", {
+  id: serial("id").primaryKey(),
+  actaId: integer("acta_id")
+    .notNull()
+    .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  usuarioId: integer("usuario_id").references(() => usuarios.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+  tipoEvento: tipoEventoActaEnum("tipo_evento").notNull(),
+  fecha: timestamp("fecha", { withTimezone: true }).defaultNow().notNull(),
+  metadata: jsonb("metadata"),
+});
+
+// Tabla: actas_reunion_clientes (N:M acta – clientes)
+export const actasReunionClientes = pgTable(
+  "actas_reunion_clientes",
+  {
+    actaId: integer("acta_id")
+      .notNull()
+      .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    clienteId: integer("cliente_id")
+      .notNull()
+      .references(() => clientes.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  },
+  (t) => [{ primaryKey: { columns: [t.actaId, t.clienteId] } }]
+);
+
 // Relaciones Drizzle (para queries con join)
 export const usuariosRelations = relations(usuarios, ({ many }) => ({
   procesosAsignados: many(procesos),
   historiales: many(historialProceso),
+  actasCreadas: many(actasReunion),
+  historialesActa: many(historialActa),
 }));
 
-export const impuestosRelations = relations(impuestos, ({ many }) => ({
+export const clientesRelations = relations(clientes, ({ many }) => ({
+  impuestos: many(impuestos),
+  actasReunionClientes: many(actasReunionClientes),
+}));
+
+export const impuestosRelations = relations(impuestos, ({ one, many }) => ({
+  cliente: one(clientes, { fields: [impuestos.clienteId], references: [clientes.id] }),
   procesos: many(procesos),
 }));
 
@@ -179,9 +298,39 @@ export const documentosProcesoRelations = relations(documentosProceso, ({ one })
   proceso: one(procesos),
 }));
 
+export const actasReunionRelations = relations(actasReunion, ({ one, many }) => ({
+  creadoPor: one(usuarios, { fields: [actasReunion.creadoPorId], references: [usuarios.id] }),
+  aprobadoPor: one(usuarios, { fields: [actasReunion.aprobadoPorId], references: [usuarios.id] }),
+  integrantes: many(actasIntegrantes),
+  documentos: many(documentosActa),
+  historial: many(historialActa),
+  actasReunionClientes: many(actasReunionClientes),
+}));
+
+export const actasReunionClientesRelations = relations(actasReunionClientes, ({ one }) => ({
+  acta: one(actasReunion),
+  cliente: one(clientes),
+}));
+
+export const actasIntegrantesRelations = relations(actasIntegrantes, ({ one }) => ({
+  acta: one(actasReunion),
+  usuario: one(usuarios),
+}));
+
+export const documentosActaRelations = relations(documentosActa, ({ one }) => ({
+  acta: one(actasReunion),
+}));
+
+export const historialActaRelations = relations(historialActa, ({ one }) => ({
+  acta: one(actasReunion),
+  usuario: one(usuarios),
+}));
+
 // Tipos inferidos para uso en la app
 export type Usuario = typeof usuarios.$inferSelect;
 export type NewUsuario = typeof usuarios.$inferInsert;
+export type Cliente = typeof clientes.$inferSelect;
+export type NewCliente = typeof clientes.$inferInsert;
 export type Impuesto = typeof impuestos.$inferSelect;
 export type NewImpuesto = typeof impuestos.$inferInsert;
 export type Contribuyente = typeof contribuyentes.$inferSelect;
@@ -192,3 +341,13 @@ export type HistorialProceso = typeof historialProceso.$inferSelect;
 export type NewHistorialProceso = typeof historialProceso.$inferInsert;
 export type DocumentoProceso = typeof documentosProceso.$inferSelect;
 export type NewDocumentoProceso = typeof documentosProceso.$inferInsert;
+export type ActaReunion = typeof actasReunion.$inferSelect;
+export type NewActaReunion = typeof actasReunion.$inferInsert;
+export type ActaIntegrante = typeof actasIntegrantes.$inferSelect;
+export type NewActaIntegrante = typeof actasIntegrantes.$inferInsert;
+export type DocumentoActa = typeof documentosActa.$inferSelect;
+export type NewDocumentoActa = typeof documentosActa.$inferInsert;
+export type HistorialActa = typeof historialActa.$inferSelect;
+export type NewHistorialActa = typeof historialActa.$inferInsert;
+export type ActaReunionCliente = typeof actasReunionClientes.$inferSelect;
+export type NewActaReunionCliente = typeof actasReunionClientes.$inferInsert;

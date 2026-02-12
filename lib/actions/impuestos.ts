@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 const tipoImpuestoValues = ["nacional", "municipal"] as const;
 
 const schemaCrear = z.object({
+  clienteId: z.coerce.number().int().positive("Selecciona un cliente"),
   nombre: z.string().min(1, "El nombre es obligatorio").max(200),
   codigo: z.string().min(1, "El código es obligatorio").max(50),
   tipo: z.enum(tipoImpuestoValues),
@@ -19,6 +20,8 @@ const schemaCrear = z.object({
 
 const schemaActualizar = schemaCrear.extend({
   id: z.number().int().positive(),
+}).extend({
+  clienteId: z.coerce.number().int().positive().optional().nullable(),
 });
 
 export type EstadoFormImpuesto = {
@@ -31,6 +34,7 @@ export async function crearImpuesto(
   formData: FormData
 ): Promise<EstadoFormImpuesto> {
   const raw = {
+    clienteId: formData.get("clienteId"),
     nombre: formData.get("nombre"),
     codigo: formData.get("codigo"),
     tipo: formData.get("tipo"),
@@ -48,12 +52,13 @@ export async function crearImpuesto(
     };
   }
 
-  const { nombre, codigo, tipo, descripcion, activo } = parsed.data;
+  const { clienteId, nombre, codigo, tipo, descripcion, activo } = parsed.data;
 
   try {
     const [inserted] = await db
       .insert(impuestos)
       .values({
+        clienteId,
         nombre,
         codigo: codigo.trim(),
         tipo,
@@ -86,6 +91,7 @@ export async function actualizarImpuesto(
   const id = typeof idRaw === "string" ? parseInt(idRaw, 10) : Number(idRaw);
   const raw = {
     id: Number.isNaN(id) ? undefined : id,
+    clienteId: formData.get("clienteId"),
     nombre: formData.get("nombre"),
     codigo: formData.get("codigo"),
     tipo: formData.get("tipo"),
@@ -103,12 +109,13 @@ export async function actualizarImpuesto(
     };
   }
 
-  const { nombre, codigo, tipo, descripcion, activo } = parsed.data;
+  const { clienteId, nombre, codigo, tipo, descripcion, activo } = parsed.data;
 
   try {
     const [updated] = await db
       .update(impuestos)
       .set({
+        clienteId: clienteId ?? null,
         nombre,
         codigo: codigo.trim(),
         tipo,

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { Users, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
 import { usuarios } from "@/lib/db/schema";
 import { eq, and, or, ilike, desc } from "drizzle-orm";
@@ -19,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { FiltroInactivosUsuarios } from "./filtro-inactivos";
 import { FiltroBusquedaUsuarios } from "./filtro-busqueda";
 
@@ -77,9 +79,11 @@ export default async function UsuariosPage({ searchParams }: Props) {
         </CardHeader>
         <CardContent>
           {lista.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No hay usuarios registrados.
-            </p>
+            <EmptyState
+              icon={Users}
+              message="No hay usuarios registrados. Crea uno desde el botón Nuevo usuario."
+              action={{ href: "/usuarios/nuevo", label: "Nuevo usuario →" }}
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -105,8 +109,10 @@ export default async function UsuariosPage({ searchParams }: Props) {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Button variant="link" size="sm" asChild>
-                        <Link href={`/usuarios/${u.id}`}>Ver</Link>
+                      <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
+                        <Link href={`/usuarios/${u.id}`}>
+                          Ver <ChevronRight className="size-4" aria-hidden />
+                        </Link>
                       </Button>
                     </TableCell>
                   </TableRow>

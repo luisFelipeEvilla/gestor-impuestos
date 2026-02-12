@@ -32,7 +32,8 @@ export async function GET(request: NextRequest, { params }: Params) {
   try {
     const buffer = await readProcesoDocument(doc.rutaArchivo);
     const disposition = `inline; filename="${encodeURIComponent(doc.nombreOriginal)}"`;
-    return new NextResponse(buffer, {
+    const body = new Uint8Array(buffer);
+    return new NextResponse(body, {
       status: 200,
       headers: {
         "Content-Type": doc.mimeType,

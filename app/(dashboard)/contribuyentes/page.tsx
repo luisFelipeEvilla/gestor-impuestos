@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { Building2, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
 import { contribuyentes } from "@/lib/db/schema";
 import { desc, or, ilike } from "drizzle-orm";
@@ -19,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { FiltroBusquedaContribuyentes } from "./filtro-busqueda";
 
 type Props = { searchParams: Promise<{ q?: string }> };
@@ -69,9 +71,11 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
         </CardHeader>
         <CardContent>
           {lista.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No hay contribuyentes registrados.
-            </p>
+            <EmptyState
+              icon={Building2}
+              message="No hay contribuyentes registrados. Crea uno desde el botón Nuevo contribuyente."
+              action={{ href: "/contribuyentes/nuevo", label: "Nuevo contribuyente →" }}
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -89,8 +93,10 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                     <TableCell>{c.nombreRazonSocial}</TableCell>
                     <TableCell>{c.ciudad ?? "—"}</TableCell>
                     <TableCell>
-                      <Button variant="link" size="sm" asChild>
-                        <Link href={`/contribuyentes/${c.id}`}>Ver</Link>
+                      <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
+                        <Link href={`/contribuyentes/${c.id}`}>
+                          Ver <ChevronRight className="size-4" aria-hidden />
+                        </Link>
                       </Button>
                     </TableCell>
                   </TableRow>
