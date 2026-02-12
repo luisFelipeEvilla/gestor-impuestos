@@ -9,6 +9,7 @@ import {
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,11 +40,12 @@ export function Navbar({ session }: NavbarProps) {
       role="banner"
     >
       <div className="flex flex-1 items-center justify-end gap-1">
+        <ThemeToggle />
         {/* Botón de notificaciones (funcionalidad posterior) */}
         <Button
           variant="ghost"
           size="icon"
-          className="rounded-lg"
+          className="rounded-xl size-9"
           aria-label="Notificaciones"
         >
           <Bell className="size-5" />
@@ -54,11 +56,11 @@ export function Navbar({ session }: NavbarProps) {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5"
+              className="group flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-accent/80"
               aria-label="Menú de cuenta"
             >
               <span
-                className="flex size-8 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary"
+                className="flex size-9 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary transition-all duration-200 group-hover:bg-primary/20"
                 aria-hidden
               >
                 {session?.user ? getInitials(session.user.name) : "?"}

@@ -236,7 +236,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-1">
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-1 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Procesos
@@ -251,7 +251,7 @@ export default async function DashboardPage({ searchParams }: Props) {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-2">
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-2 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Monto en gestión
@@ -266,7 +266,7 @@ export default async function DashboardPage({ searchParams }: Props) {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-3">
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-3 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Impuestos
@@ -281,7 +281,7 @@ export default async function DashboardPage({ searchParams }: Props) {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-4">
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-4 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Contribuyentes
@@ -296,7 +296,7 @@ export default async function DashboardPage({ searchParams }: Props) {
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-5">
+        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-5 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Usuarios

@@ -103,9 +103,9 @@ export default async function UsuariosPage({ searchParams }: Props) {
                     <TableCell className="capitalize">{u.rol}</TableCell>
                     <TableCell>
                       {u.activo ? (
-                        <span className="text-muted-foreground">Activo</span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">Activo</span>
                       ) : (
-                        <span className="text-destructive">Inactivo</span>
+                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Inactivo</span>
                       )}
                     </TableCell>
                     <TableCell>

@@ -33,6 +33,7 @@ export default async function EditarActaPage({ params }: Props) {
         nombre: actasIntegrantes.nombre,
         email: actasIntegrantes.email,
         usuarioId: actasIntegrantes.usuarioId,
+        tipo: actasIntegrantes.tipo,
       })
       .from(actasIntegrantes)
       .where(eq(actasIntegrantes.actaId, actaId)),
@@ -79,6 +80,7 @@ export default async function EditarActaPage({ params }: Props) {
       nombre: i.nombre,
       email: i.email,
       usuarioId: i.usuarioId ?? undefined,
+      tipo: (i.usuarioId ? "interno" : (i.tipo ?? "externo")) as "interno" | "externo",
     })),
     clientesIds,
   };

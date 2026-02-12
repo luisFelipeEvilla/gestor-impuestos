@@ -152,14 +152,35 @@ export default async function ActaDetallePage({ params }: Props) {
           {acta.integrantes.length === 0 ? (
             <p className="text-muted-foreground text-sm">No hay integrantes.</p>
           ) : (
-            <ul className="space-y-1" role="list">
-              {acta.integrantes.map((inv) => (
-                <li key={inv.id}>
-                  <strong>{inv.nombre}</strong>
-                  <span className="text-muted-foreground ml-1">{inv.email}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-4">
+              {(["interno", "externo"] as const).map((tipo) => {
+                const items = acta.integrantes.filter(
+                  (i) => (i.tipo ?? "externo") === tipo
+                );
+                if (items.length === 0) return null;
+                const titulo =
+                  tipo === "interno"
+                    ? "Empleados / asistentes propios"
+                    : "Miembros externos";
+                return (
+                  <div key={tipo}>
+                    <p className="text-muted-foreground mb-1.5 text-xs font-medium uppercase tracking-wide">
+                      {titulo}
+                    </p>
+                    <ul className="space-y-1" role="list">
+                      {items.map((inv) => (
+                        <li key={inv.id}>
+                          <strong>{inv.nombre}</strong>
+                          <span className="text-muted-foreground ml-1">
+                            {inv.email}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>

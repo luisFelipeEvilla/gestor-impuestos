@@ -40,10 +40,13 @@ export default async function DetalleClientePage({ params }: Props) {
       <Card className="mx-auto max-w-2xl">
         <CardHeader>
           <CardTitle>{cliente.nombre}</CardTitle>
-          <CardDescription>
-            {cliente.codigo && `Código: ${cliente.codigo} · `}
-            {!cliente.activo && <span className="text-destructive">Inactivo</span>}
-            {cliente.activo && "Activo"}
+          <CardDescription className="flex flex-wrap items-center gap-2">
+            {cliente.codigo && <span>Código: {cliente.codigo}</span>}
+            {cliente.activo ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">Activo</span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Inactivo</span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -66,7 +69,13 @@ export default async function DetalleClientePage({ params }: Props) {
             )}
             <div>
               <dt className="text-muted-foreground">Estado</dt>
-              <dd>{cliente.activo ? "Activo" : "Inactivo"}</dd>
+              <dd>
+                {cliente.activo ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">Activo</span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Inactivo</span>
+                )}
+              </dd>
             </div>
           </dl>
           <div>

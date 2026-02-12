@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Suspense } from "react";
 import { LoginForm } from "@/components/auth/login-form";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Card,
   CardContent,
@@ -33,6 +34,9 @@ function LoginFormFallback() {
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4 bg-gradient-to-br from-background via-background to-primary/5">
+      <div className="absolute right-4 top-4">
+        <ThemeToggle />
+      </div>
       <div className="flex w-full max-w-sm flex-col gap-10">
         <div className="flex flex-col items-center gap-5 text-center">
           <Image

@@ -9,6 +9,7 @@ export type IntegranteItem = {
   nombre: string;
   email: string;
   usuarioId?: number;
+  tipo: "interno" | "externo";
 };
 
 type UsuarioOption = { id: number; nombre: string; email: string };
@@ -34,7 +35,10 @@ export function IntegrantesActa({
       const u = usuarios.find((x) => x.id === usuarioId);
       if (!u) return;
       if (integrantes.some((i) => i.email === u.email)) return;
-      onChange([...integrantes, { nombre: u.nombre, email: u.email, usuarioId: u.id }]);
+      onChange([
+        ...integrantes,
+        { nombre: u.nombre, email: u.email, usuarioId: u.id, tipo: "interno" as const },
+      ]);
     },
     [integrantes, usuarios, onChange]
   );
@@ -44,7 +48,10 @@ export function IntegrantesActa({
     const email = manualEmail.trim();
     if (!nombre || !email) return;
     if (integrantes.some((i) => i.email === email)) return;
-    onChange([...integrantes, { nombre, email }]);
+    onChange([
+      ...integrantes,
+      { nombre, email, tipo: "externo" as const },
+    ]);
     setManualNombre("");
     setManualEmail("");
   }, [integrantes, manualNombre, manualEmail, onChange]);
@@ -133,35 +140,57 @@ export function IntegrantesActa({
         </Button>
       </div>
 
-      {/* Lista */}
+      {/* Lista: empleados propios (internos) y miembros externos */}
       {integrantes.length > 0 ? (
-        <ul className="space-y-2" role="list">
-          {integrantes.map((inv, index) => (
-            <li
-              key={`${inv.email}-${index}`}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
-            >
-              <span>
-                <strong>{inv.nombre}</strong>
-                <span className="text-muted-foreground ml-1">{inv.email}</span>
-              </span>
-              {!disabled && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => handleQuitar(index)}
-                  aria-label={`Quitar ${inv.nombre}`}
-                >
-                  Quitar
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-4">
+          {(["interno", "externo"] as const).map((tipo) => {
+            const items = integrantes.filter((i) => (i.tipo ?? "externo") === tipo);
+            if (items.length === 0) return null;
+            const titulo =
+              tipo === "interno"
+                ? "Empleados / asistentes propios"
+                : "Miembros externos";
+            return (
+              <div key={tipo}>
+                <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                  {titulo}
+                </p>
+                <ul className="space-y-2" role="list">
+                  {items.map((inv, idx) => {
+                    const index = integrantes.indexOf(inv);
+                    return (
+                      <li
+                        key={`${inv.email}-${index}`}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
+                      >
+                        <span>
+                          <strong>{inv.nombre}</strong>
+                          <span className="text-muted-foreground ml-1">{inv.email}</span>
+                        </span>
+                        {!disabled && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleQuitar(index)}
+                            aria-label={`Quitar ${inv.nombre}`}
+                          >
+                            Quitar
+                          </Button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
       ) : (
-        <p className="text-muted-foreground text-sm">No hay integrantes. Agrega usuarios o nombre/correo manual.</p>
+        <p className="text-muted-foreground text-sm">
+          No hay integrantes. Agrega empleados (usuario del sistema) o miembros externos (nombre y correo).
+        </p>
       )}
     </div>
   );

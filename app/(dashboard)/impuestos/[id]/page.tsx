@@ -58,11 +58,20 @@ export default async function DetalleImpuestoPage({ params }: Props) {
       <Card className="mx-auto max-w-2xl">
         <CardHeader>
           <CardTitle>{impuesto.nombre}</CardTitle>
-          <CardDescription>
-            Código: {impuesto.codigo} · Tipo: {impuesto.tipo === "nacional" ? "Nacional" : "Municipal"}
-            {impuesto.clienteNombre && ` · Cliente: ${impuesto.clienteNombre}`}
-            {!impuesto.activo && (
-              <span className="text-destructive ml-2">· Inactivo</span>
+          <CardDescription className="flex flex-wrap items-center gap-2">
+            <span>Código: {impuesto.codigo}</span>
+            <span>·</span>
+            <span>Tipo: {impuesto.tipo === "nacional" ? "Nacional" : "Municipal"}</span>
+            {impuesto.clienteNombre && (
+              <>
+                <span>·</span>
+                <span>Cliente: {impuesto.clienteNombre}</span>
+              </>
+            )}
+            {impuesto.activo ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">Activo</span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Inactivo</span>
             )}
           </CardDescription>
         </CardHeader>
@@ -98,7 +107,13 @@ export default async function DetalleImpuestoPage({ params }: Props) {
             )}
             <div>
               <dt className="text-muted-foreground">Estado</dt>
-              <dd>{impuesto.activo ? "Activo" : "Inactivo"}</dd>
+              <dd>
+                {impuesto.activo ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">Activo</span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Inactivo</span>
+                )}
+              </dd>
             </div>
           </dl>
         </CardContent>

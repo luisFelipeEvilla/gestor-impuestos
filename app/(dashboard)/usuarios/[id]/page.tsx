@@ -48,10 +48,14 @@ export default async function DetalleUsuarioPage({ params }: Props) {
       <Card className="mx-auto max-w-2xl">
         <CardHeader>
           <CardTitle>{usuario.nombre}</CardTitle>
-          <CardDescription>
-            {usuario.email} · Rol: {usuario.rol === "admin" ? "Administrador" : "Empleado"}
-            {!usuario.activo && (
-              <span className="text-destructive ml-2">· Inactivo</span>
+          <CardDescription className="flex flex-wrap items-center gap-2">
+            <span>{usuario.email}</span>
+            <span>·</span>
+            <span>Rol: {usuario.rol === "admin" ? "Administrador" : "Empleado"}</span>
+            {usuario.activo ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">Activo</span>
+            ) : (
+              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Inactivo</span>
             )}
           </CardDescription>
         </CardHeader>
@@ -71,7 +75,13 @@ export default async function DetalleUsuarioPage({ params }: Props) {
             </div>
             <div>
               <dt className="text-muted-foreground">Estado</dt>
-              <dd>{usuario.activo ? "Activo" : "Inactivo"}</dd>
+              <dd>
+                {usuario.activo ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">Activo</span>
+                ) : (
+                  <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Inactivo</span>
+                )}
+              </dd>
             </div>
           </dl>
         </CardContent>

@@ -28,10 +28,13 @@ const schemaActualizar = schemaCrear.extend({
   id: z.number().int().positive(),
 });
 
+const tipoIntegranteValues = ["interno", "externo"] as const;
+
 const integranteSchema = z.object({
   nombre: z.string().min(1),
   email: z.string().email(),
   usuarioId: z.number().int().positive().optional(),
+  tipo: z.enum(tipoIntegranteValues).default("externo"),
 });
 
 const integrantesSchema = z.array(integranteSchema);
@@ -65,7 +68,7 @@ export type ActaDetalle = {
   creadoEn: Date;
   actualizadoEn: Date;
   clientes: { id: number; nombre: string; codigo: string | null }[];
-  integrantes: { id: number; nombre: string; email: string; usuarioId: number | null }[];
+  integrantes: { id: number; nombre: string; email: string; usuarioId: number | null; tipo: "interno" | "externo" }[];
   documentos: { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date }[];
 };
 
@@ -194,6 +197,7 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
       nombre: actasIntegrantes.nombre,
       email: actasIntegrantes.email,
       usuarioId: actasIntegrantes.usuarioId,
+      tipo: actasIntegrantes.tipo,
     })
     .from(actasIntegrantes)
     .where(eq(actasIntegrantes.actaId, actaId));
@@ -237,6 +241,7 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
       nombre: i.nombre,
       email: i.email,
       usuarioId: i.usuarioId,
+      tipo: (i.tipo ?? "externo") as "interno" | "externo",
     })),
     documentos: documentosRows.map((d) => ({
       id: d.id,
@@ -295,6 +300,7 @@ export async function crearActa(
       await db.insert(actasIntegrantes).values(
         integrantes.map((i) => ({
           actaId: inserted.id,
+          tipo: i.tipo ?? (i.usuarioId ? "interno" : "externo"),
           nombre: i.nombre,
           email: i.email,
           usuarioId: i.usuarioId ?? null,
@@ -391,6 +397,7 @@ export async function actualizarActa(
       await db.insert(actasIntegrantes).values(
         integrantes.map((i) => ({
           actaId: parsed.data.id,
+          tipo: i.tipo ?? (i.usuarioId ? "interno" : "externo"),
           nombre: i.nombre,
           email: i.email,
           usuarioId: i.usuarioId ?? null,

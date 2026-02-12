@@ -107,7 +107,7 @@ export default async function ClientesPage({ searchParams }: Props) {
                     </TableCell>
                     <TableCell>
                       <span
-                        className={c.activo ? "text-green-600" : "text-muted-foreground"}
+                        className={c.activo ? "inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success" : "inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"}
                       >
                         {c.activo ? "Activo" : "Inactivo"}
                       </span>

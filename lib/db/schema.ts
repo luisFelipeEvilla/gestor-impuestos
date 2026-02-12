@@ -60,6 +60,12 @@ export const tipoEventoActaEnum = pgEnum("tipo_evento_acta", [
   "envio_correo",
 ]);
 
+/** Tipo de integrante del acta: empleado/asistente propio o miembro externo */
+export const tipoIntegranteActaEnum = pgEnum("tipo_integrante_acta", [
+  "interno",
+  "externo",
+]);
+
 // Tabla: usuarios
 export const usuarios = pgTable("usuarios", {
   id: serial("id").primaryKey(),
@@ -203,12 +209,13 @@ export const actasReunion = pgTable("actas_reunion", {
   actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Tabla: actas_integrantes (N:M acta – integrantes; nombre/email o usuario del sistema)
+// Tabla: actas_integrantes (N:M acta – integrantes; interno = empleado propio, externo = miembro externo)
 export const actasIntegrantes = pgTable("actas_integrantes", {
   id: serial("id").primaryKey(),
   actaId: integer("acta_id")
     .notNull()
     .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  tipo: tipoIntegranteActaEnum("tipo").notNull().default("externo"),
   nombre: text("nombre").notNull(),
   email: text("email").notNull(),
   usuarioId: integer("usuario_id").references(() => usuarios.id, {
