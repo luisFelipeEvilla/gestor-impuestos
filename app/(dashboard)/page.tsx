@@ -18,6 +18,7 @@ import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafic
 import { DashboardGraficoMontoEstados } from "@/components/dashboard/dashboard-grafico-monto-estados";
 import { DashboardGraficoResponsables } from "@/components/dashboard/dashboard-grafico-responsables";
 import { DashboardFiltros } from "@/components/dashboard/dashboard-filtros";
+import { DashboardPolling } from "@/components/dashboard/dashboard-polling";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { db } from "@/lib/db";
 import {
@@ -216,6 +217,7 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   return (
     <div className="p-6 space-y-8 animate-fade-in">
+      <DashboardPolling />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
@@ -248,48 +250,7 @@ export default async function DashboardPage({ searchParams }: Props) {
             </p>
           </CardContent>
         </Card>
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-2">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Impuestos
-            </CardTitle>
-            <Receipt className="size-5 text-primary/70" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-foreground">{totalI}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Catálogo activo
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-3">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Contribuyentes
-            </CardTitle>
-            <Building2 className="size-5 text-primary/70" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-foreground">{totalC}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Personas o entidades
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-4">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Usuarios
-            </CardTitle>
-            <Users className="size-5 text-primary/70" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-foreground">{totalU}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Administradores y empleados
-            </p>
-          </CardContent>
-        </Card>
+
         <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">

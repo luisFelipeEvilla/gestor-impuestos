@@ -21,7 +21,7 @@ export function AppSidebar({ className, session }: AppSidebarProps) {
       aria-label="Navegación principal"
     >
       {/* Cabecera: siempre visible arriba */}
-      <div className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
+      <div className="flex h-24 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
         <Link
           href="/"
           className="flex items-center gap-2.5 font-semibold text-sidebar-foreground transition-colors hover:text-primary"
@@ -30,11 +30,11 @@ export function AppSidebar({ className, session }: AppSidebarProps) {
           <Image
             src="/logo_rr.png"
             alt=""
-            width={36}
-            height={36}
-            className="h-9 w-auto object-contain"
+            width={120}
+            height={120}
+            className="h-32 w-auto object-contain"
           />
-          <span className="truncate text-[15px]">Gestor Impuestos</span>
+          {/* <span className="truncate text-[15px]"></span> */}
         </Link>
       </div>
       {/* Navegación: crece y hace scroll si hay muchos ítems */}

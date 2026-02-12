@@ -422,18 +422,25 @@ export default async function DetalleProcesoPage({ params }: Props) {
           documentos={documentosPorCategoria.en_contacto}
           notas={notasPorCategoria.en_contacto}
         />
-        <CardAcuerdoDePago
-          procesoId={row.id}
-          estadoActual={row.estadoActual ?? ""}
-          documentos={documentosPorCategoria.acuerdo_pago}
-          notas={notasPorCategoria.acuerdo_pago}
-        />
-        <CardCobroCoactivo
-          procesoId={row.id}
-          estadoActual={row.estadoActual ?? ""}
-          documentos={documentosPorCategoria.cobro_coactivo}
-          notas={notasPorCategoria.cobro_coactivo}
-        />
+        {(row.estadoActual === "en_negociacion" ||
+          documentosPorCategoria.acuerdo_pago.length > 0 ||
+          notasPorCategoria.acuerdo_pago.length > 0) && (
+          <CardAcuerdoDePago
+            procesoId={row.id}
+            estadoActual={row.estadoActual ?? ""}
+            documentos={documentosPorCategoria.acuerdo_pago}
+            notas={notasPorCategoria.acuerdo_pago}
+          />
+        )}
+        {(row.estadoActual === "en_cobro_coactivo" ||
+          row.fechaInicioCobroCoactivo != null) && (
+          <CardCobroCoactivo
+            procesoId={row.id}
+            estadoActual={row.estadoActual ?? ""}
+            documentos={documentosPorCategoria.cobro_coactivo}
+            notas={notasPorCategoria.cobro_coactivo}
+          />
+        )}
       </div>
     </div>
   );
