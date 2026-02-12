@@ -629,6 +629,7 @@ export type AprobacionParticipanteItem = {
   nombre: string;
   email: string;
   aprobadoEn: Date | null;
+  rutaFoto: string | null;
 };
 
 /**
@@ -691,7 +692,7 @@ export async function yaAprobadoParticipante(
 }
 
 /**
- * Action para formulario de aprobación desde la vista previa: registra y redirige con aprobado=1 o error=1.
+ * Action para formulario de aprobación desde la vista previa: requiere foto, la guarda y registra; redirige con aprobado=1 o error=1.
  */
 export async function aprobarParticipanteFromPreviewAction(
   _prev: unknown,
@@ -700,9 +701,41 @@ export async function aprobarParticipanteFromPreviewAction(
   const actaId = Number(formData.get("actaId"));
   const integranteId = Number(formData.get("integranteId"));
   const firma = (formData.get("firma") as string) ?? "";
-  const result = await registrarAprobacionParticipante(actaId, integranteId, firma.trim());
   const base = "/actas/aprobar-participante";
   const query = `acta=${actaId}&integrante=${integranteId}&firma=${encodeURIComponent(firma.trim())}`;
+
+  const file = formData.get("foto");
+  if (!file || !(file instanceof File) || file.size === 0) {
+    redirect(`${base}?${query}&error=1&motivo=foto`);
+  }
+  const {
+    saveAprobacionFoto,
+    isAllowedAprobacionFotoMime,
+    isAllowedAprobacionFotoSize,
+  } = await import("@/lib/uploads");
+  if (!isAllowedAprobacionFotoMime(file.type) || !isAllowedAprobacionFotoSize(file.size)) {
+    redirect(`${base}?${query}&error=1&motivo=foto`);
+  }
+  let rutaFoto: string;
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    rutaFoto = await saveAprobacionFoto(
+      actaId,
+      buffer,
+      file.name || "foto.jpg",
+      file.type
+    );
+  } catch (err) {
+    console.error(err);
+    redirect(`${base}?${query}&error=1&motivo=foto`);
+  }
+
+  const result = await registrarAprobacionParticipante(
+    actaId,
+    integranteId,
+    firma.trim(),
+    rutaFoto
+  );
   if (result.error) {
     redirect(`${base}?${query}&error=1`);
   }
@@ -712,11 +745,13 @@ export async function aprobarParticipanteFromPreviewAction(
 /**
  * Registra la aprobación de un participante (enlace del correo).
  * No requiere sesión. Verifica firma, estado enviada y que el integrante pertenezca al acta.
+ * Opcionalmente guarda la ruta de la foto de aprobación.
  */
 export async function registrarAprobacionParticipante(
   actaId: number,
   integranteId: number,
-  firma: string
+  firma: string,
+  rutaFoto?: string | null
 ): Promise<{ error?: string }> {
   if (!Number.isInteger(actaId) || actaId < 1 || !Number.isInteger(integranteId) || integranteId < 1) {
     return { error: "Enlace inválido." };
@@ -749,6 +784,7 @@ export async function registrarAprobacionParticipante(
       .values({
         actaId,
         actaIntegranteId: integranteId,
+        rutaFoto: rutaFoto?.trim() || null,
       })
       .onConflictDoNothing({
         target: [
@@ -777,6 +813,7 @@ export async function obtenerAprobacionesPorActa(
       nombre: actasIntegrantes.nombre,
       email: actasIntegrantes.email,
       aprobadoEn: aprobacionesActaParticipante.aprobadoEn,
+      rutaFoto: aprobacionesActaParticipante.rutaFoto,
     })
     .from(actasIntegrantes)
     .leftJoin(
@@ -792,6 +829,7 @@ export async function obtenerAprobacionesPorActa(
     nombre: r.nombre,
     email: r.email,
     aprobadoEn: r.aprobadoEn ?? null,
+    rutaFoto: r.rutaFoto ?? null,
   }));
 }
 

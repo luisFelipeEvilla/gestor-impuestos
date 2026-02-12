@@ -237,6 +237,8 @@ export const aprobacionesActaParticipante = pgTable(
       .notNull()
       .references(() => actasIntegrantes.id, { onDelete: "cascade", onUpdate: "cascade" }),
     aprobadoEn: timestamp("aprobado_en", { withTimezone: true }).defaultNow().notNull(),
+    /** Ruta relativa de la foto enviada al aprobar (ej. actas/1/aprobaciones/uuid.jpg). */
+    rutaFoto: text("ruta_foto"),
   },
   (t) => [unique("aprobaciones_acta_integrante_uniq").on(t.actaId, t.actaIntegranteId)]
 );

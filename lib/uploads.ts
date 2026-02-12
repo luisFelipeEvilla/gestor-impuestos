@@ -35,6 +35,60 @@ export function getActaRelativePath(actaId: number, storedFileName: string): str
   return path.join("actas", String(actaId), storedFileName);
 }
 
+const APROBACION_FOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const APROBACION_FOTO_MIMES = ["image/jpeg", "image/png", "image/webp"];
+
+export function getAprobacionFotoDir(actaId: number): string {
+  return path.join(getUploadRoot(), "actas", String(actaId), "aprobaciones");
+}
+
+export function getAprobacionFotoRelativePath(actaId: number, storedFileName: string): string {
+  return path.join("actas", String(actaId), "aprobaciones", storedFileName);
+}
+
+export function isAllowedAprobacionFotoMime(mimeType: string): boolean {
+  return APROBACION_FOTO_MIMES.includes(mimeType);
+}
+
+export function isAllowedAprobacionFotoSize(size: number): boolean {
+  return size > 0 && size <= APROBACION_FOTO_MAX_BYTES;
+}
+
+/**
+ * Guarda la foto de aprobación de un participante. Solo imágenes (JPEG, PNG, WebP), máx 5 MB.
+ * Retorna la ruta relativa al upload root para guardar en BD.
+ */
+export async function saveAprobacionFoto(
+  actaId: number,
+  buffer: Buffer,
+  nombreOriginal: string,
+  mimeType: string
+): Promise<string> {
+  if (!isAllowedAprobacionFotoMime(mimeType)) {
+    throw new Error("Tipo de archivo no permitido. Use JPEG, PNG o WebP.");
+  }
+  if (!isAllowedAprobacionFotoSize(buffer.length)) {
+    throw new Error("La imagen no debe superar 5 MB.");
+  }
+  const dir = getAprobacionFotoDir(actaId);
+  await ensureDir(dir);
+  const ext = getSafeExtension(nombreOriginal) || ".jpg";
+  const safeExt = ext.startsWith(".") ? ext.slice(1) : ext;
+  const storedFileName = `${randomUUID()}.${safeExt.replace(/[^a-z0-9]/g, "")}`;
+  const fullPath = path.join(dir, storedFileName);
+  await writeFile(fullPath, buffer);
+  return getAprobacionFotoRelativePath(actaId, storedFileName);
+}
+
+/**
+ * Lee la foto de aprobación por ruta relativa al upload root.
+ */
+export async function readAprobacionFoto(rutaRelativa: string): Promise<Buffer> {
+  const root = getUploadRoot();
+  const fullPath = path.join(root, rutaRelativa);
+  return readFile(fullPath);
+}
+
 export async function ensureDir(dir: string): Promise<void> {
   await mkdir(dir, { recursive: true });
 }

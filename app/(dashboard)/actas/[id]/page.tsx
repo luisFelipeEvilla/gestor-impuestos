@@ -210,6 +210,16 @@ export default async function ActaDetallePage({ params }: Props) {
                   <span>
                     <strong>{item.nombre}</strong>
                     <span className="text-muted-foreground ml-1">{item.email}</span>
+                    {item.rutaFoto && (
+                      <Link
+                        href={`/api/actas/${acta.id}/aprobaciones/${item.actaIntegranteId}/foto`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline ml-2 text-xs"
+                      >
+                        Ver foto
+                      </Link>
+                    )}
                   </span>
                   <span
                     className={

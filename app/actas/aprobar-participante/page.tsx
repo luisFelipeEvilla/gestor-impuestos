@@ -6,6 +6,7 @@ import {
   obtenerActaParaPreviewParticipante,
 } from "@/lib/actions/actas";
 import { generarFirmaDescargaDocumento } from "@/lib/actas-aprobacion";
+import { FormAprobarConFoto } from "@/components/actas/form-aprobar-con-foto";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -36,6 +37,7 @@ type Props = {
     firma?: string;
     aprobado?: string;
     error?: string;
+    motivo?: string;
   }>;
 };
 
@@ -65,6 +67,7 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
   const firmaParam = params.firma;
   const aprobado = params.aprobado === "1";
   const errorParam = params.error === "1";
+  const motivoError = params.motivo;
 
   if (!actaParam || !integranteParam || !firmaParam) {
     return (
@@ -117,13 +120,16 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
   }
 
   if (errorParam) {
+    const esErrorFoto = motivoError === "foto";
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-4 bg-gradient-to-br from-background via-background to-primary/5 py-12">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Error al registrar</CardTitle>
+            <CardTitle>{esErrorFoto ? "Foto requerida" : "Error al registrar"}</CardTitle>
             <CardDescription>
-              No se pudo registrar la aprobación. Intente de nuevo o póngase en contacto con el administrador.
+              {esErrorFoto
+                ? "Debe adjuntar una fotografía para aprobar (JPEG, PNG o WebP, máximo 5 MB). Puede tomar una foto o seleccionar una imagen."
+                : "No se pudo registrar la aprobación. Intente de nuevo o póngase en contacto con el administrador."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -246,21 +252,16 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
             <CardHeader>
               <CardTitle>Confirmar aprobación</CardTitle>
               <CardDescription>
-                Si está de acuerdo con el contenido del acta, confirme que lo ha leído y aprobado.
+                Para aprobar debe adjuntar una fotografía. Puede tomarla con la cámara en el momento o subir una imagen (JPEG, PNG o WebP, máx. 5 MB).
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form
-                action={aprobarParticipanteFromPreviewAction.bind(null, null)}
-                className="flex flex-col gap-3"
-              >
-                <input type="hidden" name="actaId" value={actaId} readOnly aria-hidden />
-                <input type="hidden" name="integranteId" value={integranteId} readOnly aria-hidden />
-                <input type="hidden" name="firma" value={firmaParam} readOnly aria-hidden />
-                <Button type="submit" variant="default" size="lg" className="w-full sm:w-auto">
-                  Confirmar que he leído y aprobado este acta
-                </Button>
-              </form>
+              <FormAprobarConFoto
+                actaId={actaId}
+                integranteId={integranteId}
+                firmaParam={firmaParam}
+                submitAction={aprobarParticipanteFromPreviewAction}
+              />
             </CardContent>
           </Card>
         )}

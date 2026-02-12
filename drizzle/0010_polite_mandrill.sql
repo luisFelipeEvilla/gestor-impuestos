@@ -1,0 +1,1 @@
+ALTER TABLE "aprobaciones_acta_participante" ADD COLUMN "ruta_foto" text;
