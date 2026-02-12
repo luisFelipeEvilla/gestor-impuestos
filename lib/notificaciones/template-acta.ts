@@ -8,6 +8,8 @@ export type DatosEmailActa = {
   objetivo: string;
   contenidoHtml: string;
   enlaceActa: string;
+  /** Enlace para que el participante confirme que ha leído y aprobado el acta (URL completa). */
+  enlaceAprobarParticipante?: string;
 };
 
 function escapeHtml(text: string): string {
@@ -84,6 +86,7 @@ export function renderTemplateActa(datos: DatosEmailActa, baseUrl: string): stri
     </table>
     ${contenidoSafe ? `<div style="margin: 16px 0; padding: 12px; background: #f8fafc; border-radius: 6px; white-space: pre-wrap;">${contenidoSafe}</div>` : ""}
     <p><a href="${escapeHtml(enlaceCompleto)}" style="color: #2563eb;">Ver acta completa en la aplicación</a></p>
+    ${datos.enlaceAprobarParticipante ? `<p style="margin-top: 16px;"><a href="${escapeHtml(datos.enlaceAprobarParticipante)}" style="display: inline-block; background: #2563eb; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; font-weight: 500;">Confirmar que he leído y aprobado este acta</a></p>` : ""}
     <p style="color: #64748b; font-size: 0.875rem; margin-top: 24px;">Este es un mensaje automático. Por favor no responda directamente a este correo.</p>
   </div>
 </body>

@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 export async function middleware(req: NextRequest) {
   const token = await getToken({
     req,
-    secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+    secret: process.env.AUTH_SECRET ?? process.env.NEXT_AUTH_SECRET,
   });
   const pathname = req.nextUrl.pathname;
 
@@ -13,8 +13,18 @@ export async function middleware(req: NextRequest) {
   const isAuthApi = pathname.startsWith("/api/auth");
   const isRecuperarPassword =
     pathname === "/recuperar-password" || pathname.startsWith("/recuperar-password/");
+  /** Vista previa y aprobación del acta por participantes (enlace del correo, sin sesión). */
+  const isAprobarParticipante = pathname === "/actas/aprobar-participante";
+  /** Descarga de documento del acta con enlace firmado (participante sin sesión). */
+  const isDescargaDocumentoActa = pathname === "/api/actas/documentos/descargar";
 
-  if (isLoginPage || isAuthApi || isRecuperarPassword) {
+  if (
+    isLoginPage ||
+    isAuthApi ||
+    isRecuperarPassword ||
+    isAprobarParticipante ||
+    isDescargaDocumentoActa
+  ) {
     if (token && (isLoginPage || isRecuperarPassword)) {
       return NextResponse.redirect(new URL("/", req.nextUrl.origin));
     }

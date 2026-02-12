@@ -4,6 +4,7 @@ import { getSession } from "@/lib/auth-server";
 import {
   obtenerActaPorId,
   obtenerHistorialActa,
+  obtenerAprobacionesPorActa,
   enviarActaAprobacion,
   aprobarActa,
   enviarActaPorCorreo,
@@ -45,13 +46,16 @@ export default async function ActaDetallePage({ params }: Props) {
   const actaId = parseInt(id, 10);
   if (Number.isNaN(actaId)) notFound();
 
-  const [acta, historial, session] = await Promise.all([
+  const [acta, historial, session, aprobaciones] = await Promise.all([
     obtenerActaPorId(actaId),
     obtenerHistorialActa(actaId),
     getSession(),
+    obtenerAprobacionesPorActa(actaId),
   ]);
 
   if (!acta) notFound();
+
+  const mostrarAprobacionesParticipantes = acta.estado === "enviada";
 
   const isAdmin = session?.user?.rol === "admin";
   const isCreador = session?.user?.id === acta.creadoPorId;
@@ -184,6 +188,51 @@ export default async function ActaDetallePage({ params }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {mostrarAprobacionesParticipantes && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Aprobaciones de participantes</CardTitle>
+            <CardDescription>
+              Confirmación de lectura y aprobación tras el envío del acta por correo
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {aprobaciones.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No hay integrantes en este acta.</p>
+            ) : (
+            <ul className="space-y-2" role="list">
+              {aprobaciones.map((item) => (
+                <li
+                  key={item.actaIntegranteId}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
+                >
+                  <span>
+                    <strong>{item.nombre}</strong>
+                    <span className="text-muted-foreground ml-1">{item.email}</span>
+                  </span>
+                  <span
+                    className={
+                      item.aprobadoEn
+                        ? "text-muted-foreground text-xs"
+                        : "text-muted-foreground/70 text-xs italic"
+                    }
+                  >
+                    {item.aprobadoEn
+                      ? `Aprobado el ${new Date(item.aprobadoEn).toLocaleDateString("es-CO", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}`
+                      : "Pendiente"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

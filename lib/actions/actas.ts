@@ -9,10 +9,12 @@ import {
   actasIntegrantes,
   actasReunionClientes,
   historialActa,
+  aprobacionesActaParticipante,
   usuarios,
   documentosActa,
   clientes,
 } from "@/lib/db/schema";
+import { generarFirmaAprobacion, verificarFirmaAprobacion } from "@/lib/actas-aprobacion";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
 import { getSession, requireAdminSession } from "@/lib/auth-server";
 
@@ -156,6 +158,56 @@ export async function obtenerActas(filtros?: {
     creadorNombre: row.creadorNombre,
     numIntegrantes: countByActa.get(row.id) ?? 0,
   }));
+}
+
+/**
+ * Obtiene los datos del acta para la vista previa pública (participante con enlace firmado).
+ * No requiere sesión. Solo devuelve datos si el acta está en estado "enviada".
+ */
+export async function obtenerActaParaPreviewParticipante(
+  actaId: number
+): Promise<{
+  id: number;
+  fecha: Date;
+  objetivo: string;
+  contenido: string | null;
+  documentos: { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date }[];
+} | null> {
+  if (!Number.isInteger(actaId) || actaId < 1) return null;
+  const [acta] = await db
+    .select({
+      id: actasReunion.id,
+      fecha: actasReunion.fecha,
+      objetivo: actasReunion.objetivo,
+      contenido: actasReunion.contenido,
+      estado: actasReunion.estado,
+    })
+    .from(actasReunion)
+    .where(eq(actasReunion.id, actaId));
+  if (!acta || acta.estado !== "enviada") return null;
+  const documentosRows = await db
+    .select({
+      id: documentosActa.id,
+      nombreOriginal: documentosActa.nombreOriginal,
+      mimeType: documentosActa.mimeType,
+      tamano: documentosActa.tamano,
+      creadoEn: documentosActa.creadoEn,
+    })
+    .from(documentosActa)
+    .where(eq(documentosActa.actaId, actaId));
+  return {
+    id: acta.id,
+    fecha: acta.fecha as unknown as Date,
+    objetivo: acta.objetivo,
+    contenido: acta.contenido,
+    documentos: documentosRows.map((d) => ({
+      id: d.id,
+      nombreOriginal: d.nombreOriginal,
+      mimeType: d.mimeType,
+      tamano: d.tamano,
+      creadoEn: d.creadoEn,
+    })),
+  };
 }
 
 export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | null> {
@@ -533,14 +585,20 @@ export async function enviarActaPorCorreo(actaId: number): Promise<EstadoGestion
       return { error: "El acta no tiene integrantes con correo electrónico." };
     }
 
+    const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+    const baseUrlClean = baseUrl.replace(/\/$/, "");
+
     let enviados = 0;
     for (const inv of integrantesConEmail) {
+      const firma = generarFirmaAprobacion(actaId, inv.id);
+      const enlaceAprobarParticipante = `${baseUrlClean}/actas/aprobar-participante?acta=${actaId}&integrante=${inv.id}&firma=${firma}`;
       const resultado = await enviarActaPorEmail(inv.email, {
         nombreDestinatario: inv.nombre,
         fechaActa: acta.fecha,
         objetivo: acta.objetivo,
         contenidoHtml: acta.contenido ?? "",
         enlaceActa: `/actas/${actaId}`,
+        enlaceAprobarParticipante,
       });
       if (resultado.ok) enviados++;
     }
@@ -564,6 +622,177 @@ export async function enviarActaPorCorreo(actaId: number): Promise<EstadoGestion
     console.error(err);
     return { error: "Error al enviar el acta por correo." };
   }
+}
+
+export type AprobacionParticipanteItem = {
+  actaIntegranteId: number;
+  nombre: string;
+  email: string;
+  aprobadoEn: Date | null;
+};
+
+/**
+ * Valida el enlace de aprobación (firma, acta enviada, integrante pertenece al acta).
+ * No registra la aprobación. Útil para mostrar la vista previa.
+ */
+export async function validarEnlaceAprobacionParticipante(
+  actaId: number,
+  integranteId: number,
+  firma: string
+): Promise<{ valido: boolean; error?: string }> {
+  if (!Number.isInteger(actaId) || actaId < 1 || !Number.isInteger(integranteId) || integranteId < 1) {
+    return { valido: false, error: "Enlace inválido." };
+  }
+  if (!verificarFirmaAprobacion(actaId, integranteId, firma)) {
+    return { valido: false, error: "Enlace inválido o expirado." };
+  }
+  const [acta] = await db
+    .select({ estado: actasReunion.estado })
+    .from(actasReunion)
+    .where(eq(actasReunion.id, actaId));
+  if (!acta || acta.estado !== "enviada") {
+    return { valido: false, error: "Enlace inválido o expirado." };
+  }
+  const [integrante] = await db
+    .select({ id: actasIntegrantes.id })
+    .from(actasIntegrantes)
+    .where(
+      and(
+        eq(actasIntegrantes.actaId, actaId),
+        eq(actasIntegrantes.id, integranteId)
+      )
+  );
+  if (!integrante) {
+    return { valido: false, error: "Enlace inválido o expirado." };
+  }
+  return { valido: true };
+}
+
+/**
+ * Indica si el participante (integrante) ya aprobó este acta.
+ */
+export async function yaAprobadoParticipante(
+  actaId: number,
+  integranteId: number
+): Promise<boolean> {
+  if (!Number.isInteger(actaId) || actaId < 1 || !Number.isInteger(integranteId) || integranteId < 1) {
+    return false;
+  }
+  const [row] = await db
+    .select({ id: aprobacionesActaParticipante.id })
+    .from(aprobacionesActaParticipante)
+    .where(
+      and(
+        eq(aprobacionesActaParticipante.actaId, actaId),
+        eq(aprobacionesActaParticipante.actaIntegranteId, integranteId)
+      )
+  );
+  return !!row;
+}
+
+/**
+ * Action para formulario de aprobación desde la vista previa: registra y redirige con aprobado=1 o error=1.
+ */
+export async function aprobarParticipanteFromPreviewAction(
+  _prev: unknown,
+  formData: FormData
+): Promise<void> {
+  const actaId = Number(formData.get("actaId"));
+  const integranteId = Number(formData.get("integranteId"));
+  const firma = (formData.get("firma") as string) ?? "";
+  const result = await registrarAprobacionParticipante(actaId, integranteId, firma.trim());
+  const base = "/actas/aprobar-participante";
+  const query = `acta=${actaId}&integrante=${integranteId}&firma=${encodeURIComponent(firma.trim())}`;
+  if (result.error) {
+    redirect(`${base}?${query}&error=1`);
+  }
+  redirect(`${base}?${query}&aprobado=1`);
+}
+
+/**
+ * Registra la aprobación de un participante (enlace del correo).
+ * No requiere sesión. Verifica firma, estado enviada y que el integrante pertenezca al acta.
+ */
+export async function registrarAprobacionParticipante(
+  actaId: number,
+  integranteId: number,
+  firma: string
+): Promise<{ error?: string }> {
+  if (!Number.isInteger(actaId) || actaId < 1 || !Number.isInteger(integranteId) || integranteId < 1) {
+    return { error: "Enlace inválido." };
+  }
+  if (!verificarFirmaAprobacion(actaId, integranteId, firma)) {
+    return { error: "Enlace inválido o expirado." };
+  }
+  try {
+    const [acta] = await db
+      .select({ estado: actasReunion.estado })
+      .from(actasReunion)
+      .where(eq(actasReunion.id, actaId));
+    if (!acta || acta.estado !== "enviada") {
+      return { error: "Enlace inválido o expirado." };
+    }
+    const [integrante] = await db
+      .select({ id: actasIntegrantes.id })
+      .from(actasIntegrantes)
+      .where(
+        and(
+          eq(actasIntegrantes.actaId, actaId),
+          eq(actasIntegrantes.id, integranteId)
+        )
+    );
+    if (!integrante) {
+      return { error: "Enlace inválido o expirado." };
+    }
+    await db
+      .insert(aprobacionesActaParticipante)
+      .values({
+        actaId,
+        actaIntegranteId: integranteId,
+      })
+      .onConflictDoNothing({
+        target: [
+          aprobacionesActaParticipante.actaId,
+          aprobacionesActaParticipante.actaIntegranteId,
+        ],
+      });
+    return {};
+  } catch (err) {
+    console.error(err);
+    return { error: "Error al registrar la aprobación." };
+  }
+}
+
+/**
+ * Devuelve la lista de integrantes del acta con indicador de si aprobaron y cuándo.
+ * Para actas en estado enviada; usado en la vista de detalle.
+ */
+export async function obtenerAprobacionesPorActa(
+  actaId: number
+): Promise<AprobacionParticipanteItem[]> {
+  if (!Number.isInteger(actaId) || actaId < 1) return [];
+  const aprobaciones = await db
+    .select({
+      actaIntegranteId: actasIntegrantes.id,
+      nombre: actasIntegrantes.nombre,
+      email: actasIntegrantes.email,
+      aprobadoEn: aprobacionesActaParticipante.aprobadoEn,
+    })
+    .from(actasIntegrantes)
+    .leftJoin(
+      aprobacionesActaParticipante,
+      and(
+        eq(aprobacionesActaParticipante.actaId, actasIntegrantes.actaId),
+        eq(aprobacionesActaParticipante.actaIntegranteId, actasIntegrantes.id)
+      )
+    )
+    .where(eq(actasIntegrantes.actaId, actaId));
+  return aprobaciones.map((r) => ({
+    actaIntegranteId: r.actaIntegranteId,
+    nombre: r.nombre,
+    email: r.email,
+    aprobadoEn: r.aprobadoEn ?? null,
+  }));
 }
 
 export async function eliminarActa(actaId: number): Promise<EstadoGestionActa> {

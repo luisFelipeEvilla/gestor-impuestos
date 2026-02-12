@@ -64,6 +64,13 @@
       "when": 1770926187553,
       "tag": "0008_busy_warpath",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1770927293151,
+      "tag": "0009_thick_james_howlett",
+      "breakpoints": true
     }
   ]
 }

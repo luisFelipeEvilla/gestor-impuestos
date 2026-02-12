@@ -9,6 +9,7 @@ import {
   text,
   timestamp,
   numeric,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -224,6 +225,22 @@ export const actasIntegrantes = pgTable("actas_integrantes", {
   }),
 });
 
+// Tabla: aprobaciones_acta_participante (confirmación de lectura/aprobación por participante tras envío)
+export const aprobacionesActaParticipante = pgTable(
+  "aprobaciones_acta_participante",
+  {
+    id: serial("id").primaryKey(),
+    actaId: integer("acta_id")
+      .notNull()
+      .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    actaIntegranteId: integer("acta_integrante_id")
+      .notNull()
+      .references(() => actasIntegrantes.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    aprobadoEn: timestamp("aprobado_en", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique("aprobaciones_acta_integrante_uniq").on(t.actaId, t.actaIntegranteId)]
+);
+
 // Tabla: documentos_acta (adjuntos por acta)
 export const documentosActa = pgTable("documentos_acta", {
   id: serial("id").primaryKey(),
@@ -309,6 +326,7 @@ export const actasReunionRelations = relations(actasReunion, ({ one, many }) => 
   creadoPor: one(usuarios, { fields: [actasReunion.creadoPorId], references: [usuarios.id] }),
   aprobadoPor: one(usuarios, { fields: [actasReunion.aprobadoPorId], references: [usuarios.id] }),
   integrantes: many(actasIntegrantes),
+  aprobacionesParticipantes: many(aprobacionesActaParticipante),
   documentos: many(documentosActa),
   historial: many(historialActa),
   actasReunionClientes: many(actasReunionClientes),
@@ -319,10 +337,19 @@ export const actasReunionClientesRelations = relations(actasReunionClientes, ({ 
   cliente: one(clientes),
 }));
 
-export const actasIntegrantesRelations = relations(actasIntegrantes, ({ one }) => ({
+export const actasIntegrantesRelations = relations(actasIntegrantes, ({ one, many }) => ({
   acta: one(actasReunion),
   usuario: one(usuarios),
+  aprobacion: many(aprobacionesActaParticipante),
 }));
+
+export const aprobacionesActaParticipanteRelations = relations(
+  aprobacionesActaParticipante,
+  ({ one }) => ({
+    acta: one(actasReunion),
+    actaIntegrante: one(actasIntegrantes),
+  })
+);
 
 export const documentosActaRelations = relations(documentosActa, ({ one }) => ({
   acta: one(actasReunion),
@@ -352,6 +379,8 @@ export type ActaReunion = typeof actasReunion.$inferSelect;
 export type NewActaReunion = typeof actasReunion.$inferInsert;
 export type ActaIntegrante = typeof actasIntegrantes.$inferSelect;
 export type NewActaIntegrante = typeof actasIntegrantes.$inferInsert;
+export type AprobacionActaParticipante = typeof aprobacionesActaParticipante.$inferSelect;
+export type NewAprobacionActaParticipante = typeof aprobacionesActaParticipante.$inferInsert;
 export type DocumentoActa = typeof documentosActa.$inferSelect;
 export type NewDocumentoActa = typeof documentosActa.$inferInsert;
 export type HistorialActa = typeof historialActa.$inferSelect;

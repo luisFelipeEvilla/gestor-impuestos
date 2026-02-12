@@ -37,7 +37,7 @@ export function SidebarNav({ isAdmin }: SidebarNavProps) {
   const items = navItems.filter((item) => !item.adminOnly || isAdmin);
 
   return (
-    <nav className="flex flex-1 flex-col gap-0.5 p-3" aria-label="Menú">
+    <nav className="flex flex-1 flex-col gap-1 px-3 py-1" aria-label="Menú">
       {items.map((item) => {
         const isActive =
           item.href === "/"
