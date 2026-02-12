@@ -25,6 +25,8 @@ type EditorContenidoProps = {
   name: string;
   defaultValue?: string;
   placeholder?: string;
+  /** Etiqueta del campo (por defecto "Contenido"). */
+  label?: string;
   "aria-invalid"?: boolean;
 };
 
@@ -44,6 +46,7 @@ export function EditorContenido({
   name,
   defaultValue = "",
   placeholder = "Escribe el contenido del acta (títulos, negritas, listas, etc.)...",
+  label = "Contenido",
   "aria-invalid": ariaInvalid,
 }: EditorContenidoProps) {
   const hiddenInputRef = useRef<HTMLInputElement>(null);
@@ -101,7 +104,7 @@ export function EditorContenido({
 
   return (
     <div className="grid gap-2">
-      <Label htmlFor={name}>Contenido</Label>
+      <Label htmlFor={name}>{label}</Label>
       <input
         ref={hiddenInputRef}
         type="hidden"

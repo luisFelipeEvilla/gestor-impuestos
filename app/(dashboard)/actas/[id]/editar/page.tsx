@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { actasReunion, actasIntegrantes, actasReunionClientes, usuarios, documentosActa, clientes } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { getSession } from "@/lib/auth-server";
 import { actualizarActa } from "@/lib/actions/actas";
 import { ActaForm } from "@/components/actas/acta-form";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export default async function EditarActaPage({ params }: Props) {
   const actaId = parseInt(id, 10);
   if (Number.isNaN(actaId)) notFound();
 
+  const session = await getSession();
   const [acta, integrantes, documentos, usuariosList, clientesList] = await Promise.all([
     db
       .select()
@@ -64,6 +66,9 @@ export default async function EditarActaPage({ params }: Props) {
 
   const actaRow = acta[0];
   if (!actaRow || actaRow.estado !== "borrador") notFound();
+  if (session?.user?.rol !== "admin" && actaRow.creadoPorId !== session?.user?.id) {
+    notFound();
+  }
 
   const actaClientes = await db
     .select({ clienteId: actasReunionClientes.clienteId })
@@ -76,6 +81,7 @@ export default async function EditarActaPage({ params }: Props) {
     fecha: formatDateForInput(actaRow.fecha),
     objetivo: actaRow.objetivo,
     contenido: actaRow.contenido,
+    compromisos: actaRow.compromisos,
     integrantes: integrantes.map((i) => ({
       nombre: i.nombre,
       email: i.email,

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 
 const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
@@ -190,10 +191,12 @@ export function FiltrosProcesos({
   const fieldClass = "min-w-0 w-full h-10";
 
   return (
-    <form
-      onSubmit={handleSubmitBusqueda}
-      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-x-4 gap-y-4 items-end bg-white border rounded-lg p-4 shadow-md"
-    >
+    <Card className="border-border/80 py-4">
+      <CardContent className="p-4 pt-0">
+        <form
+          onSubmit={handleSubmitBusqueda}
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-x-4 gap-y-4 items-end"
+        >
       <div className="flex flex-col gap-1.5">
         <Label
           htmlFor="filtro-contribuyente"
@@ -332,6 +335,8 @@ export function FiltrosProcesos({
           </Button>
         )}
       </div>
-    </form>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

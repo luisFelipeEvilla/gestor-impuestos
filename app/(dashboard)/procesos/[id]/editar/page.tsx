@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { procesos, impuestos, contribuyentes, usuarios, documentosProceso } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { getSession } from "@/lib/auth-server";
 import { actualizarProceso } from "@/lib/actions/procesos";
 import { ProcesoForm } from "@/components/procesos/proceso-form";
 import { SubirDocumentoForm, ListaDocumentos } from "@/components/procesos/documentos-proceso";
@@ -22,8 +23,14 @@ export default async function EditarProcesoPage({ params }: Props) {
   const id = parseInt(idStr, 10);
   if (Number.isNaN(id)) notFound();
 
+  const session = await getSession();
   const [proceso] = await db.select().from(procesos).where(eq(procesos.id, id));
   if (!proceso) notFound();
+  if (session?.user?.rol !== "admin") {
+    if (!session?.user?.id || proceso.asignadoAId !== session.user.id) {
+      notFound();
+    }
+  }
 
   const [impuestosList, contribuyentesList, usuariosList, documentosRows] = await Promise.all([
     db.select({ id: impuestos.id, nombre: impuestos.nombre, codigo: impuestos.codigo }).from(impuestos).where(eq(impuestos.activo, true)),

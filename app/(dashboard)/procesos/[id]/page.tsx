@@ -10,6 +10,7 @@ import {
   documentosProceso,
 } from "@/lib/db/schema";
 import { eq, desc, asc } from "drizzle-orm";
+import { getSession } from "@/lib/auth-server";
 import {
   Card,
   CardContent,
@@ -112,6 +113,13 @@ export default async function DetalleProcesoPage({ params }: Props) {
     .where(eq(procesos.id, id));
 
   if (!row) notFound();
+
+  const session = await getSession();
+  if (session?.user?.rol !== "admin") {
+    if (!session?.user?.id || row.asignadoAId !== session.user.id) {
+      notFound();
+    }
+  }
 
   const [historialRows, usuariosList, documentosRows] = await Promise.all([
     db

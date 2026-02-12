@@ -198,6 +198,8 @@ export const actasReunion = pgTable("actas_reunion", {
   fecha: date("fecha").notNull(),
   objetivo: text("objetivo").notNull(),
   contenido: text("contenido"),
+  /** Compromisos acordados en la reunión (contenido enriquecido, igual que contenido). */
+  compromisos: text("compromisos"),
   estado: estadoActaEnum("estado").notNull().default("borrador"),
   creadoPorId: integer("creado_por_id")
     .notNull()

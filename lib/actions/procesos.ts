@@ -10,6 +10,18 @@ import {
   enviarNotificacionCobroPorEmail,
   crearEvidenciaEnvio,
 } from "@/lib/notificaciones/resend";
+import { getSession } from "@/lib/auth-server";
+
+/** Solo admin o el usuario asignado al proceso pueden acceder. */
+function puedeAccederProceso(
+  rol: string | undefined,
+  usuarioId: number | undefined,
+  asignadoAId: number | null
+): boolean {
+  if (rol === "admin") return true;
+  if (usuarioId == null) return false;
+  return asignadoAId === usuarioId;
+}
 
 /** Años para prescripción: fecha límite = base (aplicación o ingreso a cobro coactivo) + este valor */
 const AÑOS_PRESCRIPCION = 5;
@@ -235,6 +247,7 @@ export async function actualizarProceso(
   } = parsed.data;
 
   try {
+    const session = await getSession();
     const [existing] = await db
       .select({
         estadoActual: procesos.estadoActual,
@@ -243,6 +256,9 @@ export async function actualizarProceso(
       .from(procesos)
       .where(eq(procesos.id, parsed.data.id));
     if (!existing) return { error: "Proceso no encontrado." };
+    if (!puedeAccederProceso(session?.user?.rol, session?.user?.id, existing.asignadoAId ?? null)) {
+      return { error: "No tienes permiso para editar este proceso." };
+    }
 
     const entraCobroCoactivo =
       existing.estadoActual !== estadoActual && estadoActual === "en_cobro_coactivo";
@@ -313,6 +329,15 @@ export async function eliminarProceso(formData: FormData): Promise<EstadoFormPro
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id) || id < 1) return { error: "ID inválido." };
   try {
+    const session = await getSession();
+    const [row] = await db
+      .select({ asignadoAId: procesos.asignadoAId })
+      .from(procesos)
+      .where(eq(procesos.id, id));
+    if (!row) return { error: "Proceso no encontrado." };
+    if (!puedeAccederProceso(session?.user?.rol, session?.user?.id, row.asignadoAId ?? null)) {
+      return { error: "No tienes permiso para eliminar este proceso." };
+    }
     const [deleted] = await db.delete(procesos).where(eq(procesos.id, id)).returning({ id: procesos.id });
     if (!deleted) return { error: "Proceso no encontrado." };
     revalidatePath("/procesos");
@@ -344,11 +369,15 @@ export async function cambiarEstadoProceso(
   if (!estadoValido) return { error: "Estado no válido." };
 
   try {
+    const session = await getSession();
     const [proceso] = await db
-      .select({ estadoActual: procesos.estadoActual })
+      .select({ estadoActual: procesos.estadoActual, asignadoAId: procesos.asignadoAId })
       .from(procesos)
       .where(eq(procesos.id, procesoId));
     if (!proceso) return { error: "Proceso no encontrado." };
+    if (!puedeAccederProceso(session?.user?.rol, session?.user?.id, proceso.asignadoAId ?? null)) {
+      return { error: "No tienes permiso para modificar este proceso." };
+    }
 
     if (
       nuevoEstado === "cobrado" &&
@@ -411,6 +440,10 @@ export async function asignarProceso(
   }
 
   try {
+    const session = await getSession();
+    if (session?.user?.rol !== "admin") {
+      return { error: "Solo un administrador puede asignar o reasignar procesos." };
+    }
     const [proceso] = await db
       .select({
         asignadoAId: procesos.asignadoAId,
@@ -480,8 +513,15 @@ export async function agregarNotaProceso(
   const categoriaNota = categoriaRaw as (typeof CATEGORIAS_NOTA)[number];
 
   try {
-    const [proceso] = await db.select({ id: procesos.id }).from(procesos).where(eq(procesos.id, procesoId));
+    const session = await getSession();
+    const [proceso] = await db
+      .select({ id: procesos.id, asignadoAId: procesos.asignadoAId })
+      .from(procesos)
+      .where(eq(procesos.id, procesoId));
     if (!proceso) return { error: "Proceso no encontrado." };
+    if (!puedeAccederProceso(session?.user?.rol, session?.user?.id, proceso.asignadoAId ?? null)) {
+      return { error: "No tienes permiso para agregar notas a este proceso." };
+    }
 
     await db.insert(historialProceso).values({
       procesoId,
@@ -510,8 +550,10 @@ export async function enviarNotificacion(formData: FormData): Promise<EstadoGest
 
 async function registrarNotificacion(procesoId: number): Promise<EstadoGestionProceso> {
   try {
+    const session = await getSession();
     const [row] = await db
       .select({
+        asignadoAId: procesos.asignadoAId,
         estadoActual: procesos.estadoActual,
         montoCop: procesos.montoCop,
         vigencia: procesos.vigencia,
@@ -527,6 +569,9 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
       .where(eq(procesos.id, procesoId));
 
     if (!row) return { error: "Proceso no encontrado." };
+    if (!puedeAccederProceso(session?.user?.rol, session?.user?.id, row.asignadoAId ?? null)) {
+      return { error: "No tienes permiso para notificar este proceso." };
+    }
 
     const historialNotif = await db
       .select({ tipoEvento: historialProceso.tipoEvento })

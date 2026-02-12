@@ -68,6 +68,9 @@ export default async function ActaDetallePage({ params }: Props) {
   const contenidoSanitizado = acta.contenido
     ? sanitizeHtmlForDisplay(acta.contenido)
     : null;
+  const compromisosSanitizado = acta.compromisos
+    ? sanitizeHtmlForDisplay(acta.compromisos)
+    : null;
 
   return (
     <div className="p-6 space-y-6">
@@ -112,15 +115,28 @@ export default async function ActaDetallePage({ params }: Props) {
             <p className="text-muted-foreground text-sm font-medium">Objetivo</p>
             <p className="mt-1">{acta.objetivo}</p>
           </div>
-          {contenidoSanitizado && (
-            <div>
-              <p className="text-muted-foreground text-sm font-medium">Contenido</p>
+          <div>
+            <p className="text-muted-foreground text-sm font-medium">Contenido</p>
+            {contenidoSanitizado ? (
               <div
                 className="mt-1 prose prose-sm max-w-none dark:prose-invert"
                 dangerouslySetInnerHTML={{ __html: contenidoSanitizado }}
               />
-            </div>
-          )}
+            ) : (
+              <p className="text-muted-foreground mt-1 text-sm italic">Sin contenido.</p>
+            )}
+          </div>
+          <div>
+            <p className="text-muted-foreground text-sm font-medium">Compromisos</p>
+            {compromisosSanitizado ? (
+              <div
+                className="mt-1 prose prose-sm max-w-none dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: compromisosSanitizado }}
+              />
+            ) : (
+              <p className="text-muted-foreground mt-1 text-sm italic">Sin compromisos.</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 

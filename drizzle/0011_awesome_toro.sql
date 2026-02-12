@@ -1,0 +1,1 @@
+ALTER TABLE "actas_reunion" ADD COLUMN "compromisos" text;

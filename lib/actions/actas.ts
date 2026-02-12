@@ -15,7 +15,7 @@ import {
   clientes,
 } from "@/lib/db/schema";
 import { generarFirmaAprobacion, verificarFirmaAprobacion } from "@/lib/actas-aprobacion";
-import { eq, and, desc, gte, lte } from "drizzle-orm";
+import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
 import { getSession, requireAdminSession } from "@/lib/auth-server";
 
 const estadoActaValues = ["borrador", "pendiente_aprobacion", "aprobada", "enviada"] as const;
@@ -24,6 +24,7 @@ const schemaCrear = z.object({
   fecha: z.string().min(1, "La fecha es obligatoria"),
   objetivo: z.string().min(1, "El objetivo es obligatorio").max(2000),
   contenido: z.string().max(50000).optional().or(z.literal("")),
+  compromisos: z.string().max(50000).optional().or(z.literal("")),
 });
 
 const schemaActualizar = schemaCrear.extend({
@@ -62,6 +63,7 @@ export type ActaDetalle = {
   fecha: Date;
   objetivo: string;
   contenido: string | null;
+  compromisos: string | null;
   estado: (typeof estadoActaValues)[number];
   creadoPorId: number;
   creadorNombre: string | null;
@@ -128,6 +130,18 @@ export async function obtenerActas(filtros?: {
     conditions.push(lte(actasReunion.fecha, filtros.fechaHasta));
   }
 
+  if (session.user.rol !== "admin") {
+    const actasDondeParticipa = await db
+      .selectDistinct({ actaId: actasIntegrantes.actaId })
+      .from(actasIntegrantes)
+      .where(eq(actasIntegrantes.usuarioId, session.user.id));
+    const actaIds = actasDondeParticipa.map((r) => r.actaId);
+    if (actaIds.length === 0) {
+      return [];
+    }
+    conditions.push(inArray(actasReunion.id, actaIds));
+  }
+
   const list = await db
     .select({
       id: actasReunion.id,
@@ -171,6 +185,7 @@ export async function obtenerActaParaPreviewParticipante(
   fecha: Date;
   objetivo: string;
   contenido: string | null;
+  compromisos: string | null;
   documentos: { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date }[];
 } | null> {
   if (!Number.isInteger(actaId) || actaId < 1) return null;
@@ -180,6 +195,7 @@ export async function obtenerActaParaPreviewParticipante(
       fecha: actasReunion.fecha,
       objetivo: actasReunion.objetivo,
       contenido: actasReunion.contenido,
+      compromisos: actasReunion.compromisos,
       estado: actasReunion.estado,
     })
     .from(actasReunion)
@@ -200,6 +216,7 @@ export async function obtenerActaParaPreviewParticipante(
     fecha: acta.fecha as unknown as Date,
     objetivo: acta.objetivo,
     contenido: acta.contenido,
+    compromisos: acta.compromisos,
     documentos: documentosRows.map((d) => ({
       id: d.id,
       nombreOriginal: d.nombreOriginal,
@@ -220,6 +237,7 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
       fecha: actasReunion.fecha,
       objetivo: actasReunion.objetivo,
       contenido: actasReunion.contenido,
+      compromisos: actasReunion.compromisos,
       estado: actasReunion.estado,
       creadoPorId: actasReunion.creadoPorId,
       aprobadoPorId: actasReunion.aprobadoPorId,
@@ -232,6 +250,21 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
     .where(eq(actasReunion.id, actaId));
 
   if (!acta) return null;
+
+  if (session.user.rol !== "admin") {
+    const [participa] = await db
+      .select({ id: actasIntegrantes.id })
+      .from(actasIntegrantes)
+      .where(
+        and(
+          eq(actasIntegrantes.actaId, actaId),
+          eq(actasIntegrantes.usuarioId, session.user.id)
+        )
+      );
+    if (!participa) {
+      return null;
+    }
+  }
 
   let aprobadoPorNombre: string | null = null;
   if (acta.aprobadoPorId) {
@@ -280,6 +313,7 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
     fecha: acta.fecha as unknown as Date,
     objetivo: acta.objetivo,
     contenido: acta.contenido,
+    compromisos: acta.compromisos,
     estado: acta.estado as (typeof estadoActaValues)[number],
     creadoPorId: acta.creadoPorId,
     creadorNombre: acta.creadorNombre,
@@ -315,10 +349,16 @@ export async function crearActa(
   const fechaStr = (formData.get("fecha") as string)?.trim();
   const objetivo = (formData.get("objetivo") as string)?.trim() ?? "";
   const contenido = (formData.get("contenido") as string)?.trim() || null;
+  const compromisos = (formData.get("compromisos") as string)?.trim() || null;
   const integrantesRaw = formData.get("integrantes");
   const clientesIdsRaw = formData.get("clientesIds");
 
-  const parsed = schemaCrear.safeParse({ fecha: fechaStr, objetivo, contenido: contenido ?? "" });
+  const parsed = schemaCrear.safeParse({
+    fecha: fechaStr,
+    objetivo,
+    contenido: contenido ?? "",
+    compromisos: compromisos ?? "",
+  });
   if (!parsed.success) {
     const flat = parsed.error.flatten();
     const errores = flat.fieldErrors as Record<string, string[] | undefined>;
@@ -341,6 +381,7 @@ export async function crearActa(
         fecha,
         objetivo: parsed.data.objetivo,
         contenido: contenido || null,
+        compromisos: compromisos || null,
         estado: "borrador",
         creadoPorId: session.user.id,
       })
@@ -400,6 +441,7 @@ export async function actualizarActa(
   const fechaStr = (formData.get("fecha") as string)?.trim();
   const objetivo = (formData.get("objetivo") as string)?.trim() ?? "";
   const contenido = (formData.get("contenido") as string)?.trim() || null;
+  const compromisos = (formData.get("compromisos") as string)?.trim() || null;
   const integrantesRaw = formData.get("integrantes");
   const clientesIdsRaw = formData.get("clientesIds");
 
@@ -408,6 +450,7 @@ export async function actualizarActa(
     fecha: fechaStr,
     objetivo,
     contenido: contenido ?? "",
+    compromisos: compromisos ?? "",
   });
   if (!parsed.success) {
     const flat = parsed.error.flatten();
@@ -426,12 +469,17 @@ export async function actualizarActa(
 
   try {
     const [existing] = await db
-      .select({ estado: actasReunion.estado })
+      .select({ estado: actasReunion.estado, creadoPorId: actasReunion.creadoPorId })
       .from(actasReunion)
       .where(eq(actasReunion.id, parsed.data.id));
     if (!existing) return { error: "Acta no encontrada." };
     if (existing.estado !== "borrador") {
       return { error: "Solo se pueden editar actas en estado borrador." };
+    }
+    const isCreador = existing.creadoPorId === session.user.id;
+    const isAdmin = session.user.rol === "admin";
+    if (!isCreador && !isAdmin) {
+      return { error: "No tienes permiso para editar este acta." };
     }
 
     await db
@@ -440,6 +488,7 @@ export async function actualizarActa(
         fecha,
         objetivo: parsed.data.objetivo,
         contenido: contenido || null,
+        compromisos: compromisos || null,
         actualizadoEn: new Date(),
       })
       .where(eq(actasReunion.id, parsed.data.id));
@@ -468,7 +517,7 @@ export async function actualizarActa(
       actaId: parsed.data.id,
       usuarioId: session.user.id,
       tipoEvento: "edicion",
-      metadata: { campos: ["fecha", "objetivo", "contenido", "integrantes", "clientes"] },
+      metadata: { campos: ["fecha", "objetivo", "contenido", "compromisos", "integrantes", "clientes"] },
     });
 
     revalidatePath("/actas");
@@ -597,6 +646,7 @@ export async function enviarActaPorCorreo(actaId: number): Promise<EstadoGestion
         fechaActa: acta.fecha,
         objetivo: acta.objetivo,
         contenidoHtml: acta.contenido ?? "",
+        compromisosHtml: acta.compromisos ?? undefined,
         enlaceActa: `/actas/${actaId}`,
         enlaceAprobarParticipante,
       });

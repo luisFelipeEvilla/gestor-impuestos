@@ -1,12 +1,14 @@
 /**
  * Template HTML para el envío del acta de reunión por correo.
- * Incluye fecha, objetivo, contenido (sanitizado) y enlace a la app.
+ * Incluye fecha, objetivo, contenido, compromisos (sanitizados) y enlace a la app.
  */
 export type DatosEmailActa = {
   nombreDestinatario: string;
   fechaActa: Date | string;
   objetivo: string;
   contenidoHtml: string;
+  /** Compromisos acordados (HTML). Opcional. */
+  compromisosHtml?: string;
   enlaceActa: string;
   /** Enlace para que el participante confirme que ha leído y aprobado el acta (URL completa). */
   enlaceAprobarParticipante?: string;
@@ -56,6 +58,10 @@ export function renderTemplateActa(datos: DatosEmailActa, baseUrl: string): stri
   const nombreSafe = escapeHtml(datos.nombreDestinatario);
   const contenidoTexto = sanitizeHtmlForEmail(datos.contenidoHtml);
   const contenidoSafe = escapeHtml(contenidoTexto);
+  const compromisosTexto = datos.compromisosHtml
+    ? sanitizeHtmlForEmail(datos.compromisosHtml)
+    : "";
+  const compromisosSafe = compromisosTexto ? escapeHtml(compromisosTexto) : "";
   const enlaceCompleto = baseUrl.replace(/\/$/, "") + datos.enlaceActa;
 
   return `
@@ -85,7 +91,7 @@ export function renderTemplateActa(datos: DatosEmailActa, baseUrl: string): stri
       </tr>
     </table>
     ${contenidoSafe ? `<div style="margin: 16px 0; padding: 12px; background: #f8fafc; border-radius: 6px; white-space: pre-wrap;">${contenidoSafe}</div>` : ""}
-    <p><a href="${escapeHtml(enlaceCompleto)}" style="color: #2563eb;">Ver acta completa en la aplicación</a></p>
+    ${compromisosSafe ? `<div style="margin: 16px 0;"><strong>Compromisos</strong></div><div style="margin: 8px 0 16px; padding: 12px; background: #f8fafc; border-radius: 6px; white-space: pre-wrap;">${compromisosSafe}</div>` : ""}
     ${datos.enlaceAprobarParticipante ? `<p style="margin-top: 16px;"><a href="${escapeHtml(datos.enlaceAprobarParticipante)}" style="display: inline-block; background: #2563eb; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; font-weight: 500;">Confirmar que he leído y aprobado este acta</a></p>` : ""}
     <p style="color: #64748b; font-size: 0.875rem; margin-top: 24px;">Este es un mensaje automático. Por favor no responda directamente a este correo.</p>
   </div>

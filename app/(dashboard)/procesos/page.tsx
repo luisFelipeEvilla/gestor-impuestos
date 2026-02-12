@@ -10,6 +10,7 @@ import {
   historialProceso,
 } from "@/lib/db/schema";
 import { desc, eq, and, or, ilike, inArray, sql } from "drizzle-orm";
+import { getSession } from "@/lib/auth-server";
 import {
   Card,
   CardContent,
@@ -56,6 +57,7 @@ type Props = {
 };
 
 export default async function ProcesosPage({ searchParams }: Props) {
+  const session = await getSession();
   const params = await searchParams;
   const estadoParam = params.estado;
   const vigenciaParam = params.vigencia;
@@ -120,6 +122,13 @@ export default async function ProcesosPage({ searchParams }: Props) {
   }
   if (idsConFechaAsignacion != null) {
     condiciones.push(inArray(procesos.id, idsConFechaAsignacion));
+  }
+  if (session?.user?.rol !== "admin") {
+    if (!session?.user?.id) {
+      condiciones.push(eq(procesos.id, -1));
+    } else {
+      condiciones.push(eq(procesos.asignadoAId, session.user.id));
+    }
   }
   const whereCond =
     condiciones.length > 0 ? and(...condiciones) : undefined;

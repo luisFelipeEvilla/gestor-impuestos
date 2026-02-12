@@ -161,6 +161,10 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
     acta.contenido && acta.contenido.trim() !== ""
       ? sanitizeHtmlForDisplay(acta.contenido)
       : null;
+  const compromisosSanitizado =
+    acta.compromisos && acta.compromisos.trim() !== ""
+      ? sanitizeHtmlForDisplay(acta.compromisos)
+      : null;
 
   function formatTamano(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -199,6 +203,17 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
                 />
               ) : (
                 <p className="text-muted-foreground mt-1 text-sm italic">Sin contenido.</p>
+              )}
+            </div>
+            <div>
+              <p className="text-muted-foreground text-sm font-medium">Compromisos</p>
+              {compromisosSanitizado ? (
+                <div
+                  className="mt-1 prose prose-sm max-w-none dark:prose-invert prose-p:my-2 prose-ul:my-2 prose-ol:my-2"
+                  dangerouslySetInnerHTML={{ __html: compromisosSanitizado }}
+                />
+              ) : (
+                <p className="text-muted-foreground mt-1 text-sm italic">Sin compromisos.</p>
               )}
             </div>
             {acta.documentos.length > 0 && (

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { documentosProceso, procesos } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { getSession } from "@/lib/auth-server";
 import {
   saveProcesoDocument,
   deleteProcesoDocument,
@@ -45,11 +46,17 @@ export async function subirDocumentoProceso(
   }
 
   try {
+    const session = await getSession();
     const [proceso] = await db
-      .select({ id: procesos.id })
+      .select({ id: procesos.id, asignadoAId: procesos.asignadoAId })
       .from(procesos)
       .where(eq(procesos.id, procesoId));
     if (!proceso) return { error: "Proceso no encontrado." };
+    const esAdmin = session?.user?.rol === "admin";
+    const esAsignado = session?.user?.id != null && proceso.asignadoAId === session.user.id;
+    if (!esAdmin && !esAsignado) {
+      return { error: "No tienes permiso para subir documentos a este proceso." };
+    }
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const storedFileName = await saveProcesoDocument(
@@ -98,11 +105,23 @@ export async function eliminarDocumentoProceso(
   }
 
   try {
+    const session = await getSession();
     const [doc] = await db
       .select({ id: documentosProceso.id, procesoId: documentosProceso.procesoId, rutaArchivo: documentosProceso.rutaArchivo })
       .from(documentosProceso)
       .where(eq(documentosProceso.id, docId));
     if (!doc) return { error: "Documento no encontrado." };
+    const [proceso] = await db
+      .select({ asignadoAId: procesos.asignadoAId })
+      .from(procesos)
+      .where(eq(procesos.id, doc.procesoId));
+    if (proceso) {
+      const esAdmin = session?.user?.rol === "admin";
+      const esAsignado = session?.user?.id != null && proceso.asignadoAId === session.user.id;
+      if (!esAdmin && !esAsignado) {
+        return { error: "No tienes permiso para eliminar documentos de este proceso." };
+      }
+    }
 
     await db.delete(documentosProceso).where(eq(documentosProceso.id, docId));
     try {

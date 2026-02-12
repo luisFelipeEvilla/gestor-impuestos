@@ -32,6 +32,7 @@ type ActaFormProps = {
     fecha: string;
     objetivo: string;
     contenido: string | null;
+    compromisos: string | null;
     integrantes: IntegranteItem[];
     clientesIds?: number[];
   } | null;
@@ -137,6 +138,14 @@ export function ActaForm({
             name="contenido"
             defaultValue={initialData?.contenido ?? ""}
             aria-invalid={!!state?.errores?.contenido}
+          />
+
+          <EditorContenido
+            name="compromisos"
+            label="Compromisos"
+            defaultValue={initialData?.compromisos ?? ""}
+            placeholder="Escribe los compromisos acordados (títulos, listas, etc.)..."
+            aria-invalid={!!state?.errores?.compromisos}
           />
 
           <div className="space-y-2">
