@@ -58,6 +58,7 @@ export const tipoEventoActaEnum = pgEnum("tipo_evento_acta", [
   "edicion",
   "envio_aprobacion",
   "aprobacion",
+  "rechazo_participante",
   "envio_correo",
 ]);
 
@@ -65,6 +66,13 @@ export const tipoEventoActaEnum = pgEnum("tipo_evento_acta", [
 export const tipoIntegranteActaEnum = pgEnum("tipo_integrante_acta", [
   "interno",
   "externo",
+]);
+
+/** Estado de seguimiento del compromiso del acta */
+export const estadoCompromisoActaEnum = pgEnum("estado_compromiso_acta", [
+  "pendiente",
+  "cumplido",
+  "no_cumplido",
 ]);
 
 // Tabla: usuarios
@@ -83,12 +91,38 @@ export const usuarios = pgTable("usuarios", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Tabla: cargos_empresa (cargos de empleados: Gerente general, Abogado, etc.)
+export const cargosEmpresa = pgTable("cargos_empresa", {
+  id: serial("id").primaryKey(),
+  nombre: text("nombre").notNull(),
+  orden: integer("orden").notNull().default(0),
+});
+
+// Tabla: empresa (datos de nuestra empresa – configuración única)
+export const empresa = pgTable("empresa", {
+  id: serial("id").primaryKey(),
+  nombre: text("nombre").notNull(),
+  tipoDocumento: tipoDocumentoEnum("tipo_documento").notNull().default("nit"),
+  numeroDocumento: text("numero_documento").notNull(),
+  direccion: text("direccion"),
+  telefonoContacto: text("telefono_contacto"),
+  numeroContacto: text("numero_contacto"),
+  /** Cargo que aparece en el espacio de firma del PDF del acta (ej. "Gerente general"). */
+  cargoFirmanteActas: text("cargo_firmante_actas"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // Tabla: clientes (ej. Secretaría de Tránsito, Secretaría de Hacienda)
 export const clientes = pgTable("clientes", {
   id: serial("id").primaryKey(),
   nombre: text("nombre").notNull(),
   codigo: text("codigo").unique(),
   descripcion: text("descripcion"),
+  /** Correo de contacto del cliente; al enviar actas por correo también se envía a este correo por defecto. */
+  emailContacto: text("email_contacto"),
+  /** Nombre del contacto (opcional, para personalizar el correo). */
+  nombreContacto: text("nombre_contacto"),
   activo: boolean("activo").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -245,7 +279,7 @@ export const actasIntegrantes = pgTable("actas_integrantes", {
   solicitarAprobacionCorreo: boolean("solicitar_aprobacion_correo").notNull().default(true),
 });
 
-// Tabla: compromisos_acta (compromisos individuales por acta: descripción, fecha límite, persona asignada)
+// Tabla: compromisos_acta (compromisos individuales por acta: descripción, fecha límite, persona asignada, seguimiento)
 export const compromisosActa = pgTable("compromisos_acta", {
   id: serial("id").primaryKey(),
   actaId: integer("acta_id")
@@ -265,9 +299,20 @@ export const compromisosActa = pgTable("compromisos_acta", {
     onDelete: "set null",
     onUpdate: "cascade",
   }),
+  /** Estado de seguimiento del compromiso. */
+  estado: estadoCompromisoActaEnum("estado").notNull().default("pendiente"),
+  /** Detalle u observación al actualizar el estado (motivo, comentario). */
+  detalleActualizacion: text("detalle_actualizacion"),
+  /** Fecha de la última actualización de estado. */
+  actualizadoEn: timestamp("actualizado_en", { withTimezone: true }),
+  /** Usuario que actualizó el estado por última vez. */
+  actualizadoPorId: integer("actualizado_por_id").references(() => usuarios.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
 });
 
-// Tabla: aprobaciones_acta_participante (confirmación de lectura/aprobación por participante tras envío)
+// Tabla: aprobaciones_acta_participante (respuesta del participante tras envío: aprobación o rechazo)
 export const aprobacionesActaParticipante = pgTable(
   "aprobaciones_acta_participante",
   {
@@ -281,6 +326,10 @@ export const aprobacionesActaParticipante = pgTable(
     aprobadoEn: timestamp("aprobado_en", { withTimezone: true }).defaultNow().notNull(),
     /** Ruta relativa de la foto enviada al aprobar (ej. actas/1/aprobaciones/uuid.jpg). */
     rutaFoto: text("ruta_foto"),
+    /** Si true, el participante rechazó el acta (en lugar de aprobarla). */
+    rechazado: boolean("rechazado").notNull().default(false),
+    /** Motivo del rechazo, cuando rechazado = true. */
+    motivoRechazo: text("motivo_rechazo"),
   },
   (t) => [unique("aprobaciones_acta_integrante_uniq").on(t.actaId, t.actaIntegranteId)]
 );
@@ -334,6 +383,10 @@ export const usuariosRelations = relations(usuarios, ({ many }) => ({
   actasCreadas: many(actasReunion),
   historialesActa: many(historialActa),
 }));
+
+export const cargosEmpresaRelations = relations(cargosEmpresa, () => ({}));
+
+export const empresaRelations = relations(empresa, () => ({}));
 
 export const clientesRelations = relations(clientes, ({ many }) => ({
   impuestos: many(impuestos),
@@ -398,6 +451,7 @@ export const compromisosActaRelations = relations(compromisosActa, ({ one }) => 
   acta: one(actasReunion),
   actaIntegrante: one(actasIntegrantes),
   clienteMiembro: one(clientesMiembros),
+  actualizadoPor: one(usuarios, { fields: [compromisosActa.actualizadoPorId], references: [usuarios.id] }),
 }));
 
 export const aprobacionesActaParticipanteRelations = relations(
@@ -420,6 +474,10 @@ export const historialActaRelations = relations(historialActa, ({ one }) => ({
 // Tipos inferidos para uso en la app
 export type Usuario = typeof usuarios.$inferSelect;
 export type NewUsuario = typeof usuarios.$inferInsert;
+export type CargoEmpresa = typeof cargosEmpresa.$inferSelect;
+export type NewCargoEmpresa = typeof cargosEmpresa.$inferInsert;
+export type Empresa = typeof empresa.$inferSelect;
+export type NewEmpresa = typeof empresa.$inferInsert;
 export type Cliente = typeof clientes.$inferSelect;
 export type NewCliente = typeof clientes.$inferInsert;
 export type ClienteMiembro = typeof clientesMiembros.$inferSelect;

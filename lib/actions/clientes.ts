@@ -11,6 +11,11 @@ const schemaCrear = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio").max(200),
   codigo: z.string().max(50).optional().or(z.literal("")),
   descripcion: z.string().max(500).optional().or(z.literal("")),
+  emailContacto: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.string().email("Correo de contacto inválido").optional()
+  ),
+  nombreContacto: z.string().max(200).optional().or(z.literal("")),
   activo: z.boolean().default(true),
 });
 
@@ -31,6 +36,8 @@ export async function crearCliente(
     nombre: formData.get("nombre"),
     codigo: formData.get("codigo") || undefined,
     descripcion: formData.get("descripcion") || undefined,
+    emailContacto: formData.get("emailContacto") || undefined,
+    nombreContacto: formData.get("nombreContacto") || undefined,
     activo: formData.get("activo") === "on",
   };
 
@@ -44,7 +51,7 @@ export async function crearCliente(
     };
   }
 
-  const { nombre, codigo, descripcion, activo } = parsed.data;
+  const { nombre, codigo, descripcion, emailContacto, nombreContacto, activo } = parsed.data;
 
   try {
     const [inserted] = await db
@@ -53,6 +60,8 @@ export async function crearCliente(
         nombre: nombre.trim(),
         codigo: codigo?.trim() || null,
         descripcion: descripcion?.trim() || null,
+        emailContacto: emailContacto?.trim() || null,
+        nombreContacto: nombreContacto?.trim() || null,
         activo,
       })
       .returning({ id: clientes.id });
@@ -90,6 +99,8 @@ export async function actualizarCliente(
     nombre: formData.get("nombre"),
     codigo: formData.get("codigo") || undefined,
     descripcion: formData.get("descripcion") || undefined,
+    emailContacto: formData.get("emailContacto") || undefined,
+    nombreContacto: formData.get("nombreContacto") || undefined,
     activo: formData.get("activo") === "on",
   };
 
@@ -103,7 +114,7 @@ export async function actualizarCliente(
     };
   }
 
-  const { nombre, codigo, descripcion, activo } = parsed.data;
+  const { nombre, codigo, descripcion, emailContacto, nombreContacto, activo } = parsed.data;
 
   try {
     const [updated] = await db
@@ -112,6 +123,8 @@ export async function actualizarCliente(
         nombre: nombre.trim(),
         codigo: codigo?.trim() || null,
         descripcion: descripcion?.trim() || null,
+        emailContacto: emailContacto?.trim() || null,
+        nombreContacto: nombreContacto?.trim() || null,
         activo,
         updatedAt: new Date(),
       })

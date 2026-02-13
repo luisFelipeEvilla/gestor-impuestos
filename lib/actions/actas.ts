@@ -207,7 +207,12 @@ export async function obtenerActaParaPreviewParticipante(
         descripcion: compromisosActa.descripcion,
         fechaLimite: compromisosActa.fechaLimite,
         nombreIntegrante: actasIntegrantes.nombre,
+        cargoIntegrante: actasIntegrantes.cargo,
         nombreClienteMiembro: clientesMiembros.nombre,
+        cargoClienteMiembro: clientesMiembros.cargo,
+        estado: compromisosActa.estado,
+        detalleActualizacion: compromisosActa.detalleActualizacion,
+        actualizadoEn: compromisosActa.actualizadoEn,
       })
       .from(compromisosActa)
       .leftJoin(actasIntegrantes, eq(compromisosActa.actaIntegranteId, actasIntegrantes.id))
@@ -225,6 +230,10 @@ export async function obtenerActaParaPreviewParticipante(
       descripcion: c.descripcion,
       fechaLimite: c.fechaLimite as Date | null,
       asignadoNombre: c.nombreIntegrante ?? c.nombreClienteMiembro ?? null,
+      asignadoCargo: c.cargoIntegrante ?? c.cargoClienteMiembro ?? null,
+      estado: (c.estado ?? "pendiente") as "pendiente" | "cumplido" | "no_cumplido",
+      detalleActualizacion: c.detalleActualizacion ?? null,
+      actualizadoEn: c.actualizadoEn as Date | null,
     })),
     documentos: documentosRows.map((d) => ({
       id: d.id,
@@ -315,7 +324,12 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
       descripcion: compromisosActa.descripcion,
       fechaLimite: compromisosActa.fechaLimite,
       nombreIntegrante: actasIntegrantes.nombre,
+      cargoIntegrante: actasIntegrantes.cargo,
       nombreClienteMiembro: clientesMiembros.nombre,
+      cargoClienteMiembro: clientesMiembros.cargo,
+      estado: compromisosActa.estado,
+      detalleActualizacion: compromisosActa.detalleActualizacion,
+      actualizadoEn: compromisosActa.actualizadoEn,
     })
     .from(compromisosActa)
     .leftJoin(actasIntegrantes, eq(compromisosActa.actaIntegranteId, actasIntegrantes.id))
@@ -343,6 +357,10 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
       descripcion: c.descripcion,
       fechaLimite: c.fechaLimite as Date | null,
       asignadoNombre: c.nombreIntegrante ?? c.nombreClienteMiembro ?? null,
+      asignadoCargo: c.cargoIntegrante ?? c.cargoClienteMiembro ?? null,
+      estado: (c.estado ?? "pendiente") as "pendiente" | "cumplido" | "no_cumplido",
+      detalleActualizacion: c.detalleActualizacion ?? null,
+      actualizadoEn: c.actualizadoEn as Date | null,
     })),
     estado: acta.estado as (typeof estadoActaValues)[number],
     creadoPorId: acta.creadoPorId,
@@ -738,39 +756,80 @@ export async function enviarActaPorCorreo(actaId: number): Promise<EstadoGestion
     const integrantesConEmail = acta.integrantes.filter(
       (i) => i.email?.trim() && i.solicitarAprobacionCorreo
     );
-    if (integrantesConEmail.length === 0) {
+
+    const contactosCliente = await db
+      .select({
+        emailContacto: clientes.emailContacto,
+        nombreContacto: clientes.nombreContacto,
+        nombreCliente: clientes.nombre,
+      })
+      .from(actasReunionClientes)
+      .innerJoin(clientes, eq(actasReunionClientes.clienteId, clientes.id))
+      .where(
+        and(
+          eq(actasReunionClientes.actaId, actaId),
+          eq(clientes.activo, true)
+        )
+      );
+
+    const contactosConEmail = contactosCliente.filter(
+      (c) => c.emailContacto?.trim()
+    );
+    const emailsIntegrantes = new Set(
+      integrantesConEmail.map((i) => i.email!.trim().toLowerCase())
+    );
+    const contactosDestino = contactosConEmail.filter(
+      (c) => !emailsIntegrantes.has(c.emailContacto!.trim().toLowerCase())
+    );
+
+    if (integrantesConEmail.length === 0 && contactosDestino.length === 0) {
       return {
         error:
-          "No hay integrantes con correo y solicitud de aprobación. Agrega asistentes y marca «Solicitar aprobación por correo» en quienes deban recibir el acta.",
+          "No hay destinatarios: agrega asistentes con «Solicitar aprobación por correo» y/o configura el correo de contacto en los clientes asociados al acta.",
       };
     }
 
     const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
     const baseUrlClean = baseUrl.replace(/\/$/, "");
 
+    const datosComunes = {
+      fechaActa: acta.fecha,
+      objetivo: acta.objetivo,
+      contenidoHtml: acta.contenido ?? "",
+      compromisosHtml:
+        acta.compromisosLista.length > 0
+          ? acta.compromisosLista
+              .map((c) => {
+                const fechaStr = c.fechaLimite
+                  ? new Date(c.fechaLimite).toLocaleDateString("es-CO", { dateStyle: "short" })
+                  : "—";
+                const asignado = c.asignadoNombre ?? "—";
+                return `${c.descripcion} — Fecha límite: ${fechaStr} — Asignado: ${asignado}`;
+              })
+              .join("\n")
+          : acta.compromisos ?? undefined,
+      enlaceActa: `/actas/${actaId}`,
+    };
+
     let enviados = 0;
     for (const inv of integrantesConEmail) {
       const firma = generarFirmaAprobacion(actaId, inv.id);
       const enlaceAprobarParticipante = `${baseUrlClean}/actas/aprobar-participante?acta=${actaId}&integrante=${inv.id}&firma=${firma}`;
       const resultado = await enviarActaPorEmail(inv.email, {
+        ...datosComunes,
         nombreDestinatario: inv.nombre,
-        fechaActa: acta.fecha,
-        objetivo: acta.objetivo,
-        contenidoHtml: acta.contenido ?? "",
-        compromisosHtml:
-          acta.compromisosLista.length > 0
-            ? acta.compromisosLista
-                .map((c) => {
-                  const fechaStr = c.fechaLimite
-                    ? new Date(c.fechaLimite).toLocaleDateString("es-CO", { dateStyle: "short" })
-                    : "—";
-                  const asignado = c.asignadoNombre ?? "—";
-                  return `${c.descripcion} — Fecha límite: ${fechaStr} — Asignado: ${asignado}`;
-                })
-                .join("\n")
-            : acta.compromisos ?? undefined,
-        enlaceActa: `/actas/${actaId}`,
         enlaceAprobarParticipante,
+      });
+      if (resultado.ok) enviados++;
+    }
+
+    for (const c of contactosDestino) {
+      const nombreDestinatario =
+        c.nombreContacto?.trim() || c.nombreCliente || "Contacto";
+      const resultado = await enviarActaPorEmail(c.emailContacto!.trim(), {
+        ...datosComunes,
+        nombreDestinatario,
+        enlaceAprobarParticipante: undefined,
       });
       if (resultado.ok) enviados++;
     }
@@ -784,7 +843,10 @@ export async function enviarActaPorCorreo(actaId: number): Promise<EstadoGestion
       actaId,
       usuarioId: session.user.id,
       tipoEvento: "envio_correo",
-      metadata: { destinatarios: enviados, total: integrantesConEmail.length },
+      metadata: {
+        destinatarios: enviados,
+        total: integrantesConEmail.length + contactosDestino.length,
+      },
     });
 
     revalidatePath("/actas");
@@ -857,11 +919,13 @@ export async function yaAprobadoParticipante(
 
 /**
  * Action para formulario de aprobación desde la vista previa: registra la aprobación sin foto; redirige con aprobado=1 o error=1.
+ * Acepta (formData) o (prev, formData) según cómo se invoque el form.
  */
 export async function aprobarParticipanteFromPreviewAction(
-  _prev: unknown,
-  formData: FormData
+  prevOrFormData: unknown,
+  formDataArg?: FormData
 ): Promise<void> {
+  const formData = formDataArg instanceof FormData ? formDataArg : (prevOrFormData as FormData);
   const actaId = Number(formData.get("actaId"));
   const integranteId = Number(formData.get("integranteId"));
   const firma = (formData.get("firma") as string) ?? "";
@@ -923,6 +987,7 @@ export async function registrarAprobacionParticipante(
         actaId,
         actaIntegranteId: integranteId,
         rutaFoto: rutaFoto?.trim() || null,
+        rechazado: false,
       })
       .onConflictDoNothing({
         target: [
@@ -935,6 +1000,127 @@ export async function registrarAprobacionParticipante(
     console.error(err);
     return { error: "Error al registrar la aprobación." };
   }
+}
+
+/**
+ * Registra el rechazo de un participante (con motivo).
+ * Misma validación de firma y estado que la aprobación.
+ */
+export async function registrarRechazoParticipante(
+  actaId: number,
+  integranteId: number,
+  firma: string,
+  motivoRechazo: string
+): Promise<{ error?: string }> {
+  if (!Number.isInteger(actaId) || actaId < 1 || !Number.isInteger(integranteId) || integranteId < 1) {
+    return { error: "Enlace inválido." };
+  }
+  if (!verificarFirmaAprobacion(actaId, integranteId, firma)) {
+    return { error: "Enlace inválido o expirado." };
+  }
+  try {
+    const [acta] = await db
+      .select({ estado: actasReunion.estado })
+      .from(actasReunion)
+      .where(eq(actasReunion.id, actaId));
+    if (!acta || acta.estado !== "enviada") {
+      return { error: "Enlace inválido o expirado." };
+    }
+    const [integrante] = await db
+      .select({ id: actasIntegrantes.id })
+      .from(actasIntegrantes)
+      .where(
+        and(
+          eq(actasIntegrantes.actaId, actaId),
+          eq(actasIntegrantes.id, integranteId)
+        )
+      );
+    if (!integrante) {
+      return { error: "Enlace inválido o expirado." };
+    }
+    await db
+      .insert(aprobacionesActaParticipante)
+      .values({
+        actaId,
+        actaIntegranteId: integranteId,
+        rechazado: true,
+        motivoRechazo: motivoRechazo.trim() || null,
+      })
+      .onConflictDoNothing({
+        target: [
+          aprobacionesActaParticipante.actaId,
+          aprobacionesActaParticipante.actaIntegranteId,
+        ],
+      });
+    await db.insert(historialActa).values({
+      actaId,
+      usuarioId: null,
+      tipoEvento: "rechazo_participante",
+      metadata: { actaIntegranteId: integranteId, motivo: motivoRechazo.trim() || null },
+    });
+    return {};
+  } catch (err) {
+    console.error(err);
+    return { error: "Error al registrar el rechazo." };
+  }
+}
+
+/**
+ * Action para formulario de rechazo desde la vista previa.
+ * Acepta (formData) o (prev, formData) según cómo se invoque el form.
+ */
+export async function rechazarParticipanteFromPreviewAction(
+  prevOrFormData: unknown,
+  formDataArg?: FormData
+): Promise<void> {
+  const formData = formDataArg instanceof FormData ? formDataArg : (prevOrFormData as FormData);
+  const actaId = Number(formData.get("actaId"));
+  const integranteId = Number(formData.get("integranteId"));
+  const firma = (formData.get("firma") as string) ?? "";
+  const motivoRechazo = (formData.get("motivoRechazo") as string) ?? "";
+  const base = "/actas/aprobar-participante";
+  const query = `acta=${actaId}&integrante=${integranteId}&firma=${encodeURIComponent(firma.trim())}`;
+
+  const result = await registrarRechazoParticipante(
+    actaId,
+    integranteId,
+    firma.trim(),
+    motivoRechazo
+  );
+  if (result.error) {
+    redirect(`${base}?${query}&error=1`);
+  }
+  redirect(`${base}?${query}&rechazado=1`);
+}
+
+/**
+ * Devuelve si el participante ya respondió (aprobó o rechazó) y en su caso el tipo y motivo.
+ */
+export async function obtenerRespuestaParticipante(
+  actaId: number,
+  integranteId: number
+): Promise<{ respondido: boolean; rechazado?: boolean; motivoRechazo?: string | null }> {
+  if (!Number.isInteger(actaId) || actaId < 1 || !Number.isInteger(integranteId) || integranteId < 1) {
+    return { respondido: false };
+  }
+  const [row] = await db
+    .select({
+      rechazado: aprobacionesActaParticipante.rechazado,
+      motivoRechazo: aprobacionesActaParticipante.motivoRechazo,
+    })
+    .from(aprobacionesActaParticipante)
+    .where(
+      and(
+        eq(aprobacionesActaParticipante.actaId, actaId),
+        eq(aprobacionesActaParticipante.actaIntegranteId, integranteId)
+      )
+    );
+  if (!row) return { respondido: false };
+  return {
+    respondido: true,
+    rechazado: row.rechazado,
+    motivoRechazo: row.motivoRechazo ?? null,
+  };
 }
 
 /**
@@ -953,6 +1139,8 @@ export async function obtenerAprobacionesPorActa(
       cargo: actasIntegrantes.cargo,
       aprobadoEn: aprobacionesActaParticipante.aprobadoEn,
       rutaFoto: aprobacionesActaParticipante.rutaFoto,
+      rechazado: aprobacionesActaParticipante.rechazado,
+      motivoRechazo: aprobacionesActaParticipante.motivoRechazo,
     })
     .from(actasIntegrantes)
     .leftJoin(
@@ -970,6 +1158,8 @@ export async function obtenerAprobacionesPorActa(
     cargo: r.cargo ?? null,
     aprobadoEn: r.aprobadoEn ?? null,
     rutaFoto: r.rutaFoto ?? null,
+    rechazado: r.rechazado ?? false,
+    motivoRechazo: r.motivoRechazo ?? null,
   }));
 }
 

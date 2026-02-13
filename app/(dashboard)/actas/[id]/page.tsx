@@ -143,7 +143,33 @@ export default async function ActaDetallePage({ params }: Props) {
                           Asignado: {c.asignadoNombre}
                         </>
                       )}
+                      {c.estado != null && (
+                        <>
+                          {" · "}
+                          Estado:{" "}
+                          <span
+                            className={
+                              c.estado === "cumplido"
+                                ? "text-green-600 dark:text-green-400"
+                                : c.estado === "no_cumplido"
+                                  ? "text-destructive"
+                                  : undefined
+                            }
+                          >
+                            {c.estado === "pendiente"
+                              ? "Pendiente"
+                              : c.estado === "cumplido"
+                                ? "Cumplido"
+                                : "No cumplido"}
+                          </span>
+                        </>
+                      )}
                     </p>
+                    {c.detalleActualizacion && (
+                      <p className="text-muted-foreground mt-1 text-xs italic">
+                        {c.detalleActualizacion}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -208,7 +234,7 @@ export default async function ActaDetallePage({ params }: Props) {
                           <span className="text-muted-foreground ml-1">
                             {inv.email}
                           </span>
-                          {tipo === "externo" && inv.cargo && (
+                          {inv.cargo && (
                             <span className="text-muted-foreground ml-1">
                               · {inv.cargo}
                             </span>
@@ -251,18 +277,31 @@ export default async function ActaDetallePage({ params }: Props) {
                   </span>
                   <span
                     className={
-                      item.aprobadoEn
-                        ? "text-muted-foreground text-xs"
-                        : "text-muted-foreground/70 text-xs italic"
+                      item.rechazado
+                        ? "text-destructive text-xs"
+                        : item.aprobadoEn
+                          ? "text-muted-foreground text-xs"
+                          : "text-muted-foreground/70 text-xs italic"
                     }
                   >
-                    {item.aprobadoEn
-                      ? `Aprobado el ${new Date(item.aprobadoEn).toLocaleDateString("es-CO", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                        })}`
-                      : "Pendiente"}
+                    {item.rechazado ? (
+                      <span>
+                        Rechazado
+                        {item.motivoRechazo && (
+                          <span className="block mt-1 font-normal text-muted-foreground max-w-md">
+                            {item.motivoRechazo}
+                          </span>
+                        )}
+                      </span>
+                    ) : item.aprobadoEn ? (
+                      `Aprobado el ${new Date(item.aprobadoEn).toLocaleDateString("es-CO", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}`
+                    ) : (
+                      "Pendiente"
+                    )}
                   </span>
                 </li>
               ))}

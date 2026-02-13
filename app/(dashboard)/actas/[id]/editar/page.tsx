@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { actualizarActa } from "@/lib/actions/actas";
 import { obtenerMiembrosPorClientes } from "@/lib/actions/clientes-miembros";
+import { listarCargosEmpresa } from "@/lib/actions/cargos-empresa";
 import { ActaForm } from "@/components/actas/acta-form";
 import { Button } from "@/components/ui/button";
 import { SubirDocumentoActaForm, ListaDocumentosActa } from "@/components/actas/documentos-acta";
@@ -90,7 +91,10 @@ export default async function EditarActaPage({ params }: Props) {
   const clientesIds = actaClientes.map((r) => r.clienteId);
 
   const allClienteIds = clientesList.map((c) => c.id);
-  const clientesMiembrosList = await obtenerMiembrosPorClientes(allClienteIds);
+  const [clientesMiembrosList, cargosEmpresa] = await Promise.all([
+    obtenerMiembrosPorClientes(allClienteIds),
+    listarCargosEmpresa(),
+  ]);
 
   const compromisosInitial = compromisosRows.map((c) => {
     const foundIndex =
@@ -118,7 +122,7 @@ export default async function EditarActaPage({ params }: Props) {
       nombre: i.nombre,
       email: i.email,
       usuarioId: i.usuarioId ?? undefined,
-      tipo: (i.usuarioId ? "interno" : (i.tipo ?? "externo")) as "interno" | "externo",
+      tipo: (i.tipo ?? (i.usuarioId ? "interno" : "externo")) as "interno" | "externo",
       cargo: i.cargo ?? undefined,
       solicitarAprobacionCorreo: i.solicitarAprobacionCorreo ?? true,
     })),
@@ -138,6 +142,7 @@ export default async function EditarActaPage({ params }: Props) {
           submitLabel="Guardar cambios"
           usuarios={usuariosList}
           clientes={clientesList}
+          cargosEmpresa={cargosEmpresa}
           clientesMiembros={clientesMiembrosList}
           initialData={initialData}
         />

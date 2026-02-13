@@ -40,6 +40,11 @@ export type CompromisoDetalle = {
   descripcion: string;
   fechaLimite: Date | null;
   asignadoNombre: string | null;
+  /** Cargo de la persona asignada (integrante o miembro del cliente). */
+  asignadoCargo: string | null;
+  estado?: "pendiente" | "cumplido" | "no_cumplido";
+  detalleActualizacion?: string | null;
+  actualizadoEn?: Date | null;
 };
 
 export type ActaDetalle = {
@@ -90,4 +95,8 @@ export type AprobacionParticipanteItem = {
   cargo: string | null;
   aprobadoEn: Date | null;
   rutaFoto: string | null;
+  /** Si el participante rechazó el acta. */
+  rechazado: boolean;
+  /** Motivo del rechazo, cuando rechazado = true. */
+  motivoRechazo: string | null;
 };

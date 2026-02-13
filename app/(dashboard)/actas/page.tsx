@@ -77,7 +77,10 @@ export default async function ActasPage({ searchParams }: Props) {
             ))}
           </div>
         </div>
-        <div className="flex justify-end w-full">
+        <div className="flex justify-end w-full gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/actas/compromisos">Gestión de compromisos</Link>
+          </Button>
           <Button asChild>
             <Link href="/actas/nuevo">Nueva acta</Link>
           </Button>

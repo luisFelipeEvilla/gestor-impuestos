@@ -5,6 +5,7 @@ const LABEL_TIPO_EVENTO: Record<string, string> = {
   edicion: "Edición",
   envio_aprobacion: "Enviado a aprobación",
   aprobacion: "Aprobado",
+  rechazo_participante: "Rechazo de participante",
   envio_correo: "Correo enviado",
 };
 

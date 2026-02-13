@@ -83,6 +83,35 @@ export function ClienteForm({ action, initialData, submitLabel }: ClienteFormPro
               placeholder="Breve descripción del cliente"
             />
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="emailContacto">Correo de contacto (opcional)</Label>
+              <Input
+                id="emailContacto"
+                name="emailContacto"
+                type="email"
+                defaultValue={initialData?.emailContacto ?? ""}
+                placeholder="contacto@cliente.com"
+                aria-invalid={!!state?.errores?.emailContacto}
+              />
+              <p className="text-muted-foreground text-xs">
+                Al enviar actas por correo, este correo recibirá una copia por defecto.
+              </p>
+              {state?.errores?.emailContacto && (
+                <p className="text-destructive text-xs">{state.errores.emailContacto[0]}</p>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="nombreContacto">Nombre del contacto (opcional)</Label>
+              <Input
+                id="nombreContacto"
+                name="nombreContacto"
+                defaultValue={initialData?.nombreContacto ?? ""}
+                placeholder="Ej. Juan Pérez"
+                aria-invalid={!!state?.errores?.nombreContacto}
+              />
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <input
               type="checkbox"

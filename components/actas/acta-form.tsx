@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 type UsuarioOption = { id: number; nombre: string; email: string };
 type ClienteOption = { id: number; nombre: string; codigo: string | null };
 type ClienteMiembroOption = { id: number; clienteId: number; nombre: string; email: string; cargo: string | null };
+type CargoOption = { id: number; nombre: string };
 
 type ActaFormProps = {
   action: (
@@ -29,6 +30,8 @@ type ActaFormProps = {
   submitLabel: string;
   usuarios: UsuarioOption[];
   clientes: ClienteOption[];
+  /** Cargos de la empresa para asignar a integrantes internos (ej. Gerente general, Abogado). */
+  cargosEmpresa?: CargoOption[];
   /** Miembros de clientes (para asignar compromisos a miembros del cliente). */
   clientesMiembros?: ClienteMiembroOption[];
   initialData?: {
@@ -53,6 +56,7 @@ export function ActaForm({
   submitLabel,
   usuarios,
   clientes: clientesList,
+  cargosEmpresa = [],
   clientesMiembros = [],
   initialData,
 }: ActaFormProps) {
@@ -198,6 +202,7 @@ export function ActaForm({
           <IntegrantesActa
             integrantes={integrantes}
             usuarios={usuarios}
+            cargosEmpresa={cargosEmpresa}
             clientesMiembros={clientesMiembros}
             clientesIds={clientesIds}
             onChange={setIntegrantes}

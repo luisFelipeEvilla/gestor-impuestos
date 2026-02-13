@@ -10,6 +10,7 @@ import {
   Receipt,
   FileText,
   Users,
+  Building,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ const navItems: {
   { href: "/clientes", label: "Clientes", icon: Briefcase },
   { href: "/impuestos", label: "Impuestos", icon: Receipt },
   { href: "/actas", label: "Actas", icon: FileText },
+  { href: "/empresa", label: "Empresa", icon: Building, adminOnly: true },
   { href: "/usuarios", label: "Usuarios", icon: Users, adminOnly: true },
 ];
 

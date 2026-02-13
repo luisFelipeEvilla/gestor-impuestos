@@ -72,6 +72,20 @@ export default async function DetalleClientePage({ params }: Props) {
                 <dd>{cliente.descripcion}</dd>
               </div>
             )}
+            {(cliente.emailContacto ?? cliente.nombreContacto) && (
+              <div>
+                <dt className="text-muted-foreground">Contacto</dt>
+                <dd>
+                  {cliente.nombreContacto && <span className="font-medium">{cliente.nombreContacto}</span>}
+                  {cliente.nombreContacto && cliente.emailContacto && " · "}
+                  {cliente.emailContacto && (
+                    <a href={`mailto:${cliente.emailContacto}`} className="text-primary hover:underline">
+                      {cliente.emailContacto}
+                    </a>
+                  )}
+                </dd>
+              </div>
+            )}
             <div>
               <dt className="text-muted-foreground">Estado</dt>
               <dd>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
+import { FileDown } from "lucide-react";
 import {
   enviarActaAprobacionAction,
   aprobarActaAction,
@@ -42,6 +43,16 @@ export function BotonesActa({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      <Button asChild variant="outline" size="sm" aria-label="Descargar acta en PDF">
+        <a
+          href={`/api/actas/${actaId}/pdf`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <FileDown className="mr-1.5 size-4" />
+          Descargar PDF
+        </a>
+      </Button>
       {puedeEditar && (
         <Button asChild variant="secondary" size="sm">
           <Link href={`/actas/${actaId}/editar`}>Editar</Link>

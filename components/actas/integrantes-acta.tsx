@@ -11,7 +11,7 @@ export type IntegranteItem = {
   email: string;
   usuarioId?: number;
   tipo: "interno" | "externo";
-  /** Cargo del asistente; aplica a integrantes externos. */
+  /** Cargo del asistente (internos: Gerente general, Abogado, etc.; externos: texto libre). */
   cargo?: string;
   /** Si true, al enviar el acta por correo se le solicita aprobación a este asistente. */
   solicitarAprobacionCorreo?: boolean;
@@ -19,10 +19,13 @@ export type IntegranteItem = {
 
 type UsuarioOption = { id: number; nombre: string; email: string };
 type ClienteMiembroOption = { id: number; clienteId: number; nombre: string; email: string; cargo: string | null };
+type CargoOption = { id: number; nombre: string };
 
 type IntegrantesActaProps = {
   integrantes: IntegranteItem[];
   usuarios: UsuarioOption[];
+  /** Cargos de la empresa para asignar a internos (ej. Gerente general, Abogado). */
+  cargosEmpresa?: CargoOption[];
   /** Miembros de los clientes que participan en el acta (para agregar como externos). */
   clientesMiembros?: ClienteMiembroOption[];
   /** IDs de clientes asociados al acta; se filtran los miembros por estos. */
@@ -34,6 +37,7 @@ type IntegrantesActaProps = {
 export function IntegrantesActa({
   integrantes,
   usuarios,
+  cargosEmpresa = [],
   clientesMiembros = [],
   clientesIds = [],
   onChange,
@@ -42,6 +46,9 @@ export function IntegrantesActa({
   const [manualNombre, setManualNombre] = useState("");
   const [manualEmail, setManualEmail] = useState("");
   const [manualCargo, setManualCargo] = useState("");
+  const [cargoParaNuevoInterno, setCargoParaNuevoInterno] = useState(
+    () => cargosEmpresa[0]?.nombre ?? ""
+  );
 
   const handleAgregarUsuario = useCallback(
     (usuarioId: number) => {
@@ -55,11 +62,25 @@ export function IntegrantesActa({
           email: u.email,
           usuarioId: u.id,
           tipo: "interno" as const,
+          cargo: cargoParaNuevoInterno.trim() || undefined,
           solicitarAprobacionCorreo: true,
         },
       ]);
     },
-    [integrantes, usuarios, onChange]
+    [integrantes, usuarios, onChange, cargoParaNuevoInterno]
+  );
+
+  const handleCargoInternoChange = useCallback(
+    (integranteIndex: number, cargo: string) => {
+      if (integranteIndex < 0 || integranteIndex >= integrantes.length) return;
+      const next = [...integrantes];
+      next[integranteIndex] = {
+        ...next[integranteIndex],
+        cargo: cargo.trim() || undefined,
+      };
+      onChange(next);
+    },
+    [integrantes, onChange]
   );
 
   const handleAgregarManual = useCallback(() => {
@@ -134,9 +155,31 @@ export function IntegrantesActa({
       <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-3">
         <h3 className="text-sm font-semibold">Miembros de nuestra empresa</h3>
         <p className="text-muted-foreground text-xs">
-          Agrega empleados o usuarios del sistema que asisten a la reunión.
+          Agrega empleados o usuarios del sistema que asisten a la reunión. Asigna un cargo (ej. Gerente general, Abogado).
         </p>
         <div className="flex flex-wrap items-end gap-2">
+          {cargosEmpresa.length > 0 && (
+            <div className="grid min-w-[160px] gap-1.5">
+              <Label htmlFor="cargoNuevoInterno" className="text-xs">
+                Cargo (para el siguiente)
+              </Label>
+              <select
+                id="cargoNuevoInterno"
+                value={cargoParaNuevoInterno}
+                onChange={(e) => setCargoParaNuevoInterno(e.target.value)}
+                disabled={disabled}
+                className="border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                aria-label="Cargo del próximo integrante interno"
+              >
+                <option value="">Sin cargo</option>
+                {cargosEmpresa.map((c) => (
+                  <option key={c.id} value={c.nombre}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="grid flex-1 min-w-[200px] gap-1.5">
             <Label htmlFor="usuarioId" className="text-xs">
               Agregar interno
@@ -167,6 +210,23 @@ export function IntegrantesActa({
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <strong>{inv.nombre}</strong>
                     <span className="text-muted-foreground">{inv.email}</span>
+                    {cargosEmpresa.length > 0 && !disabled ? (
+                      <select
+                        value={inv.cargo ?? ""}
+                        onChange={(e) => handleCargoInternoChange(index, e.target.value)}
+                        className="border-input bg-muted/50 text-muted-foreground ml-1 h-7 rounded border px-2 text-xs"
+                        aria-label={`Cargo de ${inv.nombre}`}
+                      >
+                        <option value="">Sin cargo</option>
+                        {cargosEmpresa.map((c) => (
+                          <option key={c.id} value={c.nombre}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    ) : inv.cargo ? (
+                      <span className="text-muted-foreground text-xs">· {inv.cargo}</span>
+                    ) : null}
                   </span>
                   <span className="flex items-center gap-3">
                     {!disabled && (
