@@ -90,27 +90,24 @@ export function ActaForm({
   };
 
   return (
-    <form action={formAction} onSubmit={handleSubmit}>
+    <form action={formAction} onSubmit={handleSubmit} className="space-y-6">
+      {state?.error && (
+        <p className="text-destructive text-sm" role="alert">
+          {state.error}
+        </p>
+      )}
+      {initialData?.id != null && (
+        <input type="hidden" name="id" value={String(initialData.id)} readOnly aria-hidden />
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>{initialData ? "Editar acta" : "Nueva acta"}</CardTitle>
+          <CardTitle>Objetivo y contenido</CardTitle>
           <CardDescription>
-            {initialData
-              ? "Modifica los datos del acta de reunión."
-              : "Registra un nuevo acta de reunión."}
+            Fecha, objetivo de la reunión y desarrollo o notas.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {state?.error && (
-            <p className="text-destructive text-sm" role="alert">
-              {state.error}
-            </p>
-          )}
-
-          {initialData?.id != null && (
-            <input type="hidden" name="id" value={String(initialData.id)} readOnly aria-hidden />
-          )}
-
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="fecha">Fecha</Label>
@@ -129,9 +126,8 @@ export function ActaForm({
                 <p className="text-destructive text-xs">{state.errores.fecha[0]}</p>
               )}
             </div>
-
-            <div className="grid gap-2 col-span-2">
-              <Label htmlFor="objetivo">Objetivo Específico</Label>
+            <div className="grid gap-2 sm:col-span-2">
+              <Label htmlFor="objetivo">Objetivo específico</Label>
               <Input
                 id="objetivo"
                 name="objetivo"
@@ -148,32 +144,26 @@ export function ActaForm({
               )}
             </div>
           </div>
-
           <EditorContenido
             name="contenido"
             defaultValue={initialData?.contenido ?? ""}
             aria-invalid={!!state?.errores?.contenido}
           />
+        </CardContent>
+      </Card>
 
-          <CompromisosActa
-            compromisos={compromisos}
-            integrantes={integrantes.map((i) => ({ nombre: i.nombre, email: i.email }))}
-            clientesMiembros={clientesMiembros}
-            clientesIds={clientesIds}
-            onChange={setCompromisos}
-          />
-          <input
-            type="hidden"
-            name="compromisos"
-            value=""
-            readOnly
-            aria-hidden
-          />
-
+      <Card>
+        <CardHeader>
+          <CardTitle>Participantes</CardTitle>
+          <CardDescription>
+            Clientes que participan en el acta y asistentes de la reunión (internos y externos).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
           <div className="space-y-2">
-            <Label>Clientes asociados</Label>
+            <Label>Clientes que participan en el acta</Label>
             <p className="text-muted-foreground text-sm">
-              Opcional. Selecciona uno o más clientes relacionados con esta acta.
+              Selecciona uno o más clientes. Después podrás agregar asistentes.
             </p>
             {clientesList.length === 0 ? (
               <p className="text-muted-foreground text-sm">No hay clientes activos. Crea uno en Clientes.</p>
@@ -199,26 +189,61 @@ export function ActaForm({
           </div>
           <input type="hidden" name="clientesIds" value="" readOnly aria-hidden />
 
-          <IntegrantesActa
-            integrantes={integrantes}
-            usuarios={usuarios}
-            cargosEmpresa={cargosEmpresa}
-            clientesMiembros={clientesMiembros}
-            clientesIds={clientesIds}
-            onChange={setIntegrantes}
-          />
-
-          <input
-            type="hidden"
-            name="integrantes"
-            value=""
-            readOnly
-            aria-hidden
-          />
-
-          <Button type="submit">{submitLabel}</Button>
+          <div
+            className={cn(
+              "space-y-3 transition-opacity",
+              clientesIds.length === 0 && "opacity-60 pointer-events-none"
+            )}
+            aria-disabled={clientesIds.length === 0}
+          >
+            {clientesIds.length === 0 && (
+              <p className="text-muted-foreground text-sm font-medium">
+                Selecciona al menos un cliente arriba para desbloquear los asistentes.
+              </p>
+            )}
+            <IntegrantesActa
+              integrantes={integrantes}
+              usuarios={usuarios}
+              cargosEmpresa={cargosEmpresa}
+              clientesMiembros={clientesMiembros}
+              clientesIds={clientesIds}
+              onChange={setIntegrantes}
+              disabled={clientesIds.length === 0}
+            />
+          </div>
         </CardContent>
       </Card>
+      <input type="hidden" name="integrantes" value="" readOnly aria-hidden />
+
+      <Card
+        className={cn(
+          "transition-opacity",
+          integrantes.length === 0 && "opacity-60 pointer-events-none"
+        )}
+        aria-disabled={integrantes.length === 0}
+      >
+        <CardHeader>
+          <CardTitle>Compromisos</CardTitle>
+          <CardDescription>
+            {integrantes.length === 0
+              ? "Agrega al menos un asistente en la card de Participantes para desbloquear esta sección."
+              : "Registra los compromisos pactados y asigna responsables."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CompromisosActa
+            compromisos={compromisos}
+            integrantes={integrantes.map((i) => ({ nombre: i.nombre, email: i.email }))}
+            clientesMiembros={clientesMiembros}
+            clientesIds={clientesIds}
+            onChange={setCompromisos}
+            disabled={integrantes.length === 0}
+          />
+        </CardContent>
+      </Card>
+      <input type="hidden" name="compromisos" value="" readOnly aria-hidden />
+
+      <Button type="submit">{submitLabel}</Button>
     </form>
   );
 }

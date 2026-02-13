@@ -98,85 +98,98 @@ export default async function ActaDetallePage({ params }: Props) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Datos del acta</CardTitle>
+          <CardTitle>Objetivo</CardTitle>
           <CardDescription>
             Creado por {acta.creadorNombre ?? "—"}
             {acta.aprobadoPorNombre && ` · Aprobado por ${acta.aprobadoPorNombre}`}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <p className="text-muted-foreground text-sm font-medium">Objetivo</p>
-            <p className="mt-1">{acta.objetivo}</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-sm font-medium">Contenido</p>
-            {contenidoSanitizado ? (
-              <div
-                className="mt-1 prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: contenidoSanitizado }}
-              />
-            ) : (
-              <p className="text-muted-foreground mt-1 text-sm italic">Sin contenido.</p>
-            )}
-          </div>
-          <div>
-            <p className="text-muted-foreground text-sm font-medium">Compromisos</p>
-            {acta.compromisosLista.length > 0 ? (
-              <ul className="mt-2 space-y-3" role="list">
-                {acta.compromisosLista.map((c) => (
-                  <li
-                    key={c.id}
-                    className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
-                  >
-                    <p className="font-medium">{c.descripcion}</p>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      Fecha límite:{" "}
-                      {c.fechaLimite
-                        ? new Date(c.fechaLimite).toLocaleDateString("es-CO", {
-                            dateStyle: "short",
-                          })
-                        : "—"}
-                      {c.asignadoNombre != null && (
-                        <>
-                          {" · "}
-                          Asignado: {c.asignadoNombre}
-                        </>
-                      )}
-                      {c.estado != null && (
-                        <>
-                          {" · "}
-                          Estado:{" "}
-                          <span
-                            className={
-                              c.estado === "cumplido"
-                                ? "text-green-600 dark:text-green-400"
-                                : c.estado === "no_cumplido"
-                                  ? "text-destructive"
-                                  : undefined
-                            }
-                          >
-                            {c.estado === "pendiente"
-                              ? "Pendiente"
-                              : c.estado === "cumplido"
-                                ? "Cumplido"
-                                : "No cumplido"}
-                          </span>
-                        </>
-                      )}
-                    </p>
-                    {c.detalleActualizacion && (
-                      <p className="text-muted-foreground mt-1 text-xs italic">
-                        {c.detalleActualizacion}
-                      </p>
+        <CardContent>
+          <p className="text-foreground">{acta.objetivo}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Contenido</CardTitle>
+          <CardDescription>
+            Desarrollo y notas de la reunión
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {contenidoSanitizado ? (
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: contenidoSanitizado }}
+            />
+          ) : (
+            <p className="text-muted-foreground text-sm italic">Sin contenido.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Compromisos</CardTitle>
+          <CardDescription>
+            Compromisos pactados en la reunión y su estado de seguimiento
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {acta.compromisosLista.length > 0 ? (
+            <ul className="space-y-3" role="list">
+              {acta.compromisosLista.map((c) => (
+                <li
+                  key={c.id}
+                  className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
+                >
+                  <p className="font-medium">{c.descripcion}</p>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    Fecha límite:{" "}
+                    {c.fechaLimite
+                      ? new Date(c.fechaLimite).toLocaleDateString("es-CO", {
+                          dateStyle: "short",
+                        })
+                      : "—"}
+                    {c.asignadoNombre != null && (
+                      <>
+                        {" · "}
+                        Asignado: {c.asignadoNombre}
+                      </>
                     )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-muted-foreground mt-1 text-sm italic">Sin compromisos.</p>
-            )}
-          </div>
+                    {c.estado != null && (
+                      <>
+                        {" · "}
+                        Estado:{" "}
+                        <span
+                          className={
+                            c.estado === "cumplido"
+                              ? "text-green-600 dark:text-green-400"
+                              : c.estado === "no_cumplido"
+                                ? "text-destructive"
+                                : undefined
+                          }
+                        >
+                          {c.estado === "pendiente"
+                            ? "Pendiente"
+                            : c.estado === "cumplido"
+                              ? "Cumplido"
+                              : "No cumplido"}
+                        </span>
+                      </>
+                    )}
+                  </p>
+                  {c.detalleActualizacion && (
+                    <p className="text-muted-foreground mt-1 text-xs italic">
+                      {c.detalleActualizacion}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground text-sm italic">Sin compromisos.</p>
+          )}
         </CardContent>
       </Card>
 
