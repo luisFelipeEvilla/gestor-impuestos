@@ -4,19 +4,29 @@ import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export type IntegranteItem = {
   nombre: string;
   email: string;
   usuarioId?: number;
   tipo: "interno" | "externo";
+  /** Cargo del asistente; aplica a integrantes externos. */
+  cargo?: string;
+  /** Si true, al enviar el acta por correo se le solicita aprobación a este asistente. */
+  solicitarAprobacionCorreo?: boolean;
 };
 
 type UsuarioOption = { id: number; nombre: string; email: string };
+type ClienteMiembroOption = { id: number; clienteId: number; nombre: string; email: string; cargo: string | null };
 
 type IntegrantesActaProps = {
   integrantes: IntegranteItem[];
   usuarios: UsuarioOption[];
+  /** Miembros de los clientes que participan en el acta (para agregar como externos). */
+  clientesMiembros?: ClienteMiembroOption[];
+  /** IDs de clientes asociados al acta; se filtran los miembros por estos. */
+  clientesIds?: number[];
   onChange: (integrantes: IntegranteItem[]) => void;
   disabled?: boolean;
 };
@@ -24,11 +34,14 @@ type IntegrantesActaProps = {
 export function IntegrantesActa({
   integrantes,
   usuarios,
+  clientesMiembros = [],
+  clientesIds = [],
   onChange,
   disabled = false,
 }: IntegrantesActaProps) {
   const [manualNombre, setManualNombre] = useState("");
   const [manualEmail, setManualEmail] = useState("");
+  const [manualCargo, setManualCargo] = useState("");
 
   const handleAgregarUsuario = useCallback(
     (usuarioId: number) => {
@@ -37,7 +50,13 @@ export function IntegrantesActa({
       if (integrantes.some((i) => i.email === u.email)) return;
       onChange([
         ...integrantes,
-        { nombre: u.nombre, email: u.email, usuarioId: u.id, tipo: "interno" as const },
+        {
+          nombre: u.nombre,
+          email: u.email,
+          usuarioId: u.id,
+          tipo: "interno" as const,
+          solicitarAprobacionCorreo: true,
+        },
       ]);
     },
     [integrantes, usuarios, onChange]
@@ -50,11 +69,39 @@ export function IntegrantesActa({
     if (integrantes.some((i) => i.email === email)) return;
     onChange([
       ...integrantes,
-      { nombre, email, tipo: "externo" as const },
+      {
+        nombre,
+        email,
+        tipo: "externo" as const,
+        cargo: manualCargo.trim() || undefined,
+        solicitarAprobacionCorreo: true,
+      },
     ]);
     setManualNombre("");
     setManualEmail("");
-  }, [integrantes, manualNombre, manualEmail, onChange]);
+    setManualCargo("");
+  }, [integrantes, manualNombre, manualEmail, manualCargo, onChange]);
+
+  const miembrosFiltrados = clientesMiembros.filter((m) => clientesIds.includes(m.clienteId));
+  const handleAgregarDesdeCliente = useCallback(
+    (memberId: string) => {
+      const id = parseInt(memberId, 10);
+      const m = miembrosFiltrados.find((x) => x.id === id);
+      if (!m) return;
+      if (integrantes.some((i) => i.email === m.email)) return;
+      onChange([
+        ...integrantes,
+        {
+          nombre: m.nombre,
+          email: m.email,
+          tipo: "externo" as const,
+          cargo: m.cargo ?? undefined,
+          solicitarAprobacionCorreo: true,
+        },
+      ]);
+    },
+    [integrantes, miembrosFiltrados, onChange]
+  );
 
   const handleQuitar = useCallback(
     (index: number) => {
@@ -63,135 +110,226 @@ export function IntegrantesActa({
     [integrantes, onChange]
   );
 
+  const handleSolicitarAprobacionChange = useCallback(
+    (index: number, value: boolean) => {
+      const next = [...integrantes];
+      if (next[index]) {
+        next[index] = { ...next[index], solicitarAprobacionCorreo: value };
+        onChange(next);
+      }
+    },
+    [integrantes, onChange]
+  );
+
+  const internos = integrantes.filter((i) => (i.tipo ?? "externo") === "interno");
+  const externos = integrantes.filter((i) => (i.tipo ?? "externo") === "externo");
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <Label>Integrantes</Label>
+        <Label>Asistentes de la reunión</Label>
       </div>
 
-      {/* Seleccionar usuario del sistema */}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="grid flex-1 min-w-[200px] gap-1.5">
-          <Label htmlFor="usuarioId" className="text-xs">
-            Usuario del sistema
-          </Label>
-          <select
-            id="usuarioId"
-            disabled={disabled}
-            className="border-input bg-background focus-visible:ring-ring h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-2"
-            value=""
-            onChange={(e) => {
-              const v = e.target.value;
-              if (v) handleAgregarUsuario(Number(v));
-              e.target.value = "";
-            }}
-            aria-label="Agregar integrante desde usuarios"
-          >
-            <option value="">Selecciona un usuario</option>
-            {usuarios
-              .filter((u) => !integrantes.some((i) => i.email === u.email))
-              .map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.nombre} ({u.email})
-                </option>
-              ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Agregar manual */}
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="grid min-w-[140px] gap-1.5">
-          <Label htmlFor="manualNombre" className="text-xs">
-            Nombre
-          </Label>
-          <Input
-            id="manualNombre"
-            value={manualNombre}
-            onChange={(e) => setManualNombre(e.target.value)}
-            placeholder="Nombre"
-            disabled={disabled}
-            aria-label="Nombre del integrante"
-          />
-        </div>
-        <div className="grid min-w-[180px] gap-1.5">
-          <Label htmlFor="manualEmail" className="text-xs">
-            Correo
-          </Label>
-          <Input
-            id="manualEmail"
-            type="email"
-            value={manualEmail}
-            onChange={(e) => setManualEmail(e.target.value)}
-            placeholder="correo@ejemplo.com"
-            disabled={disabled}
-            aria-label="Correo del integrante"
-          />
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          onClick={handleAgregarManual}
-          disabled={disabled || !manualNombre.trim() || !manualEmail.trim()}
-          aria-label="Agregar integrante manual"
-        >
-          Agregar
-        </Button>
-      </div>
-
-      {/* Lista: empleados propios (internos) y miembros externos */}
-      {integrantes.length > 0 ? (
-        <div className="space-y-4">
-          {(["interno", "externo"] as const).map((tipo) => {
-            const items = integrantes.filter((i) => (i.tipo ?? "externo") === tipo);
-            if (items.length === 0) return null;
-            const titulo =
-              tipo === "interno"
-                ? "Empleados / asistentes propios"
-                : "Miembros externos";
-            return (
-              <div key={tipo}>
-                <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-                  {titulo}
-                </p>
-                <ul className="space-y-2" role="list">
-                  {items.map((inv, idx) => {
-                    const index = integrantes.indexOf(inv);
-                    return (
-                      <li
-                        key={`${inv.email}-${index}`}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
-                      >
-                        <span>
-                          <strong>{inv.nombre}</strong>
-                          <span className="text-muted-foreground ml-1">{inv.email}</span>
-                        </span>
-                        {!disabled && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => handleQuitar(index)}
-                            aria-label={`Quitar ${inv.nombre}`}
-                          >
-                            Quitar
-                          </Button>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="text-muted-foreground text-sm">
-          No hay integrantes. Agrega empleados (usuario del sistema) o miembros externos (nombre y correo).
+      {/* ——— Sección 1: Miembros de nuestra empresa ——— */}
+      <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-3">
+        <h3 className="text-sm font-semibold">Miembros de nuestra empresa</h3>
+        <p className="text-muted-foreground text-xs">
+          Agrega empleados o usuarios del sistema que asisten a la reunión.
         </p>
-      )}
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="grid flex-1 min-w-[200px] gap-1.5">
+            <Label htmlFor="usuarioId" className="text-xs">
+              Agregar interno
+            </Label>
+            <SearchableSelect
+              id="usuarioId"
+              aria-label="Agregar integrante desde usuarios"
+              placeholder="Buscar usuario…"
+              value=""
+              options={usuarios
+                .filter((u) => !integrantes.some((i) => i.email === u.email))
+                .map((u) => ({ value: String(u.id), label: `${u.nombre} (${u.email})` }))}
+              onChange={(v) => v && handleAgregarUsuario(Number(v))}
+              disabled={disabled}
+              width="full"
+            />
+          </div>
+        </div>
+        {internos.length > 0 && (
+          <ul className="space-y-2" role="list">
+            {internos.map((inv) => {
+              const index = integrantes.indexOf(inv);
+              return (
+                <li
+                  key={`${inv.email}-${index}`}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+                >
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <strong>{inv.nombre}</strong>
+                    <span className="text-muted-foreground">{inv.email}</span>
+                  </span>
+                  <span className="flex items-center gap-3">
+                    {!disabled && (
+                      <label className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={inv.solicitarAprobacionCorreo !== false}
+                          onChange={(e) =>
+                            handleSolicitarAprobacionChange(index, e.target.checked)
+                          }
+                          className="h-3.5 w-3.5 rounded border-input"
+                          aria-label={`Solicitar aprobación por correo a ${inv.nombre}`}
+                        />
+                        Solicitar aprobación por correo
+                      </label>
+                    )}
+                    {!disabled && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleQuitar(index)}
+                        aria-label={`Quitar ${inv.nombre}`}
+                      >
+                        Quitar
+                      </Button>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* ——— Sección 2: Miembros externos ——— */}
+      <div className="rounded-lg border border-border bg-muted/10 p-4 space-y-3">
+        <h3 className="text-sm font-semibold">Miembros externos</h3>
+        <p className="text-muted-foreground text-xs">
+          Agrega asistentes de las organizaciones que participan en el acta o ingresa nombre y correo manualmente.
+        </p>
+        {miembrosFiltrados.length > 0 && (
+          <div className="grid gap-1.5">
+            <Label className="text-xs">Agregar desde organización del cliente</Label>
+            <SearchableSelect
+              aria-label="Agregar miembro del cliente como asistente"
+              placeholder="Buscar miembro de la organización…"
+              value=""
+              options={miembrosFiltrados
+                .filter((m) => !integrantes.some((i) => i.email === m.email))
+                .map((m) => ({
+                  value: String(m.id),
+                  label: [m.nombre, m.email, m.cargo].filter(Boolean).join(" · "),
+                }))}
+              onChange={(v) => v && handleAgregarDesdeCliente(v)}
+              disabled={disabled}
+              width="full"
+            />
+          </div>
+        )}
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="grid min-w-[140px] gap-1.5">
+            <Label htmlFor="manualNombre" className="text-xs">
+              O agregar manualmente — Nombre
+            </Label>
+            <Input
+              id="manualNombre"
+              value={manualNombre}
+              onChange={(e) => setManualNombre(e.target.value)}
+              placeholder="Nombre"
+              disabled={disabled}
+              aria-label="Nombre del integrante"
+            />
+          </div>
+          <div className="grid min-w-[180px] gap-1.5">
+            <Label htmlFor="manualEmail" className="text-xs">
+              Correo
+            </Label>
+            <Input
+              id="manualEmail"
+              type="email"
+              value={manualEmail}
+              onChange={(e) => setManualEmail(e.target.value)}
+              placeholder="correo@ejemplo.com"
+              disabled={disabled}
+              aria-label="Correo del integrante"
+            />
+          </div>
+          <div className="grid min-w-[160px] gap-1.5">
+            <Label htmlFor="manualCargo" className="text-xs">
+              Cargo
+            </Label>
+            <Input
+              id="manualCargo"
+              value={manualCargo}
+              onChange={(e) => setManualCargo(e.target.value)}
+              placeholder="Ej. Gerente"
+              disabled={disabled}
+              aria-label="Cargo del asistente externo"
+            />
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleAgregarManual}
+            disabled={disabled || !manualNombre.trim() || !manualEmail.trim()}
+            aria-label="Agregar integrante externo"
+          >
+            Agregar externo
+          </Button>
+        </div>
+        {externos.length > 0 && (
+          <ul className="space-y-2" role="list">
+            {externos.map((inv) => {
+              const index = integrantes.indexOf(inv);
+              return (
+                <li
+                  key={`${inv.email}-${index}`}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+                >
+                  <span className="flex flex-wrap items-center gap-x-1 gap-y-1">
+                    <strong>{inv.nombre}</strong>
+                    <span className="text-muted-foreground">{inv.email}</span>
+                    {inv.cargo && (
+                      <span className="text-muted-foreground text-xs">· {inv.cargo}</span>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-3">
+                    {!disabled && (
+                      <label className="flex items-center gap-1.5 text-xs whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          checked={inv.solicitarAprobacionCorreo !== false}
+                          onChange={(e) =>
+                            handleSolicitarAprobacionChange(index, e.target.checked)
+                          }
+                          className="h-3.5 w-3.5 rounded border-input"
+                          aria-label={`Solicitar aprobación por correo a ${inv.nombre}`}
+                        />
+                        Solicitar aprobación por correo
+                      </label>
+                    )}
+                    {!disabled && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleQuitar(index)}
+                        aria-label={`Quitar ${inv.nombre}`}
+                      >
+                        Quitar
+                      </Button>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

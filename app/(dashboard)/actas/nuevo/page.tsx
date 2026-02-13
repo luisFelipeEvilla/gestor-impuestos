@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { usuarios, clientes } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { crearActa } from "@/lib/actions/actas";
+import { obtenerMiembrosPorClientes } from "@/lib/actions/clientes-miembros";
 import { ActaForm } from "@/components/actas/acta-form";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +20,11 @@ export default async function NuevaActaPage() {
       .orderBy(clientes.nombre),
   ]);
 
+  const clientesMiembrosList =
+    clientesList.length > 0
+      ? await obtenerMiembrosPorClientes(clientesList.map((c) => c.id))
+      : [];
+
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center gap-4">
@@ -32,6 +38,7 @@ export default async function NuevaActaPage() {
           submitLabel="Crear acta"
           usuarios={usuariosList}
           clientes={clientesList}
+          clientesMiembros={clientesMiembrosList}
         />
       </div>
     </div>

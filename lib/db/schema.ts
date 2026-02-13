@@ -94,6 +94,20 @@ export const clientes = pgTable("clientes", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Tabla: clientes_miembros (miembros/contactos de la empresa del cliente)
+export const clientesMiembros = pgTable("clientes_miembros", {
+  id: serial("id").primaryKey(),
+  clienteId: integer("cliente_id")
+    .notNull()
+    .references(() => clientes.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  nombre: text("nombre").notNull(),
+  email: text("email").notNull(),
+  cargo: text("cargo"),
+  activo: boolean("activo").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // Tabla: impuestos (catálogo) – cada impuesto pertenece a un cliente
 export const impuestos = pgTable("impuestos", {
   id: serial("id").primaryKey(),
@@ -221,7 +235,33 @@ export const actasIntegrantes = pgTable("actas_integrantes", {
   tipo: tipoIntegranteActaEnum("tipo").notNull().default("externo"),
   nombre: text("nombre").notNull(),
   email: text("email").notNull(),
+  /** Cargo del asistente; se usa sobre todo para integrantes externos. */
+  cargo: text("cargo"),
   usuarioId: integer("usuario_id").references(() => usuarios.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+  /** Si true, al enviar el acta por correo se le solicita aprobación a este asistente. */
+  solicitarAprobacionCorreo: boolean("solicitar_aprobacion_correo").notNull().default(true),
+});
+
+// Tabla: compromisos_acta (compromisos individuales por acta: descripción, fecha límite, persona asignada)
+export const compromisosActa = pgTable("compromisos_acta", {
+  id: serial("id").primaryKey(),
+  actaId: integer("acta_id")
+    .notNull()
+    .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  /** Descripción del compromiso. */
+  descripcion: text("descripcion").notNull(),
+  /** Fecha límite para cumplir el compromiso. */
+  fechaLimite: date("fecha_limite"),
+  /** Integrante del acta (nuestra empresa o asistente) asignado como responsable. */
+  actaIntegranteId: integer("acta_integrante_id").references(() => actasIntegrantes.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+  /** Miembro del cliente asignado como responsable (alternativa a acta_integrante_id). */
+  clienteMiembroId: integer("cliente_miembro_id").references(() => clientesMiembros.id, {
     onDelete: "set null",
     onUpdate: "cascade",
   }),
@@ -297,7 +337,12 @@ export const usuariosRelations = relations(usuarios, ({ many }) => ({
 
 export const clientesRelations = relations(clientes, ({ many }) => ({
   impuestos: many(impuestos),
+  miembros: many(clientesMiembros),
   actasReunionClientes: many(actasReunionClientes),
+}));
+
+export const clientesMiembrosRelations = relations(clientesMiembros, ({ one }) => ({
+  cliente: one(clientes),
 }));
 
 export const impuestosRelations = relations(impuestos, ({ one, many }) => ({
@@ -330,6 +375,7 @@ export const actasReunionRelations = relations(actasReunion, ({ one, many }) => 
   creadoPor: one(usuarios, { fields: [actasReunion.creadoPorId], references: [usuarios.id] }),
   aprobadoPor: one(usuarios, { fields: [actasReunion.aprobadoPorId], references: [usuarios.id] }),
   integrantes: many(actasIntegrantes),
+  compromisos: many(compromisosActa),
   aprobacionesParticipantes: many(aprobacionesActaParticipante),
   documentos: many(documentosActa),
   historial: many(historialActa),
@@ -345,6 +391,13 @@ export const actasIntegrantesRelations = relations(actasIntegrantes, ({ one, man
   acta: one(actasReunion),
   usuario: one(usuarios),
   aprobacion: many(aprobacionesActaParticipante),
+  compromisosAsignados: many(compromisosActa),
+}));
+
+export const compromisosActaRelations = relations(compromisosActa, ({ one }) => ({
+  acta: one(actasReunion),
+  actaIntegrante: one(actasIntegrantes),
+  clienteMiembro: one(clientesMiembros),
 }));
 
 export const aprobacionesActaParticipanteRelations = relations(
@@ -369,6 +422,8 @@ export type Usuario = typeof usuarios.$inferSelect;
 export type NewUsuario = typeof usuarios.$inferInsert;
 export type Cliente = typeof clientes.$inferSelect;
 export type NewCliente = typeof clientes.$inferInsert;
+export type ClienteMiembro = typeof clientesMiembros.$inferSelect;
+export type NewClienteMiembro = typeof clientesMiembros.$inferInsert;
 export type Impuesto = typeof impuestos.$inferSelect;
 export type NewImpuesto = typeof impuestos.$inferInsert;
 export type Contribuyente = typeof contribuyentes.$inferSelect;
@@ -389,5 +444,7 @@ export type DocumentoActa = typeof documentosActa.$inferSelect;
 export type NewDocumentoActa = typeof documentosActa.$inferInsert;
 export type HistorialActa = typeof historialActa.$inferSelect;
 export type NewHistorialActa = typeof historialActa.$inferInsert;
+export type CompromisoActa = typeof compromisosActa.$inferSelect;
+export type NewCompromisoActa = typeof compromisosActa.$inferInsert;
 export type ActaReunionCliente = typeof actasReunionClientes.$inferSelect;
 export type NewActaReunionCliente = typeof actasReunionClientes.$inferInsert;

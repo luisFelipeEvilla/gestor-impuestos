@@ -11,6 +11,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { MiembrosCliente } from "@/components/clientes/miembros-cliente";
+import { obtenerMiembrosPorCliente } from "@/lib/actions/clientes-miembros";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -22,10 +24,13 @@ export default async function DetalleClientePage({ params }: Props) {
   const [cliente] = await db.select().from(clientes).where(eq(clientes.id, id));
   if (!cliente) notFound();
 
-  const impuestosDelCliente = await db
-    .select({ id: impuestos.id, codigo: impuestos.codigo, nombre: impuestos.nombre, activo: impuestos.activo })
-    .from(impuestos)
-    .where(eq(impuestos.clienteId, id));
+  const [impuestosDelCliente, miembros] = await Promise.all([
+    db
+      .select({ id: impuestos.id, codigo: impuestos.codigo, nombre: impuestos.nombre, activo: impuestos.activo })
+      .from(impuestos)
+      .where(eq(impuestos.clienteId, id)),
+    obtenerMiembrosPorCliente(id),
+  ]);
 
   return (
     <div className="p-6">
@@ -100,6 +105,7 @@ export default async function DetalleClientePage({ params }: Props) {
           </div>
         </CardContent>
       </Card>
+      <MiembrosCliente clienteId={id} miembros={miembros} />
     </div>
   );
 }

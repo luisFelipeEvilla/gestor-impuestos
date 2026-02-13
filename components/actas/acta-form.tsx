@@ -13,11 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EditorContenido } from "./editor-contenido";
 import { IntegrantesActa, type IntegranteItem } from "./integrantes-acta";
-import type { EstadoFormActa } from "@/lib/actions/actas";
+import { CompromisosActa } from "./compromisos-acta";
+import type { EstadoFormActa, CompromisoFormItem } from "@/lib/actions/actas-types";
 import { cn } from "@/lib/utils";
 
 type UsuarioOption = { id: number; nombre: string; email: string };
 type ClienteOption = { id: number; nombre: string; codigo: string | null };
+type ClienteMiembroOption = { id: number; clienteId: number; nombre: string; email: string; cargo: string | null };
 
 type ActaFormProps = {
   action: (
@@ -27,12 +29,14 @@ type ActaFormProps = {
   submitLabel: string;
   usuarios: UsuarioOption[];
   clientes: ClienteOption[];
+  /** Miembros de clientes (para asignar compromisos a miembros del cliente). */
+  clientesMiembros?: ClienteMiembroOption[];
   initialData?: {
     id?: number;
     fecha: string;
     objetivo: string;
     contenido: string | null;
-    compromisos: string | null;
+    compromisos: CompromisoFormItem[];
     integrantes: IntegranteItem[];
     clientesIds?: number[];
   } | null;
@@ -49,11 +53,15 @@ export function ActaForm({
   submitLabel,
   usuarios,
   clientes: clientesList,
+  clientesMiembros = [],
   initialData,
 }: ActaFormProps) {
   const [state, formAction] = useActionState(action, null);
   const [integrantes, setIntegrantes] = useState<IntegranteItem[]>(
     initialData?.integrantes ?? []
+  );
+  const [compromisos, setCompromisos] = useState<CompromisoFormItem[]>(
+    initialData?.compromisos ?? []
   );
   const [clientesIds, setClientesIds] = useState<number[]>(
     initialData?.clientesIds ?? []
@@ -71,6 +79,8 @@ export function ActaForm({
     const form = e.currentTarget;
     const hiddenIntegrantes = form.querySelector('input[name="integrantes"]') as HTMLInputElement | null;
     if (hiddenIntegrantes) hiddenIntegrantes.value = JSON.stringify(integrantes);
+    const hiddenCompromisos = form.querySelector('input[name="compromisos"]') as HTMLInputElement | null;
+    if (hiddenCompromisos) hiddenCompromisos.value = JSON.stringify(compromisos);
     const hiddenClientes = form.querySelector('input[name="clientesIds"]') as HTMLInputElement | null;
     if (hiddenClientes) hiddenClientes.value = JSON.stringify(clientesIds);
   };
@@ -115,8 +125,9 @@ export function ActaForm({
                 <p className="text-destructive text-xs">{state.errores.fecha[0]}</p>
               )}
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="objetivo">Objetivo</Label>
+
+            <div className="grid gap-2 col-span-2">
+              <Label htmlFor="objetivo">Objetivo Específico</Label>
               <Input
                 id="objetivo"
                 name="objetivo"
@@ -140,12 +151,19 @@ export function ActaForm({
             aria-invalid={!!state?.errores?.contenido}
           />
 
-          <EditorContenido
+          <CompromisosActa
+            compromisos={compromisos}
+            integrantes={integrantes.map((i) => ({ nombre: i.nombre, email: i.email }))}
+            clientesMiembros={clientesMiembros}
+            clientesIds={clientesIds}
+            onChange={setCompromisos}
+          />
+          <input
+            type="hidden"
             name="compromisos"
-            label="Compromisos"
-            defaultValue={initialData?.compromisos ?? ""}
-            placeholder="Escribe los compromisos acordados (títulos, listas, etc.)..."
-            aria-invalid={!!state?.errores?.compromisos}
+            value=""
+            readOnly
+            aria-hidden
           />
 
           <div className="space-y-2">
@@ -180,6 +198,8 @@ export function ActaForm({
           <IntegrantesActa
             integrantes={integrantes}
             usuarios={usuarios}
+            clientesMiembros={clientesMiembros}
+            clientesIds={clientesIds}
             onChange={setIntegrantes}
           />
 

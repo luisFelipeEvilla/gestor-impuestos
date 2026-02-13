@@ -1,4 +1,4 @@
-import type { HistorialActaItem } from "@/lib/actions/actas";
+import type { HistorialActaItem } from "@/lib/actions/actas-types";
 
 const LABEL_TIPO_EVENTO: Record<string, string> = {
   creacion: "Creación",

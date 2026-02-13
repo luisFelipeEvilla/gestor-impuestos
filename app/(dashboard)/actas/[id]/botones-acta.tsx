@@ -8,8 +8,8 @@ import {
   aprobarActaAction,
   enviarActaPorCorreoAction,
   eliminarActaAction,
-  type EstadoGestionActa,
 } from "@/lib/actions/actas";
+import type { EstadoGestionActa } from "@/lib/actions/actas-types";
 
 type BotonesActaProps = {
   actaId: number;
