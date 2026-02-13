@@ -8,6 +8,8 @@ import {
   actasReunion,
   actasIntegrantes,
   actasReunionClientes,
+  compromisosActa,
+  clientesMiembros,
   historialActa,
   aprobacionesActaParticipante,
   usuarios,
@@ -17,14 +19,24 @@ import {
 import { generarFirmaAprobacion, verificarFirmaAprobacion } from "@/lib/actas-aprobacion";
 import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
 import { getSession, requireAdminSession } from "@/lib/auth-server";
-
-const estadoActaValues = ["borrador", "pendiente_aprobacion", "aprobada", "enviada"] as const;
+import {
+  estadoActaValues,
+  compromisoFormSchema,
+  type CompromisoFormItem,
+  type ActaDetalle,
+  type CompromisoDetalle,
+  type EstadoFormActa,
+  type EstadoGestionActa,
+  type HistorialActaItem,
+  type ActaListItem,
+  type AprobacionParticipanteItem,
+} from "@/lib/actions/actas-types";
 
 const schemaCrear = z.object({
   fecha: z.string().min(1, "La fecha es obligatoria"),
   objetivo: z.string().min(1, "El objetivo es obligatorio").max(2000),
   contenido: z.string().max(50000).optional().or(z.literal("")),
-  compromisos: z.string().max(50000).optional().or(z.literal("")),
+  compromisos: z.string().max(100000).optional().or(z.literal("")),
 });
 
 const schemaActualizar = schemaCrear.extend({
@@ -38,51 +50,11 @@ const integranteSchema = z.object({
   email: z.string().email(),
   usuarioId: z.number().int().positive().optional(),
   tipo: z.enum(tipoIntegranteValues).default("externo"),
+  cargo: z.string().max(200).optional().or(z.literal("")),
+  solicitarAprobacionCorreo: z.boolean().optional().default(true),
 });
 
 const integrantesSchema = z.array(integranteSchema);
-
-export type EstadoFormActa = {
-  error?: string;
-  errores?: Record<string, string[]>;
-};
-
-export type EstadoGestionActa = { error?: string };
-
-export type ActaListItem = {
-  id: number;
-  fecha: Date;
-  objetivo: string;
-  estado: (typeof estadoActaValues)[number];
-  creadorNombre: string | null;
-  numIntegrantes: number;
-};
-
-export type ActaDetalle = {
-  id: number;
-  fecha: Date;
-  objetivo: string;
-  contenido: string | null;
-  compromisos: string | null;
-  estado: (typeof estadoActaValues)[number];
-  creadoPorId: number;
-  creadorNombre: string | null;
-  aprobadoPorId: number | null;
-  aprobadoPorNombre: string | null;
-  creadoEn: Date;
-  actualizadoEn: Date;
-  clientes: { id: number; nombre: string; codigo: string | null }[];
-  integrantes: { id: number; nombre: string; email: string; usuarioId: number | null; tipo: "interno" | "externo" }[];
-  documentos: { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date }[];
-};
-
-export type HistorialActaItem = {
-  id: number;
-  fecha: Date;
-  tipoEvento: string;
-  usuarioNombre: string | null;
-  metadata: unknown;
-};
 
 function parseFecha(value: string | undefined): string | null {
   if (!value || value.trim() === "") return null;
@@ -106,6 +78,22 @@ function parseClienteIds(value: unknown): number[] {
     const parsed = JSON.parse(value) as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((x): x is number => typeof x === "number" && Number.isInteger(x) && x > 0);
+  } catch {
+    return [];
+  }
+}
+
+function parseCompromisos(value: unknown): CompromisoFormItem[] {
+  if (typeof value !== "string" || value.trim() === "") return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => {
+        const r = compromisoFormSchema.safeParse(item);
+        return r.success ? r.data : null;
+      })
+      .filter((x): x is CompromisoFormItem => x !== null);
   } catch {
     return [];
   }
@@ -186,6 +174,7 @@ export async function obtenerActaParaPreviewParticipante(
   objetivo: string;
   contenido: string | null;
   compromisos: string | null;
+  compromisosLista: CompromisoDetalle[];
   documentos: { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date }[];
 } | null> {
   if (!Number.isInteger(actaId) || actaId < 1) return null;
@@ -201,22 +190,42 @@ export async function obtenerActaParaPreviewParticipante(
     .from(actasReunion)
     .where(eq(actasReunion.id, actaId));
   if (!acta || acta.estado !== "enviada") return null;
-  const documentosRows = await db
-    .select({
-      id: documentosActa.id,
-      nombreOriginal: documentosActa.nombreOriginal,
-      mimeType: documentosActa.mimeType,
-      tamano: documentosActa.tamano,
-      creadoEn: documentosActa.creadoEn,
-    })
-    .from(documentosActa)
-    .where(eq(documentosActa.actaId, actaId));
+  const [documentosRows, compromisosRows] = await Promise.all([
+    db
+      .select({
+        id: documentosActa.id,
+        nombreOriginal: documentosActa.nombreOriginal,
+        mimeType: documentosActa.mimeType,
+        tamano: documentosActa.tamano,
+        creadoEn: documentosActa.creadoEn,
+      })
+      .from(documentosActa)
+      .where(eq(documentosActa.actaId, actaId)),
+    db
+      .select({
+        id: compromisosActa.id,
+        descripcion: compromisosActa.descripcion,
+        fechaLimite: compromisosActa.fechaLimite,
+        nombreIntegrante: actasIntegrantes.nombre,
+        nombreClienteMiembro: clientesMiembros.nombre,
+      })
+      .from(compromisosActa)
+      .leftJoin(actasIntegrantes, eq(compromisosActa.actaIntegranteId, actasIntegrantes.id))
+      .leftJoin(clientesMiembros, eq(compromisosActa.clienteMiembroId, clientesMiembros.id))
+      .where(eq(compromisosActa.actaId, actaId)),
+  ]);
   return {
     id: acta.id,
     fecha: acta.fecha as unknown as Date,
     objetivo: acta.objetivo,
     contenido: acta.contenido,
     compromisos: acta.compromisos,
+    compromisosLista: compromisosRows.map((c) => ({
+      id: c.id,
+      descripcion: c.descripcion,
+      fechaLimite: c.fechaLimite as Date | null,
+      asignadoNombre: c.nombreIntegrante ?? c.nombreClienteMiembro ?? null,
+    })),
     documentos: documentosRows.map((d) => ({
       id: d.id,
       nombreOriginal: d.nombreOriginal,
@@ -283,6 +292,8 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
       email: actasIntegrantes.email,
       usuarioId: actasIntegrantes.usuarioId,
       tipo: actasIntegrantes.tipo,
+      cargo: actasIntegrantes.cargo,
+      solicitarAprobacionCorreo: actasIntegrantes.solicitarAprobacionCorreo,
     })
     .from(actasIntegrantes)
     .where(eq(actasIntegrantes.actaId, actaId));
@@ -297,6 +308,19 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
     })
     .from(documentosActa)
     .where(eq(documentosActa.actaId, actaId));
+
+  const compromisosRows = await db
+    .select({
+      id: compromisosActa.id,
+      descripcion: compromisosActa.descripcion,
+      fechaLimite: compromisosActa.fechaLimite,
+      nombreIntegrante: actasIntegrantes.nombre,
+      nombreClienteMiembro: clientesMiembros.nombre,
+    })
+    .from(compromisosActa)
+    .leftJoin(actasIntegrantes, eq(compromisosActa.actaIntegranteId, actasIntegrantes.id))
+    .leftJoin(clientesMiembros, eq(compromisosActa.clienteMiembroId, clientesMiembros.id))
+    .where(eq(compromisosActa.actaId, actaId));
 
   const clientesRows = await db
     .select({
@@ -314,6 +338,12 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
     objetivo: acta.objetivo,
     contenido: acta.contenido,
     compromisos: acta.compromisos,
+    compromisosLista: compromisosRows.map((c) => ({
+      id: c.id,
+      descripcion: c.descripcion,
+      fechaLimite: c.fechaLimite as Date | null,
+      asignadoNombre: c.nombreIntegrante ?? c.nombreClienteMiembro ?? null,
+    })),
     estado: acta.estado as (typeof estadoActaValues)[number],
     creadoPorId: acta.creadoPorId,
     creadorNombre: acta.creadorNombre,
@@ -328,6 +358,8 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
       email: i.email,
       usuarioId: i.usuarioId,
       tipo: (i.tipo ?? "externo") as "interno" | "externo",
+      cargo: i.cargo,
+      solicitarAprobacionCorreo: i.solicitarAprobacionCorreo ?? true,
     })),
     documentos: documentosRows.map((d) => ({
       id: d.id,
@@ -349,7 +381,7 @@ export async function crearActa(
   const fechaStr = (formData.get("fecha") as string)?.trim();
   const objetivo = (formData.get("objetivo") as string)?.trim() ?? "";
   const contenido = (formData.get("contenido") as string)?.trim() || null;
-  const compromisos = (formData.get("compromisos") as string)?.trim() || null;
+  const compromisosRaw = formData.get("compromisos");
   const integrantesRaw = formData.get("integrantes");
   const clientesIdsRaw = formData.get("clientesIds");
 
@@ -357,7 +389,7 @@ export async function crearActa(
     fecha: fechaStr,
     objetivo,
     contenido: contenido ?? "",
-    compromisos: compromisos ?? "",
+    compromisos: typeof compromisosRaw === "string" ? compromisosRaw : "",
   });
   if (!parsed.success) {
     const flat = parsed.error.flatten();
@@ -373,6 +405,7 @@ export async function crearActa(
 
   const integrantes = parseIntegrantes(integrantesRaw);
   const clientesIds = parseClienteIds(clientesIdsRaw);
+  const compromisosForm = parseCompromisos(compromisosRaw);
 
   try {
     const [inserted] = await db
@@ -381,7 +414,7 @@ export async function crearActa(
         fecha,
         objetivo: parsed.data.objetivo,
         contenido: contenido || null,
-        compromisos: compromisos || null,
+        compromisos: null,
         estado: "borrador",
         creadoPorId: session.user.id,
       })
@@ -389,15 +422,51 @@ export async function crearActa(
 
     if (!inserted) throw new Error("No se pudo crear el acta");
 
+    let integranteIds: number[] = [];
     if (integrantes.length > 0) {
-      await db.insert(actasIntegrantes).values(
-        integrantes.map((i) => ({
-          actaId: inserted.id,
-          tipo: i.tipo ?? (i.usuarioId ? "interno" : "externo"),
-          nombre: i.nombre,
-          email: i.email,
-          usuarioId: i.usuarioId ?? null,
-        }))
+      const insertedIntegrantes = await db
+        .insert(actasIntegrantes)
+        .values(
+          integrantes.map((i) => {
+            const tipo = i.tipo ?? (i.usuarioId ? "interno" : "externo");
+            return {
+              actaId: inserted.id,
+              tipo,
+              nombre: i.nombre,
+              email: i.email,
+              cargo: tipo === "externo" ? (i.cargo?.trim() || null) : null,
+              usuarioId: i.usuarioId ?? null,
+              solicitarAprobacionCorreo: i.solicitarAprobacionCorreo ?? true,
+            };
+          })
+        )
+        .returning({ id: actasIntegrantes.id });
+      integranteIds = insertedIntegrantes.map((r) => r.id);
+    }
+
+    if (compromisosForm.length > 0) {
+      await db.insert(compromisosActa).values(
+        compromisosForm.map((c) => {
+          const actaIntegranteId =
+            c.asignadoClienteMiembroId == null &&
+            c.asignadoIndex != null &&
+            c.asignadoIndex >= 0 &&
+            c.asignadoIndex < integranteIds.length
+              ? integranteIds[c.asignadoIndex]
+              : null;
+          const clienteMiembroId =
+            c.asignadoClienteMiembroId != null && c.asignadoClienteMiembroId > 0
+              ? c.asignadoClienteMiembroId
+              : null;
+          const fechaLimite = parseFecha(c.fechaLimite ?? "");
+          return {
+            actaId: inserted.id,
+            descripcion: c.descripcion,
+            fechaLimite: fechaLimite || null,
+            actaIntegranteId,
+            clienteMiembroId,
+          };
+        })
       );
     }
 
@@ -441,7 +510,7 @@ export async function actualizarActa(
   const fechaStr = (formData.get("fecha") as string)?.trim();
   const objetivo = (formData.get("objetivo") as string)?.trim() ?? "";
   const contenido = (formData.get("contenido") as string)?.trim() || null;
-  const compromisos = (formData.get("compromisos") as string)?.trim() || null;
+  const compromisosRaw = formData.get("compromisos");
   const integrantesRaw = formData.get("integrantes");
   const clientesIdsRaw = formData.get("clientesIds");
 
@@ -450,7 +519,7 @@ export async function actualizarActa(
     fecha: fechaStr,
     objetivo,
     contenido: contenido ?? "",
-    compromisos: compromisos ?? "",
+    compromisos: typeof compromisosRaw === "string" ? compromisosRaw : "",
   });
   if (!parsed.success) {
     const flat = parsed.error.flatten();
@@ -466,6 +535,7 @@ export async function actualizarActa(
 
   const integrantes = parseIntegrantes(integrantesRaw);
   const clientesIds = parseClienteIds(clientesIdsRaw);
+  const compromisosForm = parseCompromisos(compromisosRaw);
 
   try {
     const [existing] = await db
@@ -488,21 +558,57 @@ export async function actualizarActa(
         fecha,
         objetivo: parsed.data.objetivo,
         contenido: contenido || null,
-        compromisos: compromisos || null,
+        compromisos: null,
         actualizadoEn: new Date(),
       })
       .where(eq(actasReunion.id, parsed.data.id));
 
+    await db.delete(compromisosActa).where(eq(compromisosActa.actaId, parsed.data.id));
     await db.delete(actasIntegrantes).where(eq(actasIntegrantes.actaId, parsed.data.id));
+    let integranteIds: number[] = [];
     if (integrantes.length > 0) {
-      await db.insert(actasIntegrantes).values(
-        integrantes.map((i) => ({
-          actaId: parsed.data.id,
-          tipo: i.tipo ?? (i.usuarioId ? "interno" : "externo"),
-          nombre: i.nombre,
-          email: i.email,
-          usuarioId: i.usuarioId ?? null,
-        }))
+      const insertedIntegrantes = await db
+        .insert(actasIntegrantes)
+        .values(
+          integrantes.map((i) => {
+            const tipo = i.tipo ?? (i.usuarioId ? "interno" : "externo");
+            return {
+              actaId: parsed.data.id,
+              tipo,
+              nombre: i.nombre,
+              email: i.email,
+              cargo: tipo === "externo" ? (i.cargo?.trim() || null) : null,
+              usuarioId: i.usuarioId ?? null,
+              solicitarAprobacionCorreo: i.solicitarAprobacionCorreo ?? true,
+            };
+          })
+        )
+        .returning({ id: actasIntegrantes.id });
+      integranteIds = insertedIntegrantes.map((r) => r.id);
+    }
+    if (compromisosForm.length > 0) {
+      await db.insert(compromisosActa).values(
+        compromisosForm.map((c) => {
+          const actaIntegranteId =
+            c.asignadoClienteMiembroId == null &&
+            c.asignadoIndex != null &&
+            c.asignadoIndex >= 0 &&
+            c.asignadoIndex < integranteIds.length
+              ? integranteIds[c.asignadoIndex]
+              : null;
+          const clienteMiembroId =
+            c.asignadoClienteMiembroId != null && c.asignadoClienteMiembroId > 0
+              ? c.asignadoClienteMiembroId
+              : null;
+          const fechaLimite = parseFecha(c.fechaLimite ?? "");
+          return {
+            actaId: parsed.data.id,
+            descripcion: c.descripcion,
+            fechaLimite: fechaLimite || null,
+            actaIntegranteId,
+            clienteMiembroId,
+          };
+        })
       );
     }
 
@@ -629,9 +735,14 @@ export async function enviarActaPorCorreo(actaId: number): Promise<EstadoGestion
     }
 
     const { enviarActaPorEmail } = await import("@/lib/notificaciones/resend");
-    const integrantesConEmail = acta.integrantes.filter((i) => i.email?.trim());
+    const integrantesConEmail = acta.integrantes.filter(
+      (i) => i.email?.trim() && i.solicitarAprobacionCorreo
+    );
     if (integrantesConEmail.length === 0) {
-      return { error: "El acta no tiene integrantes con correo electrónico." };
+      return {
+        error:
+          "No hay integrantes con correo y solicitud de aprobación. Agrega asistentes y marca «Solicitar aprobación por correo» en quienes deban recibir el acta.",
+      };
     }
 
     const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
@@ -646,7 +757,18 @@ export async function enviarActaPorCorreo(actaId: number): Promise<EstadoGestion
         fechaActa: acta.fecha,
         objetivo: acta.objetivo,
         contenidoHtml: acta.contenido ?? "",
-        compromisosHtml: acta.compromisos ?? undefined,
+        compromisosHtml:
+          acta.compromisosLista.length > 0
+            ? acta.compromisosLista
+                .map((c) => {
+                  const fechaStr = c.fechaLimite
+                    ? new Date(c.fechaLimite).toLocaleDateString("es-CO", { dateStyle: "short" })
+                    : "—";
+                  const asignado = c.asignadoNombre ?? "—";
+                  return `${c.descripcion} — Fecha límite: ${fechaStr} — Asignado: ${asignado}`;
+                })
+                .join("\n")
+            : acta.compromisos ?? undefined,
         enlaceActa: `/actas/${actaId}`,
         enlaceAprobarParticipante,
       });
@@ -673,14 +795,6 @@ export async function enviarActaPorCorreo(actaId: number): Promise<EstadoGestion
     return { error: "Error al enviar el acta por correo." };
   }
 }
-
-export type AprobacionParticipanteItem = {
-  actaIntegranteId: number;
-  nombre: string;
-  email: string;
-  aprobadoEn: Date | null;
-  rutaFoto: string | null;
-};
 
 /**
  * Valida el enlace de aprobación (firma, acta enviada, integrante pertenece al acta).
@@ -742,7 +856,7 @@ export async function yaAprobadoParticipante(
 }
 
 /**
- * Action para formulario de aprobación desde la vista previa: requiere foto, la guarda y registra; redirige con aprobado=1 o error=1.
+ * Action para formulario de aprobación desde la vista previa: registra la aprobación sin foto; redirige con aprobado=1 o error=1.
  */
 export async function aprobarParticipanteFromPreviewAction(
   _prev: unknown,
@@ -754,37 +868,11 @@ export async function aprobarParticipanteFromPreviewAction(
   const base = "/actas/aprobar-participante";
   const query = `acta=${actaId}&integrante=${integranteId}&firma=${encodeURIComponent(firma.trim())}`;
 
-  const file = formData.get("foto");
-  if (!file || !(file instanceof File) || file.size === 0) {
-    redirect(`${base}?${query}&error=1&motivo=foto`);
-  }
-  const {
-    saveAprobacionFoto,
-    isAllowedAprobacionFotoMime,
-    isAllowedAprobacionFotoSize,
-  } = await import("@/lib/uploads");
-  if (!isAllowedAprobacionFotoMime(file.type) || !isAllowedAprobacionFotoSize(file.size)) {
-    redirect(`${base}?${query}&error=1&motivo=foto`);
-  }
-  let rutaFoto: string;
-  try {
-    const buffer = Buffer.from(await file.arrayBuffer());
-    rutaFoto = await saveAprobacionFoto(
-      actaId,
-      buffer,
-      file.name || "foto.jpg",
-      file.type
-    );
-  } catch (err) {
-    console.error(err);
-    redirect(`${base}?${query}&error=1&motivo=foto`);
-  }
-
   const result = await registrarAprobacionParticipante(
     actaId,
     integranteId,
     firma.trim(),
-    rutaFoto
+    null
   );
   if (result.error) {
     redirect(`${base}?${query}&error=1`);
@@ -795,7 +883,7 @@ export async function aprobarParticipanteFromPreviewAction(
 /**
  * Registra la aprobación de un participante (enlace del correo).
  * No requiere sesión. Verifica firma, estado enviada y que el integrante pertenezca al acta.
- * Opcionalmente guarda la ruta de la foto de aprobación.
+ * Ya no se guarda foto de aprobación (rutaFoto se mantiene en schema por compatibilidad).
  */
 export async function registrarAprobacionParticipante(
   actaId: number,
@@ -862,6 +950,7 @@ export async function obtenerAprobacionesPorActa(
       actaIntegranteId: actasIntegrantes.id,
       nombre: actasIntegrantes.nombre,
       email: actasIntegrantes.email,
+      cargo: actasIntegrantes.cargo,
       aprobadoEn: aprobacionesActaParticipante.aprobadoEn,
       rutaFoto: aprobacionesActaParticipante.rutaFoto,
     })
@@ -878,6 +967,7 @@ export async function obtenerAprobacionesPorActa(
     actaIntegranteId: r.actaIntegranteId,
     nombre: r.nombre,
     email: r.email,
+    cargo: r.cargo ?? null,
     aprobadoEn: r.aprobadoEn ?? null,
     rutaFoto: r.rutaFoto ?? null,
   }));

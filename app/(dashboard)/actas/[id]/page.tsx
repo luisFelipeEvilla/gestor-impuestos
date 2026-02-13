@@ -4,11 +4,7 @@ import { getSession } from "@/lib/auth-server";
 import {
   obtenerActaPorId,
   obtenerHistorialActa,
-  obtenerAprobacionesPorActa,
-  enviarActaAprobacion,
-  aprobarActa,
-  enviarActaPorCorreo,
-  eliminarActa,
+  obtenerAprobacionesPorActa
 } from "@/lib/actions/actas";
 import {
   Card,
@@ -65,11 +61,9 @@ export default async function ActaDetallePage({ params }: Props) {
   const puedeEnviarCorreo = acta.estado === "aprobada" && isAdmin;
   const puedeEliminar = acta.estado === "borrador" && (isCreador || isAdmin);
 
+
   const contenidoSanitizado = acta.contenido
     ? sanitizeHtmlForDisplay(acta.contenido)
-    : null;
-  const compromisosSanitizado = acta.compromisos
-    ? sanitizeHtmlForDisplay(acta.compromisos)
     : null;
 
   return (
@@ -128,11 +122,31 @@ export default async function ActaDetallePage({ params }: Props) {
           </div>
           <div>
             <p className="text-muted-foreground text-sm font-medium">Compromisos</p>
-            {compromisosSanitizado ? (
-              <div
-                className="mt-1 prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: compromisosSanitizado }}
-              />
+            {acta.compromisosLista.length > 0 ? (
+              <ul className="mt-2 space-y-3" role="list">
+                {acta.compromisosLista.map((c) => (
+                  <li
+                    key={c.id}
+                    className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
+                  >
+                    <p className="font-medium">{c.descripcion}</p>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Fecha límite:{" "}
+                      {c.fechaLimite
+                        ? new Date(c.fechaLimite).toLocaleDateString("es-CO", {
+                            dateStyle: "short",
+                          })
+                        : "—"}
+                      {c.asignadoNombre != null && (
+                        <>
+                          {" · "}
+                          Asignado: {c.asignadoNombre}
+                        </>
+                      )}
+                    </p>
+                  </li>
+                ))}
+              </ul>
             ) : (
               <p className="text-muted-foreground mt-1 text-sm italic">Sin compromisos.</p>
             )}
@@ -194,6 +208,11 @@ export default async function ActaDetallePage({ params }: Props) {
                           <span className="text-muted-foreground ml-1">
                             {inv.email}
                           </span>
+                          {tipo === "externo" && inv.cargo && (
+                            <span className="text-muted-foreground ml-1">
+                              · {inv.cargo}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -226,15 +245,8 @@ export default async function ActaDetallePage({ params }: Props) {
                   <span>
                     <strong>{item.nombre}</strong>
                     <span className="text-muted-foreground ml-1">{item.email}</span>
-                    {item.rutaFoto && (
-                      <Link
-                        href={`/api/actas/${acta.id}/aprobaciones/${item.actaIntegranteId}/foto`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline ml-2 text-xs"
-                      >
-                        Ver foto
-                      </Link>
+                    {item.cargo && (
+                      <span className="text-muted-foreground ml-1">· {item.cargo}</span>
                     )}
                   </span>
                   <span
