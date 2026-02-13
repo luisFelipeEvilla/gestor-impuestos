@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
   compromisosActa,
+  compromisosActaHistorial,
   actasReunion,
   actasIntegrantes,
   clientesMiembros,
@@ -11,7 +12,7 @@ import {
   clientes,
   usuarios,
 } from "@/lib/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, desc } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 
 export type CompromisoGestionItem = {
@@ -176,10 +177,21 @@ export async function actualizarEstadoCompromiso(
 
   try {
     const [compromiso] = await db
-      .select({ actaId: compromisosActa.actaId })
+      .select({
+        actaId: compromisosActa.actaId,
+        estadoAnterior: compromisosActa.estado,
+      })
       .from(compromisosActa)
       .where(eq(compromisosActa.id, compromisoId));
     if (!compromiso) return { error: "Compromiso no encontrado." };
+
+    await db.insert(compromisosActaHistorial).values({
+      compromisoActaId: compromisoId,
+      estadoAnterior: compromiso.estadoAnterior,
+      estadoNuevo: estado,
+      detalle: detalle.trim() || null,
+      creadoPorId: session.user.id,
+    });
 
     await db
       .update(compromisosActa)
@@ -194,6 +206,7 @@ export async function actualizarEstadoCompromiso(
     revalidatePath("/actas");
     revalidatePath("/actas/compromisos");
     revalidatePath(`/actas/${compromiso.actaId}`);
+    revalidatePath(`/actas/compromisos/${compromisoId}`);
     return {};
   } catch (err) {
     console.error(err);
@@ -218,4 +231,115 @@ export async function actualizarEstadoCompromisoAction(
     return { error: "Datos inválidos." };
   }
   return actualizarEstadoCompromiso(compromisoId, estado as (typeof estadosValidos)[number], detalle);
+}
+
+export type CompromisoDetalleItem = {
+  id: number;
+  descripcion: string;
+  fechaLimite: Date | null;
+  estado: "pendiente" | "cumplido" | "no_cumplido";
+  detalleActualizacion: string | null;
+  actualizadoEn: Date | null;
+  actualizadoPorNombre: string | null;
+  actaId: number;
+  actaFecha: Date;
+  actaObjetivo: string;
+  asignadoNombre: string | null;
+  asignadoTipo: "interno" | "cliente" | null;
+  clientesNombres: string[];
+};
+
+export type CompromisoHistorialItem = {
+  id: number;
+  estadoAnterior: "pendiente" | "cumplido" | "no_cumplido" | null;
+  estadoNuevo: "pendiente" | "cumplido" | "no_cumplido";
+  detalle: string | null;
+  creadoEn: Date;
+  creadoPorNombre: string | null;
+};
+
+export type CompromisoConHistorial = {
+  compromiso: CompromisoDetalleItem;
+  historial: CompromisoHistorialItem[];
+};
+
+/** Obtiene un compromiso por ID con su acta, asignado, clientes y historial de actualizaciones. */
+export async function obtenerCompromisoPorIdConHistorial(
+  compromisoId: number
+): Promise<CompromisoConHistorial | null> {
+  if (!Number.isInteger(compromisoId) || compromisoId < 1) return null;
+
+  const [row] = await db
+    .select({
+      id: compromisosActa.id,
+      descripcion: compromisosActa.descripcion,
+      fechaLimite: compromisosActa.fechaLimite,
+      estado: compromisosActa.estado,
+      detalleActualizacion: compromisosActa.detalleActualizacion,
+      actualizadoEn: compromisosActa.actualizadoEn,
+      actaId: compromisosActa.actaId,
+      actaFecha: actasReunion.fecha,
+      actaObjetivo: actasReunion.objetivo,
+      nombreIntegrante: actasIntegrantes.nombre,
+      nombreClienteMiembro: clientesMiembros.nombre,
+      actaIntegranteId: compromisosActa.actaIntegranteId,
+      clienteMiembroId: compromisosActa.clienteMiembroId,
+      actualizadoPorNombre: usuarios.nombre,
+    })
+    .from(compromisosActa)
+    .innerJoin(actasReunion, eq(compromisosActa.actaId, actasReunion.id))
+    .leftJoin(actasIntegrantes, eq(compromisosActa.actaIntegranteId, actasIntegrantes.id))
+    .leftJoin(clientesMiembros, eq(compromisosActa.clienteMiembroId, clientesMiembros.id))
+    .leftJoin(usuarios, eq(compromisosActa.actualizadoPorId, usuarios.id))
+    .where(eq(compromisosActa.id, compromisoId));
+
+  if (!row) return null;
+
+  const clientesRows = await db
+    .select({ nombre: clientes.nombre })
+    .from(actasReunionClientes)
+    .innerJoin(clientes, eq(actasReunionClientes.clienteId, clientes.id))
+    .where(eq(actasReunionClientes.actaId, row.actaId));
+  const clientesNombres = clientesRows.map((c) => c.nombre);
+
+  const historialRows = await db
+    .select({
+      id: compromisosActaHistorial.id,
+      estadoAnterior: compromisosActaHistorial.estadoAnterior,
+      estadoNuevo: compromisosActaHistorial.estadoNuevo,
+      detalle: compromisosActaHistorial.detalle,
+      creadoEn: compromisosActaHistorial.creadoEn,
+      creadoPorNombre: usuarios.nombre,
+    })
+    .from(compromisosActaHistorial)
+    .leftJoin(usuarios, eq(compromisosActaHistorial.creadoPorId, usuarios.id))
+    .where(eq(compromisosActaHistorial.compromisoActaId, compromisoId))
+    .orderBy(desc(compromisosActaHistorial.creadoEn));
+
+  return {
+    compromiso: {
+      id: row.id,
+      descripcion: row.descripcion,
+      fechaLimite: row.fechaLimite as Date | null,
+      estado: (row.estado ?? "pendiente") as "pendiente" | "cumplido" | "no_cumplido",
+      detalleActualizacion: row.detalleActualizacion ?? null,
+      actualizadoEn: row.actualizadoEn as Date | null,
+      actualizadoPorNombre: row.actualizadoPorNombre ?? null,
+      actaId: row.actaId,
+      actaFecha: row.actaFecha as Date,
+      actaObjetivo: row.actaObjetivo,
+      asignadoNombre: row.nombreIntegrante ?? row.nombreClienteMiembro ?? null,
+      asignadoTipo:
+        row.actaIntegranteId != null ? "interno" : row.clienteMiembroId != null ? "cliente" : null,
+      clientesNombres,
+    },
+    historial: historialRows.map((h) => ({
+      id: h.id,
+      estadoAnterior: h.estadoAnterior as "pendiente" | "cumplido" | "no_cumplido" | null,
+      estadoNuevo: (h.estadoNuevo ?? "pendiente") as "pendiente" | "cumplido" | "no_cumplido",
+      detalle: h.detalle ?? null,
+      creadoEn: h.creadoEn as Date,
+      creadoPorNombre: h.creadoPorNombre ?? null,
+    })),
+  };
 }

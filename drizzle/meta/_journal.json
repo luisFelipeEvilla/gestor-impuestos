@@ -141,6 +141,13 @@
       "when": 1770942923159,
       "tag": "0019_rare_lyja",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1770993142214,
+      "tag": "0020_omniscient_may_parker",
+      "breakpoints": true
     }
   ]
 }

@@ -312,6 +312,25 @@ export const compromisosActa = pgTable("compromisos_acta", {
   }),
 });
 
+/** Historial de actualizaciones de estado de un compromiso de acta (hoja de vida) */
+export const compromisosActaHistorial = pgTable("compromisos_acta_historial", {
+  id: serial("id").primaryKey(),
+  compromisoActaId: integer("compromiso_acta_id")
+    .notNull()
+    .references(() => compromisosActa.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  /** Estado anterior (null en la primera actualización o creación). */
+  estadoAnterior: estadoCompromisoActaEnum("estado_anterior"),
+  /** Estado después de esta actualización. */
+  estadoNuevo: estadoCompromisoActaEnum("estado_nuevo").notNull(),
+  /** Observación o detalle de esta actualización. */
+  detalle: text("detalle"),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+  creadoPorId: integer("creado_por_id").references(() => usuarios.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+});
+
 // Tabla: aprobaciones_acta_participante (respuesta del participante tras envío: aprobación o rechazo)
 export const aprobacionesActaParticipante = pgTable(
   "aprobaciones_acta_participante",
@@ -447,11 +466,17 @@ export const actasIntegrantesRelations = relations(actasIntegrantes, ({ one, man
   compromisosAsignados: many(compromisosActa),
 }));
 
-export const compromisosActaRelations = relations(compromisosActa, ({ one }) => ({
+export const compromisosActaRelations = relations(compromisosActa, ({ one, many }) => ({
   acta: one(actasReunion),
   actaIntegrante: one(actasIntegrantes),
   clienteMiembro: one(clientesMiembros),
   actualizadoPor: one(usuarios, { fields: [compromisosActa.actualizadoPorId], references: [usuarios.id] }),
+  historial: many(compromisosActaHistorial),
+}));
+
+export const compromisosActaHistorialRelations = relations(compromisosActaHistorial, ({ one }) => ({
+  compromisoActa: one(compromisosActa),
+  creadoPor: one(usuarios, { fields: [compromisosActaHistorial.creadoPorId], references: [usuarios.id] }),
 }));
 
 export const aprobacionesActaParticipanteRelations = relations(
@@ -504,5 +529,7 @@ export type HistorialActa = typeof historialActa.$inferSelect;
 export type NewHistorialActa = typeof historialActa.$inferInsert;
 export type CompromisoActa = typeof compromisosActa.$inferSelect;
 export type NewCompromisoActa = typeof compromisosActa.$inferInsert;
+export type CompromisoActaHistorial = typeof compromisosActaHistorial.$inferSelect;
+export type NewCompromisoActaHistorial = typeof compromisosActaHistorial.$inferInsert;
 export type ActaReunionCliente = typeof actasReunionClientes.$inferSelect;
 export type NewActaReunionCliente = typeof actasReunionClientes.$inferInsert;

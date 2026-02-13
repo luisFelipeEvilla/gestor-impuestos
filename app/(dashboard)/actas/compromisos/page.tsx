@@ -126,10 +126,21 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className="line-clamp-2">{c.descripcion}</span>
+                        <Link
+                          href={`/actas/compromisos/${c.id}`}
+                          className="text-primary hover:underline font-medium line-clamp-2 block"
+                        >
+                          {c.descripcion}
+                        </Link>
                         <span className="text-muted-foreground text-xs block mt-0.5 line-clamp-1">
                           {c.actaObjetivo}
                         </span>
+                        <Link
+                          href={`/actas/compromisos/${c.id}`}
+                          className="text-primary text-xs hover:underline mt-1 inline-block"
+                        >
+                          Ver detalle y historial →
+                        </Link>
                       </TableCell>
                       <TableCell>
                         {c.fechaLimite
