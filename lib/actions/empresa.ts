@@ -7,13 +7,21 @@ import { empresa } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 const schemaEmpresa = z.object({
-  nombre: z.string().min(1, "El nombre es obligatorio").max(200),
-  tipoDocumento: z.enum(["nit", "cedula"]),
-  numeroDocumento: z.string().min(1, "El número de documento es obligatorio").max(50),
-  direccion: z.string().max(500).optional().or(z.literal("")),
-  telefonoContacto: z.string().max(50).optional().or(z.literal("")),
-  numeroContacto: z.string().max(50).optional().or(z.literal("")),
-  cargoFirmanteActas: z.string().max(100).optional().or(z.literal("")),
+  nombre: z
+    .string()
+    .transform((s) => (typeof s === "string" ? s.trim() : ""))
+    .pipe(z.string().min(1, "El nombre es obligatorio").max(300)),
+  tipoDocumento: z.enum(["nit", "cedula"], {
+    errorMap: () => ({ message: "Selecciona un tipo de documento." }),
+  }),
+  numeroDocumento: z
+    .string()
+    .transform((s) => (typeof s === "string" ? s.trim() : ""))
+    .pipe(z.string().min(1, "El número de documento es obligatorio").max(100)),
+  direccion: z.string().max(800).optional().or(z.literal("")),
+  telefonoContacto: z.string().max(150).optional().or(z.literal("")),
+  numeroContacto: z.string().max(150).optional().or(z.literal("")),
+  cargoFirmanteActas: z.string().max(150).optional().or(z.literal("")),
 });
 
 const schemaConId = schemaEmpresa.extend({
@@ -25,6 +33,16 @@ export type EstadoFormEmpresa = {
   errores?: Record<string, string[]>;
 };
 
+function isConnectionError(err: unknown): boolean {
+  const code = err && typeof err === "object" && "code" in err ? (err as { code?: string }).code : undefined;
+  const cause = err && typeof err === "object" && "cause" in err ? (err as { cause?: unknown }).cause : undefined;
+  if (code === "ECONNRESET" || code === "ECONNREFUSED" || code === "ETIMEDOUT") return true;
+  if (cause && typeof cause === "object" && "code" in cause) {
+    return (cause as { code: string }).code === "ECONNRESET";
+  }
+  return false;
+}
+
 export async function getEmpresa(): Promise<{
   id: number;
   nombre: string;
@@ -35,18 +53,41 @@ export async function getEmpresa(): Promise<{
   numeroContacto: string | null;
   cargoFirmanteActas: string | null;
 } | null> {
-  const [row] = await db.select().from(empresa).limit(1);
-  if (!row) return null;
-  return {
-    id: row.id,
-    nombre: row.nombre,
-    tipoDocumento: row.tipoDocumento,
-    numeroDocumento: row.numeroDocumento,
-    direccion: row.direccion,
-    telefonoContacto: row.telefonoContacto,
-    numeroContacto: row.numeroContacto,
-    cargoFirmanteActas: row.cargoFirmanteActas,
+  const run = async () => {
+    const [row] = await db.select().from(empresa).limit(1);
+    return row ?? null;
   };
+  try {
+    const row = await run();
+    if (!row) return null;
+    return {
+      id: row.id,
+      nombre: row.nombre,
+      tipoDocumento: row.tipoDocumento,
+      numeroDocumento: row.numeroDocumento,
+      direccion: row.direccion,
+      telefonoContacto: row.telefonoContacto,
+      numeroContacto: row.numeroContacto,
+      cargoFirmanteActas: row.cargoFirmanteActas,
+    };
+  } catch (err) {
+    if (isConnectionError(err)) {
+      await new Promise((r) => setTimeout(r, 300));
+      const row = await run();
+      if (!row) return null;
+      return {
+        id: row.id,
+        nombre: row.nombre,
+        tipoDocumento: row.tipoDocumento,
+        numeroDocumento: row.numeroDocumento,
+        direccion: row.direccion,
+        telefonoContacto: row.telefonoContacto,
+        numeroContacto: row.numeroContacto,
+        cargoFirmanteActas: row.cargoFirmanteActas,
+      };
+    }
+    throw err;
+  }
 }
 
 export async function actualizarEmpresa(
@@ -54,25 +95,42 @@ export async function actualizarEmpresa(
   formData: FormData
 ): Promise<EstadoFormEmpresa> {
   const idRaw = formData.get("id");
-  const id = typeof idRaw === "string" ? parseInt(idRaw, 10) : Number(idRaw);
+  const id =
+    idRaw == null || idRaw === ""
+      ? undefined
+      : typeof idRaw === "string"
+        ? parseInt(idRaw, 10)
+        : Number(idRaw);
   const raw = {
-    id: Number.isNaN(id) ? undefined : id,
-    nombre: formData.get("nombre"),
-    tipoDocumento: formData.get("tipoDocumento"),
-    numeroDocumento: formData.get("numeroDocumento"),
-    direccion: formData.get("direccion") ?? "",
-    telefonoContacto: formData.get("telefonoContacto") ?? "",
-    numeroContacto: formData.get("numeroContacto") ?? "",
-    cargoFirmanteActas: formData.get("cargoFirmanteActas") ?? "",
+    id: id != null && !Number.isNaN(id) && id > 0 ? id : undefined,
+    nombre: (formData.get("nombre") ?? "") as string,
+    tipoDocumento: (formData.get("tipoDocumento") ?? "nit") as string,
+    numeroDocumento: (formData.get("numeroDocumento") ?? "") as string,
+    direccion: (formData.get("direccion") ?? "") as string,
+    telefonoContacto: (formData.get("telefonoContacto") ?? "") as string,
+    numeroContacto: (formData.get("numeroContacto") ?? "") as string,
+    cargoFirmanteActas: (formData.get("cargoFirmanteActas") ?? "") as string,
   };
 
   const parsed = schemaConId.safeParse(raw);
   if (!parsed.success) {
     const flat = parsed.error.flatten();
     const errores = flat.fieldErrors as Record<string, string[] | undefined>;
+    const erroresFiltrados =
+      Object.keys(errores).length > 0
+        ? (Object.fromEntries(
+            Object.entries(errores).filter(
+              (entry): entry is [string, string[]] => Array.isArray(entry[1]) && entry[1].length > 0
+            )
+          ) as Record<string, string[]>)
+        : undefined;
+    const mensajeGeneral =
+      erroresFiltrados && Object.keys(erroresFiltrados).length > 0
+        ? "Revisa los campos marcados abajo."
+        : flat.formErrors.join(" ") || "Revisa los datos del formulario.";
     return {
-      error: flat.formErrors.join(" ") || "Datos inválidos",
-      errores: Object.keys(errores).length ? (errores as Record<string, string[]>) : undefined,
+      error: mensajeGeneral,
+      errores: erroresFiltrados,
     };
   }
 

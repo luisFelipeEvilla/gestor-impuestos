@@ -50,10 +50,32 @@ export function EmpresaForm({ action, initialData, cargos }: EmpresaFormProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {state?.error && (
-            <p className="text-destructive text-sm" role="alert">
-              {state.error}
-            </p>
+          {(state?.error || (state?.errores && Object.keys(state.errores).length > 0)) && (
+            <div
+              className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm"
+              role="alert"
+              aria-live="polite"
+            >
+              <p className="font-medium text-destructive">
+                {state?.error ?? "Revisa los campos marcados abajo."}
+              </p>
+              {state?.errores && Object.keys(state.errores).length > 0 && (
+                <ul className="mt-2 list-inside list-disc space-y-0.5 text-destructive/90 text-xs">
+                  {Object.entries(state.errores).map(([campo, mensajes]) => (
+                    <li key={campo}>
+                      {campo === "nombre" && "Nombre: "}
+                      {campo === "tipoDocumento" && "Tipo de documento: "}
+                      {campo === "numeroDocumento" && "Número de documento: "}
+                      {campo === "direccion" && "Dirección: "}
+                      {campo === "telefonoContacto" && "Teléfono de contacto: "}
+                      {campo === "numeroContacto" && "Número de contacto: "}
+                      {campo === "cargoFirmanteActas" && "Cargo que firma actas: "}
+                      {mensajes?.[0]}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
           <div className="grid gap-2">
             <Label htmlFor="nombre">Nombre</Label>
