@@ -186,7 +186,7 @@ export function SearchableMultiSelect({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 z-50 mt-1 max-h-60 w-full min-w-[12rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
+        <div className="absolute top-full left-0 z-50 mt-1 max-h-60 w-full min-w-48 overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md">
           <div className="border-b p-1">
             <input
               ref={inputRef}

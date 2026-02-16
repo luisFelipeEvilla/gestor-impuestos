@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText, ChevronRight, ChevronLeft, RefreshCw } from "lucide-react";
+import { FileText, ChevronRight, ChevronLeft } from "lucide-react";
 import { obtenerActas, obtenerUsuariosParaFiltroActas, obtenerAsistentesExternosParaFiltro } from "@/lib/actions/actas";
 import { obtenerClientesActivos } from "@/lib/actions/clientes";
 import {
@@ -20,8 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { FiltrosActasForm } from "./filtros-actas-form";
 
 const ESTADOS: { value: string; label: string }[] = [
   { value: "borrador", label: "Borrador" },
@@ -55,6 +54,17 @@ function buildActasUrl(params: ActasUrlParams) {
   return q ? `/actas?${q}` : "/actas";
 }
 
+function parseArrayParam(
+  p: string | string[] | undefined
+): string[] {
+  if (!p) return [];
+  if (Array.isArray(p)) return p.map((s) => String(s).trim()).filter(Boolean);
+  return String(p)
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 type Props = {
   searchParams: Promise<{
     estado?: string;
@@ -63,8 +73,8 @@ type Props = {
     creador?: string;
     fechaDesde?: string;
     fechaHasta?: string;
-    asistenteInterno?: string;
-    asistenteExterno?: string;
+    asistenteInterno?: string | string[];
+    asistenteExterno?: string | string[];
   }>;
 };
 
@@ -79,13 +89,17 @@ export default async function ActasPage({ searchParams }: Props) {
   const creadorParam = params.creador?.trim() ? parseInt(params.creador, 10) : undefined;
   const fechaDesdeParam = params.fechaDesde?.trim() || undefined;
   const fechaHastaParam = params.fechaHasta?.trim() || undefined;
-  const asistenteInternoParam = params.asistenteInterno?.trim() ? parseInt(params.asistenteInterno, 10) : undefined;
-  const asistenteExternoParam = params.asistenteExterno?.trim() || undefined;
+  const asistenteInternoRaw = parseArrayParam(params.asistenteInterno);
+  const asistenteExternoRaw = parseArrayParam(params.asistenteExterno);
+  const asistenteInternoIds = asistenteInternoRaw
+    .map((s) => parseInt(s, 10))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  const asistenteExternoEmails = asistenteExternoRaw.filter((s) => s.length > 0);
 
   const [clientesList, usuariosList, asistentesExternosList, actasResult] = await Promise.all([
     obtenerClientesActivos(),
     obtenerUsuariosParaFiltroActas(),
-    obtenerAsistentesExternosParaFiltro(),
+    obtenerAsistentesExternosParaFiltro(clienteParam),
     obtenerActas({
       ...(estadoParam ? { estado: estadoParam as "borrador" | "pendiente_aprobacion" | "aprobada" | "enviada" } : {}),
       page: pageParamRaw,
@@ -93,8 +107,8 @@ export default async function ActasPage({ searchParams }: Props) {
       ...(creadorParam != null && Number.isInteger(creadorParam) && creadorParam > 0 ? { creadoPorId: creadorParam } : {}),
       ...(fechaDesdeParam ? { fechaDesde: fechaDesdeParam } : {}),
       ...(fechaHastaParam ? { fechaHasta: fechaHastaParam } : {}),
-      ...(asistenteInternoParam != null && Number.isInteger(asistenteInternoParam) && asistenteInternoParam > 0 ? { integranteUsuarioId: asistenteInternoParam } : {}),
-      ...(asistenteExternoParam ? { integranteExternoEmail: asistenteExternoParam } : {}),
+      ...(asistenteInternoIds.length > 0 ? { integranteUsuarioIds: asistenteInternoIds } : {}),
+      ...(asistenteExternoEmails.length > 0 ? { integranteExternoEmails: asistenteExternoEmails } : {}),
     }),
   ]);
 
@@ -107,8 +121,8 @@ export default async function ActasPage({ searchParams }: Props) {
     creador: params.creador,
     fechaDesde: fechaDesdeParam,
     fechaHasta: fechaHastaParam,
-    asistenteInterno: params.asistenteInterno,
-    asistenteExterno: asistenteExternoParam,
+    asistenteInterno: asistenteInternoRaw.length > 0 ? asistenteInternoRaw.join(",") : undefined,
+    asistenteExterno: asistenteExternoRaw.length > 0 ? asistenteExternoRaw.join(",") : undefined,
   };
 
   if (lista.length === 0 && total > 0 && page > totalPages) {
@@ -158,113 +172,23 @@ export default async function ActasPage({ searchParams }: Props) {
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Filtros</CardTitle>
             <CardDescription>
-              Cliente, asistentes, fecha y creador. Aplica y usa Actualizar para refrescar.
+              Cliente, asistentes (múltiples), fecha y creador. Si eliges un cliente, los asistentes externos se limitan a ese cliente.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form method="get" action="/actas" className="flex flex-col gap-4">
-              <input type="hidden" name="estado" value={estadoParam ?? ""} />
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cliente">Cliente</Label>
-                  <select
-                    id="cliente"
-                    name="cliente"
-                    defaultValue={params.cliente ?? ""}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="">Todos</option>
-                    {clientesList.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre}
-                        {c.codigo ? ` (${c.codigo})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="creador">Creador</Label>
-                  <select
-                    id="creador"
-                    name="creador"
-                    defaultValue={params.creador ?? ""}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="">Todos</option>
-                    {usuariosList.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="asistenteInterno">Asistente interno</Label>
-                  <select
-                    id="asistenteInterno"
-                    name="asistenteInterno"
-                    defaultValue={params.asistenteInterno ?? ""}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="">Todos</option>
-                    {usuariosList.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.nombre}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="asistenteExterno">Asistente externo</Label>
-                  <select
-                    id="asistenteExterno"
-                    name="asistenteExterno"
-                    defaultValue={params.asistenteExterno ?? ""}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="">Todos</option>
-                    {asistentesExternosList.map((a) => (
-                      <option key={a.email} value={a.email}>
-                        {a.nombre} ({a.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fechaDesde">Fecha desde</Label>
-                  <Input
-                    id="fechaDesde"
-                    name="fechaDesde"
-                    type="date"
-                    defaultValue={fechaDesdeParam ?? ""}
-                    className="h-9"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fechaHasta">Fecha hasta</Label>
-                  <Input
-                    id="fechaHasta"
-                    name="fechaHasta"
-                    type="date"
-                    defaultValue={fechaHastaParam ?? ""}
-                    className="h-9"
-                  />
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="submit" variant="secondary" size="sm">
-                  Filtrar
-                </Button>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href={currentUrl} className="gap-1.5">
-                    <RefreshCw className="size-4" aria-hidden />
-                    Actualizar
-                  </Link>
-                </Button>
-              </div>
-            </form>
+            <FiltrosActasForm
+              estadoParam={estadoParam ?? ""}
+              clientesList={clientesList}
+              usuariosList={usuariosList}
+              initialExternos={asistentesExternosList}
+              initialCliente={params.cliente ?? ""}
+              initialCreador={params.creador ?? ""}
+              initialAsistenteInterno={asistenteInternoRaw}
+              initialAsistenteExterno={asistenteExternoRaw}
+              initialFechaDesde={fechaDesdeParam ?? ""}
+              initialFechaHasta={fechaHastaParam ?? ""}
+              currentUrl={currentUrl}
+            />
           </CardContent>
         </Card>
 

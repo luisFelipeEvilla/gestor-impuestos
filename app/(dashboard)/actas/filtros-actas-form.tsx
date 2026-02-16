@@ -76,19 +76,13 @@ export function FiltrosActasForm({
     setCliente(val);
     setSelectedExternos([]);
     const clienteId = val ? parseInt(val, 10) : undefined;
-    if (clienteId && Number.isInteger(clienteId)) {
-      setLoadingExternos(true);
-      obtenerAsistentesExternosParaFiltro(clienteId)
-        .then((list) => {
-          setExternosOptions(list);
-        })
-        .finally(() => setLoadingExternos(false));
-    } else {
-      obtenerAsistentesExternosParaFiltro()
-        .then((list) => setExternosOptions(list))
-        .finally(() => setLoadingExternos(false));
-    }
-  }, [externosOptions]);
+    setLoadingExternos(true);
+    obtenerAsistentesExternosParaFiltro(
+      clienteId != null && Number.isInteger(clienteId) ? clienteId : undefined
+    )
+      .then((list) => setExternosOptions(list))
+      .finally(() => setLoadingExternos(false));
+  }, []);
 
   const internosSelectOptions: SearchableMultiSelectOption[] = usuariosList.map((u) => ({
     value: String(u.id),
