@@ -11,10 +11,6 @@ import { getSession } from "@/lib/auth-server";
 const schemaPerfil = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio").max(200),
   email: z.string().email("Email no válido"),
-  cargoId: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((v) => (v === "" || v === undefined ? null : Number(v))),
 });
 
 export interface EstadoFormPerfil {
@@ -27,8 +23,8 @@ function hashPassword(password: string): Promise<string> {
 }
 
 /**
- * Actualiza el perfil del usuario autenticado. Solo permite modificar
- * nombre, email, cargo y contraseña (opcional). No permite cambiar rol ni activo.
+ * Actualiza el perfil del usuario autenticado. Solo permite modificar nombre y email.
+ * El cargo solo puede cambiarlo un administrador desde Gestión de usuarios.
  */
 const schemaCambiarContraseña = z
   .object({
@@ -100,7 +96,6 @@ export async function actualizarPerfil(
   const raw = {
     nombre: formData.get("nombre"),
     email: formData.get("email"),
-    cargoId: formData.get("cargoId"),
   };
 
   const parsed = schemaPerfil.safeParse(raw);
@@ -114,7 +109,7 @@ export async function actualizarPerfil(
     };
   }
 
-  const { nombre, email, cargoId } = parsed.data;
+  const { nombre, email } = parsed.data;
 
   const userId = Number(session.user.id);
   if (!Number.isInteger(userId) || userId < 1) return { error: "Sesión inválida." };
@@ -125,7 +120,6 @@ export async function actualizarPerfil(
       .set({
         nombre,
         email: email.trim().toLowerCase(),
-        cargoId: cargoId ?? null,
         updatedAt: new Date(),
       })
       .where(eq(usuarios.id, userId))

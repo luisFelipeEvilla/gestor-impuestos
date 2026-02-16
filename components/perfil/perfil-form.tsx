@@ -14,7 +14,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Usuario } from "@/lib/db/schema";
-import { cn } from "@/lib/utils";
 import { actualizarPerfil } from "@/lib/actions/perfil";
 import { CambiarPasswordModal } from "@/components/perfil/cambiar-password-modal";
 
@@ -36,8 +35,8 @@ export function PerfilForm({ initialData, cargos }: PerfilFormProps) {
           <CardHeader>
             <CardTitle>Configuración del perfil</CardTitle>
             <CardDescription>
-              Actualiza tu nombre, correo y cargo. El nombre en la barra superior se actualizará
-              la próxima vez que inicies sesión.
+              Actualiza tu nombre y correo. El cargo lo asigna un administrador. El nombre en la
+              barra superior se actualizará la próxima vez que inicies sesión.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -87,27 +86,16 @@ export function PerfilForm({ initialData, cargos }: PerfilFormProps) {
             </div>
             {cargos.length > 0 && (
               <div className="grid gap-2">
-                <Label htmlFor="perfil-cargoId">Cargo en la compañía</Label>
-                <select
-                  id="perfil-cargoId"
-                  name="cargoId"
-                  defaultValue={initialData.cargoId ?? ""}
-                  className={cn(
-                    "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-                  )}
-                  aria-invalid={!!state?.errores?.cargoId}
-                  aria-label="Cargo que ocupa en la compañía"
+                <Label htmlFor="perfil-cargo-solo-lectura">Cargo en la compañía</Label>
+                <p
+                  id="perfil-cargo-solo-lectura"
+                  className="text-muted-foreground border-input flex h-9 items-center rounded-md border border-dashed bg-muted/30 px-3 py-1 text-sm"
+                  aria-label="Cargo actual (solo consulta, un administrador puede cambiarlo desde Gestión de usuarios)"
                 >
-                  <option value="">Sin asignar</option>
-                  {cargos.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-                {state?.errores?.cargoId && (
-                  <p className="text-destructive text-xs">{state.errores.cargoId[0]}</p>
-                )}
+                  {initialData.cargoId != null
+                    ? cargos.find((c) => c.id === initialData.cargoId)?.nombre ?? "Sin asignar"
+                    : "Sin asignar"}
+                </p>
               </div>
             )}
             <div className="flex flex-wrap items-center gap-2 pt-2">

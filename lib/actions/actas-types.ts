@@ -91,6 +91,28 @@ export type HistorialActaItem = {
   metadata: unknown;
 };
 
+/** Metadata de un evento de edición en el historial del acta (auditoría). */
+export type MetadataEdicionActa = {
+  antes?: {
+    fecha: string;
+    objetivo: string;
+    contenido: string | null;
+    integrantes: { nombre: string; email: string; tipo: string; cargo: string | null; solicitarAprobacionCorreo: boolean }[];
+    clientesIds: number[];
+    actividadesIds: number[];
+    compromisos: { descripcion: string; fechaLimite: string | null; actaIntegranteId: number | null; clienteMiembroId: number | null }[];
+  };
+  despues?: {
+    fecha: string;
+    objetivo: string;
+    contenido: string | null;
+    integrantes: { nombre: string; email: string; tipo: string; cargo: string | null; solicitarAprobacionCorreo: boolean }[];
+    clientesIds: number[];
+    actividadesIds: number[];
+    compromisos: { descripcion: string; fechaLimite: string | null; asignadoIndex: number | null; asignadoClienteMiembroId: number | null }[];
+  };
+};
+
 export type AprobacionParticipanteItem = {
   actaIntegranteId: number;
   nombre: string;
