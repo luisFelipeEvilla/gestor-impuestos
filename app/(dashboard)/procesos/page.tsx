@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { FolderOpen, ChevronRight } from "lucide-react";
+import { FolderOpen, ChevronRight, ChevronLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import {
   procesos,
@@ -9,7 +9,7 @@ import {
   usuarios,
   historialProceso,
 } from "@/lib/db/schema";
-import { desc, eq, and, or, ilike, inArray, sql } from "drizzle-orm";
+import { desc, eq, and, or, ilike, inArray, sql, count } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import {
   Card,
@@ -45,6 +45,29 @@ const ESTADOS_VALIDOS = [
 
 const TIPOS_IMPUESTO = ["nacional", "municipal"] as const;
 
+const PROCESOS_PAGE_SIZE = 15;
+
+function buildProcesosUrl(filtros: {
+  estado?: string | null;
+  vigencia?: number | null;
+  contribuyente?: string;
+  asignado?: string;
+  fechaAsignacion?: string | null;
+  tipoImpuesto?: string | null;
+  page?: number;
+}) {
+  const search = new URLSearchParams();
+  if (filtros.estado) search.set("estado", filtros.estado);
+  if (filtros.vigencia != null) search.set("vigencia", String(filtros.vigencia));
+  if (filtros.contribuyente?.trim()) search.set("contribuyente", filtros.contribuyente.trim());
+  if (filtros.asignado?.trim()) search.set("asignado", filtros.asignado.trim());
+  if (filtros.fechaAsignacion) search.set("fechaAsignacion", filtros.fechaAsignacion);
+  if (filtros.tipoImpuesto) search.set("tipoImpuesto", filtros.tipoImpuesto);
+  if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
+  const q = search.toString();
+  return q ? `/procesos?${q}` : "/procesos";
+}
+
 type Props = {
   searchParams: Promise<{
     estado?: string;
@@ -53,6 +76,7 @@ type Props = {
     asignado?: string;
     fechaAsignacion?: string;
     tipoImpuesto?: string;
+    page?: string;
   }>;
 };
 
@@ -65,6 +89,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const asignadoQ = (params.asignado ?? "").trim();
   const fechaAsignacionParam = params.fechaAsignacion;
   const tipoImpuestoParam = params.tipoImpuesto;
+  const pageParam = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
 
   const estadoActual: (typeof ESTADOS_VALIDOS)[number] | null =
     estadoParam != null && ESTADOS_VALIDOS.includes(estadoParam as (typeof ESTADOS_VALIDOS)[number])
@@ -133,6 +158,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const whereCond =
     condiciones.length > 0 ? and(...condiciones) : undefined;
 
+  const pageSize = PROCESOS_PAGE_SIZE;
+  const offset = (pageParam - 1) * pageSize;
+
   const baseQuery = db
     .select({
       id: procesos.id,
@@ -153,11 +181,24 @@ export default async function ProcesosPage({ searchParams }: Props) {
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id));
 
-  const lista = await (whereCond
-    ? baseQuery.where(whereCond)
-    : baseQuery)
-    .orderBy(desc(procesos.creadoEn))
-    .limit(50);
+  const countQuery = db
+    .select({ total: count(procesos.id) })
+    .from(procesos)
+    .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
+    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
+    .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id));
+
+  const [countResult, lista] = await Promise.all([
+    whereCond ? countQuery.where(whereCond) : countQuery,
+    (whereCond ? baseQuery.where(whereCond) : baseQuery)
+      .orderBy(desc(procesos.creadoEn))
+      .limit(pageSize)
+      .offset(offset),
+  ]);
+
+  const total = Number(countResult[0]?.total ?? 0);
+  const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+  const page = pageParam;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -207,65 +248,125 @@ export default async function ProcesosPage({ searchParams }: Props) {
               action={{ href: "/procesos/nuevo", label: "Crear proceso →" }}
             />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Impuesto</TableHead>
-                  <TableHead>Contribuyente</TableHead>
-                  <TableHead>Vigencia</TableHead>
-                  <TableHead>Nº resolución</TableHead>
-                  <TableHead>Monto (COP)</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-center">Fecha límite</TableHead>
-                  <TableHead>Asignado</TableHead>
-                  <TableHead className="w-[80px]">Acción</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {lista.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>{p.id}</TableCell>
-                    <TableCell className="font-medium">
-                      {p.impuestoCodigo}
-                    </TableCell>
-                    <TableCell>
-                      {p.contribuyenteNombre}
-                      <span className="text-muted-foreground ml-1 text-xs">
-                        ({p.contribuyenteNit})
-                      </span>
-                    </TableCell>
-                    <TableCell>{p.vigencia}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {p.numeroResolucion ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      {Number(p.montoCop).toLocaleString("es-CO")}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {p.estadoActual?.replace(/_/g, " ")}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <SemaforoFechaLimite
-                        fechaLimite={p.fechaLimite}
-                        variant="pill"
-                        className="justify-center"
-                      />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {p.asignadoNombre ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
-                        <Link href={`/procesos/${p.id}`}>
-                          Ver <ChevronRight className="size-4" aria-hidden />
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Impuesto</TableHead>
+                    <TableHead>Contribuyente</TableHead>
+                    <TableHead>Vigencia</TableHead>
+                    <TableHead>Nº resolución</TableHead>
+                    <TableHead>Monto (COP)</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-center">Fecha límite</TableHead>
+                    <TableHead>Asignado</TableHead>
+                    <TableHead className="w-[80px]">Acción</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {lista.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell>{p.id}</TableCell>
+                      <TableCell className="font-medium">
+                        {p.impuestoCodigo}
+                      </TableCell>
+                      <TableCell>
+                        {p.contribuyenteNombre}
+                        <span className="text-muted-foreground ml-1 text-xs">
+                          ({p.contribuyenteNit})
+                        </span>
+                      </TableCell>
+                      <TableCell>{p.vigencia}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {p.numeroResolucion ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        {Number(p.montoCop).toLocaleString("es-CO")}
+                      </TableCell>
+                      <TableCell className="capitalize">
+                        {p.estadoActual?.replace(/_/g, " ")}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <SemaforoFechaLimite
+                          fechaLimite={p.fechaLimite}
+                          variant="pill"
+                          className="justify-center"
+                        />
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {p.asignadoNombre ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
+                          <Link href={`/procesos/${p.id}`}>
+                            Ver <ChevronRight className="size-4" aria-hidden />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {totalPages > 1 && (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t pt-4 mt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} de {total}
+                  </p>
+                  <nav className="flex items-center gap-1" aria-label="Paginación">
+                    {page <= 1 ? (
+                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                        <ChevronLeft className="size-4" aria-hidden />
+                        Anterior
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                        <Link
+                          href={buildProcesosUrl({
+                            estado: estadoActual ?? undefined,
+                            vigencia: vigenciaNum,
+                            contribuyente: contribuyenteQ || undefined,
+                            asignado: asignadoQ || undefined,
+                            fechaAsignacion: fechaAsignacion ?? undefined,
+                            tipoImpuesto: tipoImpuesto ?? undefined,
+                            page: page - 1,
+                          })}
+                        >
+                          <ChevronLeft className="size-4" aria-hidden />
+                          Anterior
                         </Link>
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    )}
+                    <span className="px-2 text-sm text-muted-foreground">
+                      Página {page} de {totalPages}
+                    </span>
+                    {page >= totalPages ? (
+                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                        Siguiente
+                        <ChevronRight className="size-4" aria-hidden />
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                        <Link
+                          href={buildProcesosUrl({
+                            estado: estadoActual ?? undefined,
+                            vigencia: vigenciaNum,
+                            contribuyente: contribuyenteQ || undefined,
+                            asignado: asignadoQ || undefined,
+                            fechaAsignacion: fechaAsignacion ?? undefined,
+                            tipoImpuesto: tipoImpuesto ?? undefined,
+                            page: page + 1,
+                          })}
+                        >
+                          Siguiente
+                          <ChevronRight className="size-4" aria-hidden />
+                        </Link>
+                      </Button>
+                    )}
+                  </nav>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

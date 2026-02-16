@@ -80,9 +80,9 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
     );
   }
 
-  const actaId = parseInt(actaParam, 10);
+  const actaId = actaParam?.trim() ?? "";
   const integranteId = parseInt(integranteParam, 10);
-  if (Number.isNaN(actaId) || Number.isNaN(integranteId) || actaId < 1 || integranteId < 1) {
+  if (!actaId || Number.isNaN(integranteId) || integranteId < 1) {
     return (
       <ErrorCard
         title="Enlace inválido o expirado"

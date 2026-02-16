@@ -67,12 +67,15 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+const defaultSidebarValue: SidebarContextValue = {
+  collapsed: false,
+  setCollapsed: () => {},
+  toggle: () => {},
+};
+
 export function useSidebar(): SidebarContextValue {
   const ctx = useContext(SidebarContext);
-  if (!ctx) {
-    throw new Error("useSidebar must be used within SidebarProvider");
-  }
-  return ctx;
+  return ctx ?? defaultSidebarValue;
 }
 
 export function useSidebarOptional(): SidebarContextValue | null {

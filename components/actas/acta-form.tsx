@@ -43,7 +43,7 @@ type ActaFormProps = {
   /** Miembros de clientes (para asignar compromisos a miembros del cliente). */
   clientesMiembros?: ClienteMiembroOption[];
   initialData?: {
-    id?: number;
+    id?: string;
     fecha: string;
     objetivo: string;
     contenido: string | null;

@@ -10,7 +10,9 @@ import {
   timestamp,
   numeric,
   unique,
+  uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
 
 // Enums según definición del proyecto (Colombia)
@@ -252,7 +254,12 @@ export const documentosProceso = pgTable("documentos_proceso", {
 
 // Tabla: actas_reunion
 export const actasReunion = pgTable("actas_reunion", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
+  /** Número secuencial de acta para referencia humana (Acta #1, #2, ...). */
+  serial: integer("serial")
+    .notNull()
+    .unique()
+    .default(sql`nextval('actas_reunion_serial_seq'::regclass)`),
   fecha: date("fecha").notNull(),
   objetivo: text("objetivo").notNull(),
   contenido: text("contenido"),
@@ -273,7 +280,7 @@ export const actasReunion = pgTable("actas_reunion", {
 // Tabla: actas_integrantes (N:M acta – integrantes; interno = empleado propio, externo = miembro externo)
 export const actasIntegrantes = pgTable("actas_integrantes", {
   id: serial("id").primaryKey(),
-  actaId: integer("acta_id")
+  actaId: uuid("acta_id")
     .notNull()
     .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
   tipo: tipoIntegranteActaEnum("tipo").notNull().default("externo"),
@@ -292,7 +299,7 @@ export const actasIntegrantes = pgTable("actas_integrantes", {
 // Tabla: compromisos_acta (compromisos individuales por acta: descripción, fecha límite, persona asignada, seguimiento)
 export const compromisosActa = pgTable("compromisos_acta", {
   id: serial("id").primaryKey(),
-  actaId: integer("acta_id")
+  actaId: uuid("acta_id")
     .notNull()
     .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
   /** Descripción del compromiso. */
@@ -346,7 +353,7 @@ export const aprobacionesActaParticipante = pgTable(
   "aprobaciones_acta_participante",
   {
     id: serial("id").primaryKey(),
-    actaId: integer("acta_id")
+    actaId: uuid("acta_id")
       .notNull()
       .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
     actaIntegranteId: integer("acta_integrante_id")
@@ -366,7 +373,7 @@ export const aprobacionesActaParticipante = pgTable(
 // Tabla: documentos_acta (adjuntos por acta)
 export const documentosActa = pgTable("documentos_acta", {
   id: serial("id").primaryKey(),
-  actaId: integer("acta_id")
+  actaId: uuid("acta_id")
     .notNull()
     .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
   nombreOriginal: text("nombre_original").notNull(),
@@ -379,7 +386,7 @@ export const documentosActa = pgTable("documentos_acta", {
 // Tabla: historial_acta (registro de modificaciones)
 export const historialActa = pgTable("historial_acta", {
   id: serial("id").primaryKey(),
-  actaId: integer("acta_id")
+  actaId: uuid("acta_id")
     .notNull()
     .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
   usuarioId: integer("usuario_id").references(() => usuarios.id, {
@@ -420,7 +427,7 @@ export const actividades = pgTable("actividades", {
 export const actasReunionActividades = pgTable(
   "actas_reunion_actividades",
   {
-    actaId: integer("acta_id")
+    actaId: uuid("acta_id")
       .notNull()
       .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
     actividadId: integer("actividad_id")
@@ -434,7 +441,7 @@ export const actasReunionActividades = pgTable(
 export const actasReunionClientes = pgTable(
   "actas_reunion_clientes",
   {
-    actaId: integer("acta_id")
+    actaId: uuid("acta_id")
       .notNull()
       .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
     clienteId: integer("cliente_id")

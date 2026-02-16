@@ -20,7 +20,7 @@ export type DocumentoActaItem = {
 };
 
 type SubirDocumentoActaFormProps = {
-  actaId: number;
+  actaId: string;
 };
 
 export function SubirDocumentoActaForm({ actaId }: SubirDocumentoActaFormProps) {
@@ -60,7 +60,7 @@ export function SubirDocumentoActaForm({ actaId }: SubirDocumentoActaFormProps) 
 }
 
 type ListaDocumentosActaProps = {
-  actaId: number;
+  actaId: string;
   documentos: DocumentoActaItem[];
   puedeEliminar?: boolean;
 };

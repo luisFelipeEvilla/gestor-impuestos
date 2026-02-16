@@ -176,6 +176,13 @@
       "when": 1771282972842,
       "tag": "0024_naturaleza_impuesto",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1771283000000,
+      "tag": "0025_actas_uuid_serial",
+      "breakpoints": true
     }
   ]
 }

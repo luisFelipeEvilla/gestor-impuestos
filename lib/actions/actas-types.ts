@@ -27,7 +27,8 @@ export type EstadoFormActa = {
 export type EstadoGestionActa = { error?: string };
 
 export type ActaListItem = {
-  id: number;
+  id: string;
+  serial: number;
   fecha: Date;
   objetivo: string;
   estado: (typeof estadoActaValues)[number];
@@ -48,7 +49,8 @@ export type CompromisoDetalle = {
 };
 
 export type ActaDetalle = {
-  id: number;
+  id: string;
+  serial: number;
   fecha: Date;
   objetivo: string;
   contenido: string | null;

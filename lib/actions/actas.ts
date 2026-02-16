@@ -19,7 +19,7 @@ import {
   clientes,
 } from "@/lib/db/schema";
 import { generarFirmaAprobacion, verificarFirmaAprobacion } from "@/lib/actas-aprobacion";
-import { eq, and, desc, gte, lte, inArray } from "drizzle-orm";
+import { eq, and, desc, gte, lte, inArray, count } from "drizzle-orm";
 import { getSession, requireAdminSession } from "@/lib/auth-server";
 import {
   estadoActaValues,
@@ -42,7 +42,7 @@ const schemaCrear = z.object({
 });
 
 const schemaActualizar = schemaCrear.extend({
-  id: z.number().int().positive(),
+  id: z.string().uuid("ID de acta inválido"),
 });
 
 const tipoIntegranteValues = ["interno", "externo"] as const;
@@ -112,13 +112,31 @@ function parseCompromisos(value: unknown): CompromisoFormItem[] {
   }
 }
 
+const ACTAS_PAGE_SIZE = 15;
+
 export async function obtenerActas(filtros?: {
   estado?: (typeof estadoActaValues)[number];
   fechaDesde?: string;
   fechaHasta?: string;
-}): Promise<ActaListItem[]> {
+  clienteId?: number;
+  creadoPorId?: number;
+  /** Filtrar actas donde alguno de estos usuarios (internos) es integrante. */
+  integranteUsuarioIds?: number[];
+  /** Filtrar actas donde existe algún integrante externo con uno de estos emails. */
+  integranteExternoEmails?: string[];
+  page?: number;
+  pageSize?: number;
+}): Promise<{
+  actas: ActaListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
   const session = await getSession();
-  if (!session?.user) return [];
+  if (!session?.user) {
+    return { actas: [], total: 0, page: 1, pageSize: ACTAS_PAGE_SIZE, totalPages: 0 };
+  }
 
   const conditions = [];
   if (filtros?.estado) {
@@ -130,6 +148,64 @@ export async function obtenerActas(filtros?: {
   if (filtros?.fechaHasta) {
     conditions.push(lte(actasReunion.fecha, filtros.fechaHasta));
   }
+  if (filtros?.creadoPorId != null && filtros.creadoPorId > 0) {
+    conditions.push(eq(actasReunion.creadoPorId, filtros.creadoPorId));
+  }
+
+  if (filtros?.clienteId != null && filtros.clienteId > 0) {
+    const actaIdsConCliente = await db
+      .selectDistinct({ actaId: actasReunionClientes.actaId })
+      .from(actasReunionClientes)
+      .where(eq(actasReunionClientes.clienteId, filtros.clienteId));
+    const ids = actaIdsConCliente.map((r) => r.actaId);
+    if (ids.length === 0) {
+      return { actas: [], total: 0, page: 1, pageSize: ACTAS_PAGE_SIZE, totalPages: 0 };
+    }
+    conditions.push(inArray(actasReunion.id, ids));
+  }
+
+  if (filtros?.integranteUsuarioIds?.length) {
+    const idsSet = new Set<string>();
+    for (const usuarioId of filtros.integranteUsuarioIds) {
+      if (!Number.isInteger(usuarioId) || usuarioId <= 0) continue;
+      const rows = await db
+        .selectDistinct({ actaId: actasIntegrantes.actaId })
+        .from(actasIntegrantes)
+        .where(eq(actasIntegrantes.usuarioId, usuarioId));
+      rows.forEach((r) => idsSet.add(r.actaId));
+    }
+    const ids = Array.from(idsSet);
+    if (ids.length === 0) {
+      return { actas: [], total: 0, page: 1, pageSize: ACTAS_PAGE_SIZE, totalPages: 0 };
+    }
+    conditions.push(inArray(actasReunion.id, ids));
+  }
+
+  if (filtros?.integranteExternoEmails?.length) {
+    const emails = filtros.integranteExternoEmails.filter((e) => e?.trim());
+    if (emails.length === 0) {
+      // no valid emails, skip
+    } else {
+      const idsSet = new Set<string>();
+      for (const email of emails) {
+        const rows = await db
+          .selectDistinct({ actaId: actasIntegrantes.actaId })
+          .from(actasIntegrantes)
+          .where(
+            and(
+              eq(actasIntegrantes.tipo, "externo"),
+              eq(actasIntegrantes.email, email.trim())
+            )
+          );
+        rows.forEach((r) => idsSet.add(r.actaId));
+      }
+      const ids = Array.from(idsSet);
+      if (ids.length === 0) {
+        return { actas: [], total: 0, page: 1, pageSize: ACTAS_PAGE_SIZE, totalPages: 0 };
+      }
+      conditions.push(inArray(actasReunion.id, ids));
+    }
+  }
 
   if (session.user.rol !== "admin") {
     const actasDondeParticipa = await db
@@ -138,41 +214,113 @@ export async function obtenerActas(filtros?: {
       .where(eq(actasIntegrantes.usuarioId, session.user.id));
     const actaIds = actasDondeParticipa.map((r) => r.actaId);
     if (actaIds.length === 0) {
-      return [];
+      return { actas: [], total: 0, page: 1, pageSize: ACTAS_PAGE_SIZE, totalPages: 0 };
     }
     conditions.push(inArray(actasReunion.id, actaIds));
   }
 
-  const list = await db
-    .select({
-      id: actasReunion.id,
-      fecha: actasReunion.fecha,
-      objetivo: actasReunion.objetivo,
-      estado: actasReunion.estado,
-      creadorNombre: usuarios.nombre,
-    })
-    .from(actasReunion)
-    .leftJoin(usuarios, eq(actasReunion.creadoPorId, usuarios.id))
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(actasReunion.creadoEn))
-    .limit(100);
+  const whereCond = conditions.length > 0 ? and(...conditions) : undefined;
+  const page = Math.max(1, filtros?.page ?? 1);
+  const pageSize = Math.min(50, Math.max(1, filtros?.pageSize ?? ACTAS_PAGE_SIZE));
+  const offset = (page - 1) * pageSize;
+
+  const [countResult, list] = await Promise.all([
+    db
+      .select({ total: count(actasReunion.id) })
+      .from(actasReunion)
+      .where(whereCond),
+    db
+      .select({
+        id: actasReunion.id,
+        serial: actasReunion.serial,
+        fecha: actasReunion.fecha,
+        objetivo: actasReunion.objetivo,
+        estado: actasReunion.estado,
+        creadorNombre: usuarios.nombre,
+      })
+      .from(actasReunion)
+      .leftJoin(usuarios, eq(actasReunion.creadoPorId, usuarios.id))
+      .where(whereCond)
+      .orderBy(desc(actasReunion.creadoEn))
+      .limit(pageSize)
+      .offset(offset),
+  ]);
+
+  const total = Number(countResult[0]?.total ?? 0);
+  const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
 
   const integrantesRows = await db
     .select({ actaId: actasIntegrantes.actaId })
     .from(actasIntegrantes);
-  const countByActa = new Map<number, number>();
+  const countByActa = new Map<string, number>();
   for (const r of integrantesRows) {
     countByActa.set(r.actaId, (countByActa.get(r.actaId) ?? 0) + 1);
   }
 
-  return list.map((row) => ({
+  const actas = list.map((row) => ({
     id: row.id,
+    serial: row.serial,
     fecha: row.fecha as unknown as Date,
     objetivo: row.objetivo,
     estado: row.estado as (typeof estadoActaValues)[number],
     creadorNombre: row.creadorNombre,
     numIntegrantes: countByActa.get(row.id) ?? 0,
   }));
+
+  return { actas, total, page, pageSize, totalPages };
+}
+
+/** Lista de usuarios activos para filtro por creador o asistente interno en actas. */
+export async function obtenerUsuariosParaFiltroActas(): Promise<
+  { id: number; nombre: string }[]
+> {
+  const session = await getSession();
+  if (!session?.user) return [];
+  const rows = await db
+    .select({ id: usuarios.id, nombre: usuarios.nombre })
+    .from(usuarios)
+    .where(eq(usuarios.activo, true))
+    .orderBy(usuarios.nombre);
+  return rows;
+}
+
+/** Lista de asistentes externos (email + nombre) para filtro en actas. Si se pasa clienteId, solo devuelve los que aparecen en actas de ese cliente. */
+export async function obtenerAsistentesExternosParaFiltro(clienteId?: number): Promise<
+  { email: string; nombre: string }[]
+> {
+  const session = await getSession();
+  if (!session?.user) return [];
+  if (clienteId != null && clienteId > 0) {
+    const actaIdsDelCliente = await db
+      .selectDistinct({ actaId: actasReunionClientes.actaId })
+      .from(actasReunionClientes)
+      .where(eq(actasReunionClientes.clienteId, clienteId));
+    const ids = actaIdsDelCliente.map((r) => r.actaId);
+    if (ids.length === 0) return [];
+    const rows = await db
+      .selectDistinct({
+        email: actasIntegrantes.email,
+        nombre: actasIntegrantes.nombre,
+      })
+      .from(actasIntegrantes)
+      .where(
+        and(
+          eq(actasIntegrantes.tipo, "externo"),
+          inArray(actasIntegrantes.actaId, ids)
+        )
+      )
+      .orderBy(actasIntegrantes.email);
+    return rows.map((r) => ({ email: r.email, nombre: r.nombre }));
+  }
+  const rows = await db
+    .selectDistinct({
+      email: actasIntegrantes.email,
+      nombre: actasIntegrantes.nombre,
+    })
+    .from(actasIntegrantes)
+    .where(eq(actasIntegrantes.tipo, "externo"))
+    .orderBy(actasIntegrantes.email);
+  return rows.map((r) => ({ email: r.email, nombre: r.nombre }));
 }
 
 /**
@@ -180,9 +328,9 @@ export async function obtenerActas(filtros?: {
  * No requiere sesión. Solo devuelve datos si el acta está en estado "enviada".
  */
 export async function obtenerActaParaPreviewParticipante(
-  actaId: number
+  actaId: string
 ): Promise<{
-  id: number;
+  id: string;
   fecha: Date;
   objetivo: string;
   contenido: string | null;
@@ -191,7 +339,7 @@ export async function obtenerActaParaPreviewParticipante(
   documentos: { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date }[];
   actividades: { id: number; codigo: string; descripcion: string }[];
 } | null> {
-  if (!Number.isInteger(actaId) || actaId < 1) return null;
+  if (!actaId || typeof actaId !== "string") return null;
   const [acta] = await db
     .select({
       id: actasReunion.id,
@@ -269,13 +417,14 @@ export async function obtenerActaParaPreviewParticipante(
   };
 }
 
-export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | null> {
+export async function obtenerActaPorId(actaId: string): Promise<ActaDetalle | null> {
   const session = await getSession();
   if (!session?.user) return null;
 
   const [acta] = await db
     .select({
       id: actasReunion.id,
+      serial: actasReunion.serial,
       fecha: actasReunion.fecha,
       objetivo: actasReunion.objetivo,
       contenido: actasReunion.contenido,
@@ -382,6 +531,7 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
 
   return {
     id: acta.id,
+    serial: acta.serial,
     fecha: acta.fecha as unknown as Date,
     objetivo: acta.objetivo,
     contenido: acta.contenido,
@@ -567,7 +717,7 @@ export async function actualizarActa(
   if (!session?.user) return { error: "Debes iniciar sesión." };
 
   const idRaw = formData.get("id");
-  const id = typeof idRaw === "string" ? parseInt(idRaw, 10) : Number(idRaw);
+  const id = typeof idRaw === "string" ? idRaw.trim() : "";
   const fechaStr = (formData.get("fecha") as string)?.trim();
   const objetivo = (formData.get("objetivo") as string)?.trim() ?? "";
   const contenido = (formData.get("contenido") as string)?.trim() || null;
@@ -577,7 +727,7 @@ export async function actualizarActa(
   const actividadesIdsRaw = formData.get("actividadesIds");
 
   const parsed = schemaActualizar.safeParse({
-    id: Number.isNaN(id) ? undefined : id,
+    id: id || undefined,
     fecha: fechaStr,
     objetivo,
     contenido: contenido ?? "",
@@ -714,11 +864,11 @@ export async function actualizarActa(
   }
 }
 
-export async function enviarActaAprobacion(actaId: number): Promise<EstadoGestionActa> {
+export async function enviarActaAprobacion(actaId: string): Promise<EstadoGestionActa> {
   const session = await getSession();
   if (!session?.user) return { error: "Debes iniciar sesión." };
 
-  if (!Number.isInteger(actaId) || actaId < 1) return { error: "Acta inválida." };
+  if (!actaId || typeof actaId !== "string") return { error: "Acta inválida." };
 
   try {
     const [acta] = await db
@@ -751,11 +901,11 @@ export async function enviarActaAprobacion(actaId: number): Promise<EstadoGestio
   }
 }
 
-export async function aprobarActa(actaId: number): Promise<EstadoGestionActa> {
+export async function aprobarActa(actaId: string): Promise<EstadoGestionActa> {
   const session = await requireAdminSession();
   if (!session) return { error: "Solo un administrador puede aprobar actas." };
 
-  if (!Number.isInteger(actaId) || actaId < 1) return { error: "Acta inválida." };
+  if (!actaId || typeof actaId !== "string") return { error: "Acta inválida." };
 
   try {
     const [acta] = await db
@@ -791,11 +941,11 @@ export async function aprobarActa(actaId: number): Promise<EstadoGestionActa> {
   }
 }
 
-export async function enviarActaPorCorreo(actaId: number): Promise<EstadoGestionActa> {
+export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestionActa> {
   const session = await requireAdminSession();
   if (!session) return { error: "Solo un administrador puede enviar actas por correo." };
 
-  if (!Number.isInteger(actaId) || actaId < 1) return { error: "Acta inválida." };
+  if (!actaId || typeof actaId !== "string") return { error: "Acta inválida." };
 
   try {
     const acta = await obtenerActaPorId(actaId);
@@ -915,11 +1065,11 @@ export async function enviarActaPorCorreo(actaId: number): Promise<EstadoGestion
  * No registra la aprobación. Útil para mostrar la vista previa.
  */
 export async function validarEnlaceAprobacionParticipante(
-  actaId: number,
+  actaId: string,
   integranteId: number,
   firma: string
 ): Promise<{ valido: boolean; error?: string }> {
-  if (!Number.isInteger(actaId) || actaId < 1 || !Number.isInteger(integranteId) || integranteId < 1) {
+  if (!actaId || typeof actaId !== "string" || !Number.isInteger(integranteId) || integranteId < 1) {
     return { valido: false, error: "Enlace inválido." };
   }
   if (!verificarFirmaAprobacion(actaId, integranteId, firma)) {
@@ -951,10 +1101,10 @@ export async function validarEnlaceAprobacionParticipante(
  * Indica si el participante (integrante) ya aprobó este acta.
  */
 export async function yaAprobadoParticipante(
-  actaId: number,
+  actaId: string,
   integranteId: number
 ): Promise<boolean> {
-  if (!Number.isInteger(actaId) || actaId < 1 || !Number.isInteger(integranteId) || integranteId < 1) {
+  if (!actaId || typeof actaId !== "string" || !Number.isInteger(integranteId) || integranteId < 1) {
     return false;
   }
   const [row] = await db
@@ -978,11 +1128,11 @@ export async function aprobarParticipanteFromPreviewAction(
   formDataArg?: FormData
 ): Promise<void> {
   const formData = formDataArg instanceof FormData ? formDataArg : (prevOrFormData as FormData);
-  const actaId = Number(formData.get("actaId"));
+  const actaId = String(formData.get("actaId") ?? "").trim();
   const integranteId = Number(formData.get("integranteId"));
   const firma = (formData.get("firma") as string) ?? "";
   const base = "/actas/aprobar-participante";
-  const query = `acta=${actaId}&integrante=${integranteId}&firma=${encodeURIComponent(firma.trim())}`;
+  const query = `acta=${encodeURIComponent(actaId)}&integrante=${integranteId}&firma=${encodeURIComponent(firma.trim())}`;
 
   const result = await registrarAprobacionParticipante(
     actaId,
@@ -1002,12 +1152,12 @@ export async function aprobarParticipanteFromPreviewAction(
  * Ya no se guarda foto de aprobación (rutaFoto se mantiene en schema por compatibilidad).
  */
 export async function registrarAprobacionParticipante(
-  actaId: number,
+  actaId: string,
   integranteId: number,
   firma: string,
   rutaFoto?: string | null
 ): Promise<{ error?: string }> {
-  if (!Number.isInteger(actaId) || actaId < 1 || !Number.isInteger(integranteId) || integranteId < 1) {
+  if (!actaId || typeof actaId !== "string" || !Number.isInteger(integranteId) || integranteId < 1) {
     return { error: "Enlace inválido." };
   }
   if (!verificarFirmaAprobacion(actaId, integranteId, firma)) {
@@ -1059,12 +1209,12 @@ export async function registrarAprobacionParticipante(
  * Misma validación de firma y estado que la aprobación.
  */
 export async function registrarRechazoParticipante(
-  actaId: number,
+  actaId: string,
   integranteId: number,
   firma: string,
   motivoRechazo: string
 ): Promise<{ error?: string }> {
-  if (!Number.isInteger(actaId) || actaId < 1 || !Number.isInteger(integranteId) || integranteId < 1) {
+  if (!actaId || typeof actaId !== "string" || !Number.isInteger(integranteId) || integranteId < 1) {
     return { error: "Enlace inválido." };
   }
   if (!verificarFirmaAprobacion(actaId, integranteId, firma)) {
@@ -1126,12 +1276,12 @@ export async function rechazarParticipanteFromPreviewAction(
   formDataArg?: FormData
 ): Promise<void> {
   const formData = formDataArg instanceof FormData ? formDataArg : (prevOrFormData as FormData);
-  const actaId = Number(formData.get("actaId"));
+  const actaId = String(formData.get("actaId") ?? "").trim();
   const integranteId = Number(formData.get("integranteId"));
   const firma = (formData.get("firma") as string) ?? "";
   const motivoRechazo = (formData.get("motivoRechazo") as string) ?? "";
   const base = "/actas/aprobar-participante";
-  const query = `acta=${actaId}&integrante=${integranteId}&firma=${encodeURIComponent(firma.trim())}`;
+  const query = `acta=${encodeURIComponent(actaId)}&integrante=${integranteId}&firma=${encodeURIComponent(firma.trim())}`;
 
   const result = await registrarRechazoParticipante(
     actaId,
@@ -1149,10 +1299,10 @@ export async function rechazarParticipanteFromPreviewAction(
  * Devuelve si el participante ya respondió (aprobó o rechazó) y en su caso el tipo y motivo.
  */
 export async function obtenerRespuestaParticipante(
-  actaId: number,
+  actaId: string,
   integranteId: number
 ): Promise<{ respondido: boolean; rechazado?: boolean; motivoRechazo?: string | null }> {
-  if (!Number.isInteger(actaId) || actaId < 1 || !Number.isInteger(integranteId) || integranteId < 1) {
+  if (!actaId || typeof actaId !== "string" || !Number.isInteger(integranteId) || integranteId < 1) {
     return { respondido: false };
   }
   const [row] = await db
@@ -1180,9 +1330,9 @@ export async function obtenerRespuestaParticipante(
  * Para actas en estado enviada; usado en la vista de detalle.
  */
 export async function obtenerAprobacionesPorActa(
-  actaId: number
+  actaId: string
 ): Promise<AprobacionParticipanteItem[]> {
-  if (!Number.isInteger(actaId) || actaId < 1) return [];
+  if (!actaId || typeof actaId !== "string") return [];
   const aprobaciones = await db
     .select({
       actaIntegranteId: actasIntegrantes.id,
@@ -1215,11 +1365,11 @@ export async function obtenerAprobacionesPorActa(
   }));
 }
 
-export async function eliminarActa(actaId: number): Promise<EstadoGestionActa> {
+export async function eliminarActa(actaId: string): Promise<EstadoGestionActa> {
   const session = await getSession();
   if (!session?.user) return { error: "Debes iniciar sesión." };
 
-  if (!Number.isInteger(actaId) || actaId < 1) return { error: "Acta inválida." };
+  if (!actaId || typeof actaId !== "string") return { error: "Acta inválida." };
 
   try {
     const [acta] = await db
@@ -1254,7 +1404,7 @@ export async function enviarActaAprobacionAction(
   _prev: EstadoGestionActa | null,
   formData: FormData
 ): Promise<EstadoGestionActa> {
-  const actaId = Number(formData.get("actaId"));
+  const actaId = String(formData.get("actaId") ?? "").trim();
   return enviarActaAprobacion(actaId);
 }
 
@@ -1263,7 +1413,7 @@ export async function aprobarActaAction(
   _prev: EstadoGestionActa | null,
   formData: FormData
 ): Promise<EstadoGestionActa> {
-  const actaId = Number(formData.get("actaId"));
+  const actaId = String(formData.get("actaId") ?? "").trim();
   return aprobarActa(actaId);
 }
 
@@ -1272,7 +1422,7 @@ export async function enviarActaPorCorreoAction(
   _prev: EstadoGestionActa | null,
   formData: FormData
 ): Promise<EstadoGestionActa> {
-  const actaId = Number(formData.get("actaId"));
+  const actaId = String(formData.get("actaId") ?? "").trim();
   return enviarActaPorCorreo(actaId);
 }
 
@@ -1281,11 +1431,11 @@ export async function eliminarActaAction(
   _prev: EstadoGestionActa | null,
   formData: FormData
 ): Promise<EstadoGestionActa> {
-  const actaId = Number(formData.get("actaId"));
+  const actaId = String(formData.get("actaId") ?? "").trim();
   return eliminarActa(actaId);
 }
 
-export async function obtenerHistorialActa(actaId: number): Promise<HistorialActaItem[]> {
+export async function obtenerHistorialActa(actaId: string): Promise<HistorialActaItem[]> {
   const session = await getSession();
   if (!session?.user) return [];
 

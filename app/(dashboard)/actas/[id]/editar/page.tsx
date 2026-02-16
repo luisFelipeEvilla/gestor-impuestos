@@ -22,15 +22,14 @@ function formatDateForInput(value: Date | string | null | undefined): string {
 
 export default async function EditarActaPage({ params }: Props) {
   const { id } = await params;
-  const actaId = parseInt(id, 10);
-  if (Number.isNaN(actaId)) notFound();
+  if (!id) notFound();
 
   const session = await getSession();
   const [acta, integrantes, documentos, compromisosRows, usuariosList, clientesList] = await Promise.all([
     db
       .select()
       .from(actasReunion)
-      .where(eq(actasReunion.id, actaId))
+      .where(eq(actasReunion.id, id))
       .limit(1),
     db
       .select({
@@ -43,7 +42,7 @@ export default async function EditarActaPage({ params }: Props) {
         solicitarAprobacionCorreo: actasIntegrantes.solicitarAprobacionCorreo,
       })
       .from(actasIntegrantes)
-      .where(eq(actasIntegrantes.actaId, actaId)),
+      .where(eq(actasIntegrantes.actaId, id)),
     db
       .select({
         id: documentosActa.id,
@@ -53,7 +52,7 @@ export default async function EditarActaPage({ params }: Props) {
         creadoEn: documentosActa.creadoEn,
       })
       .from(documentosActa)
-      .where(eq(documentosActa.actaId, actaId)),
+      .where(eq(documentosActa.actaId, id)),
     db
       .select({
         id: compromisosActa.id,
@@ -63,7 +62,7 @@ export default async function EditarActaPage({ params }: Props) {
         clienteMiembroId: compromisosActa.clienteMiembroId,
       })
       .from(compromisosActa)
-      .where(eq(compromisosActa.actaId, actaId)),
+      .where(eq(compromisosActa.actaId, id)),
     db
       .select({
         id: usuarios.id,
@@ -89,11 +88,11 @@ export default async function EditarActaPage({ params }: Props) {
     db
       .select({ clienteId: actasReunionClientes.clienteId })
       .from(actasReunionClientes)
-      .where(eq(actasReunionClientes.actaId, actaId)),
+      .where(eq(actasReunionClientes.actaId, id)),
     db
       .select({ actividadId: actasReunionActividades.actividadId })
       .from(actasReunionActividades)
-      .where(eq(actasReunionActividades.actaId, actaId)),
+      .where(eq(actasReunionActividades.actaId, id)),
     obtenerMiembrosPorClientes(clientesList.map((c) => c.id)),
     listarCargosEmpresa(),
     obtenerObligacionesConActividades(),
@@ -139,7 +138,7 @@ export default async function EditarActaPage({ params }: Props) {
     <div className="p-6">
       <div className="mb-6 flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href={`/actas/${actaId}`}>← Volver al acta</Link>
+          <Link href={`/actas/${id}`}>← Volver al acta</Link>
         </Button>
       </div>
       <div className="mx-auto max-w-4xl space-y-6">
@@ -155,9 +154,9 @@ export default async function EditarActaPage({ params }: Props) {
         />
         <div className="rounded-lg border border-border p-4">
           <h3 className="font-medium mb-2">Documentos adjuntos</h3>
-          <SubirDocumentoActaForm actaId={actaId} />
+          <SubirDocumentoActaForm actaId={id} />
           <ListaDocumentosActa
-            actaId={actaId}
+            actaId={id}
             documentos={documentos.map((d) => ({
               id: d.id,
               nombreOriginal: d.nombreOriginal,

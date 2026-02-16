@@ -16,7 +16,7 @@ function getSecret(): string {
  * Payload: "acta:{actaId}:integrante:{integranteId}"
  */
 export function generarFirmaAprobacion(
-  actaId: number,
+  actaId: string,
   integranteId: number
 ): string {
   const payload = `${PAYLOAD_PREFIX}${actaId}${PAYLOAD_SEP}${integranteId}`;
@@ -30,7 +30,7 @@ export function generarFirmaAprobacion(
  * Comparación en tiempo constante para evitar timing attacks.
  */
 export function verificarFirmaAprobacion(
-  actaId: number,
+  actaId: string,
   integranteId: number,
   firma: string
 ): boolean {
@@ -57,7 +57,7 @@ const PAYLOAD_DOC = ":doc:";
  * Payload: "acta:{actaId}:integrante:{integranteId}:doc:{docId}"
  */
 export function generarFirmaDescargaDocumento(
-  actaId: number,
+  actaId: string,
   integranteId: number,
   docId: number
 ): string {
@@ -71,7 +71,7 @@ export function generarFirmaDescargaDocumento(
  * Verifica la firma de descarga de documento (comparación en tiempo constante).
  */
 export function verificarFirmaDescargaDocumento(
-  actaId: number,
+  actaId: string,
   integranteId: number,
   docId: number,
   firma: string

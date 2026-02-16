@@ -39,14 +39,13 @@ function sanitizeHtmlForDisplay(html: string): string {
 
 export default async function ActaDetallePage({ params }: Props) {
   const { id } = await params;
-  const actaId = parseInt(id, 10);
-  if (Number.isNaN(actaId)) notFound();
+  if (!id) notFound();
 
   const [acta, historial, session, aprobaciones] = await Promise.all([
-    obtenerActaPorId(actaId),
-    obtenerHistorialActa(actaId),
+    obtenerActaPorId(id),
+    obtenerHistorialActa(id),
     getSession(),
-    obtenerAprobacionesPorActa(actaId),
+    obtenerAprobacionesPorActa(id),
   ]);
 
   if (!acta) notFound();
@@ -77,7 +76,7 @@ export default async function ActaDetallePage({ params }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Acta #{acta.id}
+            Acta #{acta.serial}
           </h1>
           <p className="text-muted-foreground text-sm">
             {new Date(acta.fecha).toLocaleDateString("es-CO", { dateStyle: "long" })}

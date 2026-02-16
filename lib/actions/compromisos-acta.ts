@@ -23,7 +23,7 @@ export type CompromisoGestionItem = {
   detalleActualizacion: string | null;
   actualizadoEn: Date | null;
   actualizadoPorNombre: string | null;
-  actaId: number;
+  actaId: string;
   actaFecha: Date;
   actaObjetivo: string;
   asignadoNombre: string | null;
@@ -241,7 +241,7 @@ export type CompromisoDetalleItem = {
   detalleActualizacion: string | null;
   actualizadoEn: Date | null;
   actualizadoPorNombre: string | null;
-  actaId: number;
+  actaId: string;
   actaFecha: Date;
   actaObjetivo: string;
   asignadoNombre: string | null;

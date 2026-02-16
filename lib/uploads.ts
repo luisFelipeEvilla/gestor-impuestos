@@ -57,22 +57,22 @@ export function getRelativePath(procesoId: number, storedFileName: string): stri
   return path.join("procesos", String(procesoId), storedFileName);
 }
 
-export function getActaUploadDir(actaId: number): string {
+export function getActaUploadDir(actaId: string): string {
   return path.join(getUploadRoot(), "actas", String(actaId));
 }
 
-export function getActaRelativePath(actaId: number, storedFileName: string): string {
+export function getActaRelativePath(actaId: string, storedFileName: string): string {
   return path.join("actas", String(actaId), storedFileName);
 }
 
 const APROBACION_FOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const APROBACION_FOTO_MIMES = ["image/jpeg", "image/png", "image/webp"];
 
-export function getAprobacionFotoDir(actaId: number): string {
+export function getAprobacionFotoDir(actaId: string): string {
   return path.join(getUploadRoot(), "actas", String(actaId), "aprobaciones");
 }
 
-export function getAprobacionFotoRelativePath(actaId: number, storedFileName: string): string {
+export function getAprobacionFotoRelativePath(actaId: string, storedFileName: string): string {
   return path.join("actas", String(actaId), "aprobaciones", storedFileName);
 }
 
@@ -94,7 +94,7 @@ export async function ensureDir(dir: string): Promise<void> {
  * Retorna la ruta relativa al upload root para guardar en BD.
  */
 export async function saveAprobacionFoto(
-  actaId: number,
+  actaId: string,
   buffer: Buffer,
   nombreOriginal: string,
   mimeType: string
@@ -249,7 +249,7 @@ export async function readProcesoDocument(rutaRelativa: string): Promise<Buffer>
  * Guarda un archivo en el directorio del acta. Retorna el nombre del archivo almacenado (no la ruta completa).
  */
 export async function saveActaDocument(
-  actaId: number,
+  actaId: string,
   buffer: Buffer,
   nombreOriginal: string,
   mimeType: string

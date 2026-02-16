@@ -13,7 +13,7 @@ import {
 import type { EstadoGestionActa } from "@/lib/actions/actas-types";
 
 type BotonesActaProps = {
-  actaId: number;
+  actaId: string;
   estado: string;
   puedeEditar: boolean;
   puedeEnviarAprobacion: boolean;

@@ -16,13 +16,12 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const actaId = parseInt(id, 10);
-  if (Number.isNaN(actaId)) {
+  if (!id) {
     return NextResponse.json({ error: "ID de acta inválido" }, { status: 400 });
   }
 
   const [acta, empresa] = await Promise.all([
-    obtenerActaPorId(actaId),
+    obtenerActaPorId(id),
     getEmpresa(),
   ]);
 
@@ -41,7 +40,7 @@ export async function GET(_request: Request, context: RouteContext) {
   // renderToBuffer expects DocumentProps at type level; our component renders Document internally
   const buffer = await renderToBuffer(doc as React.ReactElement<any>);
 
-  const filename = `acta-${actaId}-${new Date(acta.fecha).toISOString().slice(0, 10)}.pdf`;
+  const filename = `acta-${acta.serial}-${new Date(acta.fecha).toISOString().slice(0, 10)}.pdf`;
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
