@@ -161,10 +161,11 @@ export const impuestos = pgTable("impuestos", {
     onUpdate: "cascade",
   }),
   nombre: text("nombre").notNull(),
-  codigo: text("codigo").notNull().unique(),
   tipo: tipoImpuestoEnum("tipo").notNull(),
   /** Tributario (tributos) o No tributario (tasas, multas, contribuciones no tributarias). */
   naturaleza: naturalezaImpuestoEnum("naturaleza").notNull().default("tributario"),
+  /** Tiempo de prescripción en meses (opcional). */
+  prescripcionMeses: integer("prescripcion_meses"),
   descripcion: text("descripcion"),
   activo: boolean("activo").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -346,6 +347,19 @@ export const compromisosActaHistorial = pgTable("compromisos_acta_historial", {
     onDelete: "set null",
     onUpdate: "cascade",
   }),
+});
+
+/** Documentos adjuntos a una actualización de compromiso (historial). */
+export const documentosCompromisoActa = pgTable("documentos_compromiso_acta", {
+  id: serial("id").primaryKey(),
+  compromisoActaHistorialId: integer("compromiso_acta_historial_id")
+    .notNull()
+    .references(() => compromisosActaHistorial.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  nombreOriginal: text("nombre_original").notNull(),
+  rutaArchivo: text("ruta_archivo").notNull(),
+  mimeType: text("mime_type").notNull(),
+  tamano: integer("tamano").notNull(),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Tabla: aprobaciones_acta_participante (respuesta del participante tras envío: aprobación o rechazo)
@@ -548,9 +562,14 @@ export const compromisosActaRelations = relations(compromisosActa, ({ one, many 
   historial: many(compromisosActaHistorial),
 }));
 
-export const compromisosActaHistorialRelations = relations(compromisosActaHistorial, ({ one }) => ({
+export const compromisosActaHistorialRelations = relations(compromisosActaHistorial, ({ one, many }) => ({
   compromisoActa: one(compromisosActa),
   creadoPor: one(usuarios, { fields: [compromisosActaHistorial.creadoPorId], references: [usuarios.id] }),
+  documentos: many(documentosCompromisoActa),
+}));
+
+export const documentosCompromisoActaRelations = relations(documentosCompromisoActa, ({ one }) => ({
+  compromisoActaHistorial: one(compromisosActaHistorial),
 }));
 
 export const aprobacionesActaParticipanteRelations = relations(
@@ -605,6 +624,8 @@ export type CompromisoActa = typeof compromisosActa.$inferSelect;
 export type NewCompromisoActa = typeof compromisosActa.$inferInsert;
 export type CompromisoActaHistorial = typeof compromisosActaHistorial.$inferSelect;
 export type NewCompromisoActaHistorial = typeof compromisosActaHistorial.$inferInsert;
+export type DocumentoCompromisoActa = typeof documentosCompromisoActa.$inferSelect;
+export type NewDocumentoCompromisoActa = typeof documentosCompromisoActa.$inferInsert;
 export type ActaReunionCliente = typeof actasReunionClientes.$inferSelect;
 export type NewActaReunionCliente = typeof actasReunionClientes.$inferInsert;
 export type Obligacion = typeof obligaciones.$inferSelect;

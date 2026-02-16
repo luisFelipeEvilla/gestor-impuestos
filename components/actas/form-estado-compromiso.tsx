@@ -35,7 +35,7 @@ export function FormEstadoCompromiso({
   );
 
   return (
-    <form action={formAction} className="flex flex-col gap-2">
+    <form action={formAction} className="flex flex-col gap-3" encType="multipart/form-data">
       <input type="hidden" name="compromisoId" value={compromisoId} readOnly aria-hidden />
       <div className="flex flex-wrap items-end gap-2">
         <div className="grid gap-1.5 min-w-[120px]">
@@ -73,6 +73,23 @@ export function FormEstadoCompromiso({
         <Button type="submit" size="sm">
           Actualizar
         </Button>
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor={`archivos-${compromisoId}`} className="text-xs">
+          Adjuntar documentos (opcional)
+        </Label>
+        <Input
+          id={`archivos-${compromisoId}`}
+          name="archivos"
+          type="file"
+          multiple
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv"
+          className="text-sm"
+          aria-label="Archivos a adjuntar a esta actualización"
+        />
+        <p className="text-muted-foreground text-xs">
+          PDF, imágenes, Word, Excel o texto; máx. 10 MB por archivo.
+        </p>
       </div>
       {state?.error && (
         <p className="text-destructive text-xs" role="alert">

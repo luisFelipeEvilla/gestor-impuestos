@@ -26,7 +26,7 @@ export default async function DetalleClientePage({ params }: Props) {
 
   const [impuestosDelCliente, miembros] = await Promise.all([
     db
-      .select({ id: impuestos.id, codigo: impuestos.codigo, nombre: impuestos.nombre, activo: impuestos.activo })
+      .select({ id: impuestos.id, nombre: impuestos.nombre, activo: impuestos.activo })
       .from(impuestos)
       .where(eq(impuestos.clienteId, id)),
     obtenerMiembrosPorCliente(id),
@@ -109,7 +109,7 @@ export default async function DetalleClientePage({ params }: Props) {
                       href={`/impuestos/${i.id}`}
                       className="text-primary hover:underline"
                     >
-                      {i.codigo} – {i.nombre}
+                      {i.nombre}
                       {!i.activo && " (inactivo)"}
                     </Link>
                   </li>

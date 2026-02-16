@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { FormEstadoCompromiso } from "@/components/actas/form-estado-compromiso";
 import { obtenerCompromisoPorIdConHistorial } from "@/lib/actions/compromisos-acta";
-import { Clock, User, FileText, Building2 } from "lucide-react";
+import { Clock, User, FileText, Building2, Paperclip } from "lucide-react";
 
 const LABEL_ESTADO: Record<string, string> = {
   pendiente: "Pendiente",
@@ -248,6 +248,24 @@ export default async function CompromisoDetallePage({ params }: Props) {
                     <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
                       {h.detalle}
                     </p>
+                  )}
+                  {h.documentos && h.documentos.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
+                      <ul className="flex flex-wrap gap-x-3 gap-y-1 list-none" role="list">
+                        {h.documentos.map((doc) => (
+                          <li key={doc.id}>
+                            <a
+                              href={`/api/compromisos/${compromiso.id}/documentos/${doc.id}`}
+                              className="text-sm text-primary hover:underline"
+                              download={doc.nombreOriginal}
+                            >
+                              {doc.nombreOriginal}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </li>
               ))}

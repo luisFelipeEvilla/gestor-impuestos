@@ -13,9 +13,16 @@ const naturalezaImpuestoValues = ["tributario", "no_tributario"] as const;
 const schemaCrear = z.object({
   clienteId: z.coerce.number().int().positive("Selecciona un cliente"),
   nombre: z.string().min(1, "El nombre es obligatorio").max(200),
-  codigo: z.string().min(1, "El código es obligatorio").max(50),
   tipo: z.enum(tipoImpuestoValues),
   naturaleza: z.enum(naturalezaImpuestoValues),
+  prescripcionMeses: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((v) => {
+      if (v === "" || v === undefined || v === null) return null;
+      const n = typeof v === "number" ? v : parseInt(String(v), 10);
+      return Number.isInteger(n) && n > 0 ? n : null;
+    }),
   descripcion: z.string().max(500).optional().or(z.literal("")),
   activo: z.boolean().default(true),
 });
@@ -38,9 +45,9 @@ export async function crearImpuesto(
   const raw = {
     clienteId: formData.get("clienteId"),
     nombre: formData.get("nombre"),
-    codigo: formData.get("codigo"),
     tipo: formData.get("tipo"),
     naturaleza: formData.get("naturaleza"),
+    prescripcionMeses: formData.get("prescripcionMeses"),
     descripcion: formData.get("descripcion") || undefined,
     activo: formData.get("activo") === "on",
   };
@@ -55,7 +62,7 @@ export async function crearImpuesto(
     };
   }
 
-  const { clienteId, nombre, codigo, tipo, naturaleza, descripcion, activo } = parsed.data;
+  const { clienteId, nombre, tipo, naturaleza, prescripcionMeses, descripcion, activo } = parsed.data;
 
   try {
     const [inserted] = await db
@@ -63,9 +70,9 @@ export async function crearImpuesto(
       .values({
         clienteId,
         nombre,
-        codigo: codigo.trim(),
         tipo,
         naturaleza,
+        prescripcionMeses,
         descripcion: descripcion?.trim() || null,
         activo,
       })
@@ -76,9 +83,6 @@ export async function crearImpuesto(
     revalidatePath("/");
     redirect(`/impuestos/${inserted.id}`);
   } catch (err) {
-    if (err instanceof Error && "code" in err && (err as { code?: string }).code === "23505") {
-      return { error: "Ya existe un impuesto con ese código.", errores: { codigo: ["Código duplicado"] } };
-    }
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
       throw err;
     }
@@ -97,9 +101,9 @@ export async function actualizarImpuesto(
     id: Number.isNaN(id) ? undefined : id,
     clienteId: formData.get("clienteId"),
     nombre: formData.get("nombre"),
-    codigo: formData.get("codigo"),
     tipo: formData.get("tipo"),
     naturaleza: formData.get("naturaleza"),
+    prescripcionMeses: formData.get("prescripcionMeses"),
     descripcion: formData.get("descripcion") || undefined,
     activo: formData.get("activo") === "on",
   };
@@ -114,7 +118,7 @@ export async function actualizarImpuesto(
     };
   }
 
-  const { clienteId, nombre, codigo, tipo, naturaleza, descripcion, activo } = parsed.data;
+  const { clienteId, nombre, tipo, naturaleza, prescripcionMeses, descripcion, activo } = parsed.data;
 
   try {
     const [updated] = await db
@@ -122,9 +126,9 @@ export async function actualizarImpuesto(
       .set({
         clienteId: clienteId ?? null,
         nombre,
-        codigo: codigo.trim(),
         tipo,
         naturaleza,
+        prescripcionMeses,
         descripcion: descripcion?.trim() || null,
         activo,
         updatedAt: new Date(),
@@ -141,9 +145,6 @@ export async function actualizarImpuesto(
     revalidatePath("/");
     redirect(`/impuestos/${updated.id}`);
   } catch (err) {
-    if (err instanceof Error && "code" in err && (err as { code?: string }).code === "23505") {
-      return { error: "Ya existe un impuesto con ese código.", errores: { codigo: ["Código duplicado"] } };
-    }
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
       throw err;
     }

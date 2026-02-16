@@ -88,20 +88,25 @@ export function ImpuestoForm({ action, initialData, submitLabel, clientes: clien
             )}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="codigo">Código</Label>
+            <Label htmlFor="prescripcionMeses">Prescripción (meses)</Label>
             <Input
-              id="codigo"
-              name="codigo"
-              defaultValue={initialData?.codigo ?? ""}
-              placeholder="Ej. ICA"
-              aria-invalid={!!state?.errores?.codigo}
-              aria-describedby={state?.errores?.codigo ? "codigo-error" : undefined}
+              id="prescripcionMeses"
+              name="prescripcionMeses"
+              type="number"
+              min={1}
+              defaultValue={initialData?.prescripcionMeses ?? ""}
+              placeholder="Ej. 60 (opcional)"
+              aria-invalid={!!state?.errores?.prescripcionMeses}
+              aria-describedby={state?.errores?.prescripcionMeses ? "prescripcionMeses-error" : undefined}
             />
-            {state?.errores?.codigo && (
-              <p id="codigo-error" className="text-destructive text-xs">
-                {state.errores.codigo[0]}
+            {state?.errores?.prescripcionMeses && (
+              <p id="prescripcionMeses-error" className="text-destructive text-xs">
+                {state.errores.prescripcionMeses[0]}
               </p>
             )}
+            <p className="text-muted-foreground text-xs">
+              Tiempo de prescripción del tributo en meses (opcional).
+            </p>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="naturaleza">Naturaleza</Label>

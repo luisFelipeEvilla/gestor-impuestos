@@ -23,10 +23,10 @@ export default async function DetalleImpuestoPage({ params }: Props) {
   const [row] = await db
     .select({
       id: impuestos.id,
-      codigo: impuestos.codigo,
       nombre: impuestos.nombre,
       tipo: impuestos.tipo,
       naturaleza: impuestos.naturaleza,
+      prescripcionMeses: impuestos.prescripcionMeses,
       descripcion: impuestos.descripcion,
       activo: impuestos.activo,
       clienteId: impuestos.clienteId,
@@ -60,8 +60,6 @@ export default async function DetalleImpuestoPage({ params }: Props) {
         <CardHeader>
           <CardTitle>{impuesto.nombre}</CardTitle>
           <CardDescription className="flex flex-wrap items-center gap-2">
-            <span>Código: {impuesto.codigo}</span>
-            <span>·</span>
             <span>Naturaleza: {impuesto.naturaleza === "no_tributario" ? "No tributario" : "Tributario"}</span>
             <span>·</span>
             <span>Ámbito: {impuesto.tipo === "nacional" ? "Nacional" : "Municipal"}</span>
@@ -91,13 +89,15 @@ export default async function DetalleImpuestoPage({ params }: Props) {
               </div>
             )}
             <div>
-              <dt className="text-muted-foreground">Código</dt>
-              <dd className="font-medium">{impuesto.codigo}</dd>
-            </div>
-            <div>
               <dt className="text-muted-foreground">Nombre</dt>
               <dd className="font-medium">{impuesto.nombre}</dd>
             </div>
+            {impuesto.prescripcionMeses != null && (
+              <div>
+                <dt className="text-muted-foreground">Prescripción</dt>
+                <dd className="font-medium">{impuesto.prescripcionMeses} meses</dd>
+              </div>
+            )}
             <div>
               <dt className="text-muted-foreground">Naturaleza</dt>
               <dd className="font-medium">{impuesto.naturaleza === "no_tributario" ? "No tributario" : "Tributario"}</dd>

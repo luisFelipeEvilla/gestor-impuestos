@@ -28,7 +28,7 @@ const ESTADOS = [
   { value: "suspendido", label: "Suspendido" },
 ] as const;
 
-type ImpuestoOption = { id: number; nombre: string; codigo: string };
+type ImpuestoOption = { id: number; nombre: string };
 type ContribuyenteOption = { id: number; nit: string; nombreRazonSocial: string };
 type UsuarioOption = { id: number; nombre: string };
 
@@ -93,7 +93,7 @@ export function ProcesoForm({
               <option value="">Selecciona un impuesto</option>
               {impuestosList.map((i) => (
                 <option key={i.id} value={i.id}>
-                  {i.codigo} – {i.nombre}
+                  {i.nombre}
                 </option>
               ))}
             </select>

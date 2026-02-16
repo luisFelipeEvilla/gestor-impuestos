@@ -183,6 +183,20 @@
       "when": 1771283000000,
       "tag": "0025_actas_uuid_serial",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1771283100000,
+      "tag": "0026_impuestos_sin_codigo_prescripcion",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1771283200000,
+      "tag": "0027_documentos_compromiso_acta",
+      "breakpoints": true
     }
   ]
 }

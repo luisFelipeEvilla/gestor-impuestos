@@ -567,7 +567,6 @@ type RowProcesoNotificacion = {
   contribuyenteNombre: string;
   contribuyenteEmail: string | null;
   impuestoNombre: string;
-  impuestoCodigo: string;
 };
 
 async function validarProcesoParaNotificacion(
@@ -584,7 +583,6 @@ async function validarProcesoParaNotificacion(
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
       contribuyenteEmail: contribuyentes.email,
       impuestoNombre: impuestos.nombre,
-      impuestoCodigo: impuestos.codigo,
     })
     .from(procesos)
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
@@ -631,7 +629,7 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
     const resultado = await enviarNotificacionCobroPorEmail(email, {
       nombreContribuyente: row.contribuyenteNombre,
       impuestoNombre: row.impuestoNombre,
-      impuestoCodigo: row.impuestoCodigo,
+      impuestoCodigo: row.impuestoNombre,
       montoCop: montoCopFormatted,
       vigencia: row.vigencia,
       periodo: row.periodo,

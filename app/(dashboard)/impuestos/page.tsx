@@ -34,12 +34,7 @@ export default async function ImpuestosPage({ searchParams }: Props) {
   const condiciones = [];
   if (!verInactivos) condiciones.push(eq(impuestos.activo, true));
   if (busqueda.length > 0) {
-    condiciones.push(
-      or(
-        ilike(impuestos.codigo, `%${busqueda}%`),
-        ilike(impuestos.nombre, `%${busqueda}%`)
-      )
-    );
+    condiciones.push(ilike(impuestos.nombre, `%${busqueda}%`));
   }
   const whereCond =
     condiciones.length > 0 ? and(...condiciones) : undefined;
@@ -48,10 +43,10 @@ export default async function ImpuestosPage({ searchParams }: Props) {
     ? db
         .select({
           id: impuestos.id,
-          codigo: impuestos.codigo,
           nombre: impuestos.nombre,
           tipo: impuestos.tipo,
           naturaleza: impuestos.naturaleza,
+          prescripcionMeses: impuestos.prescripcionMeses,
           activo: impuestos.activo,
           clienteNombre: clientes.nombre,
         })
@@ -61,10 +56,10 @@ export default async function ImpuestosPage({ searchParams }: Props) {
     : db
         .select({
           id: impuestos.id,
-          codigo: impuestos.codigo,
           nombre: impuestos.nombre,
           tipo: impuestos.tipo,
           naturaleza: impuestos.naturaleza,
+          prescripcionMeses: impuestos.prescripcionMeses,
           activo: impuestos.activo,
           clienteNombre: clientes.nombre,
         })
@@ -112,10 +107,10 @@ export default async function ImpuestosPage({ searchParams }: Props) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Código</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Naturaleza</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Prescripción</TableHead>
                   <TableHead className="w-20">Estado</TableHead>
                   <TableHead className="w-[80px]">Acción</TableHead>
                 </TableRow>
@@ -126,10 +121,12 @@ export default async function ImpuestosPage({ searchParams }: Props) {
                     <TableCell className="text-muted-foreground">
                       {i.clienteNombre ?? "—"}
                     </TableCell>
-                    <TableCell>{i.codigo}</TableCell>
                     <TableCell>{i.nombre}</TableCell>
                     <TableCell>{i.naturaleza === "no_tributario" ? "No tributario" : "Tributario"}</TableCell>
                     <TableCell className="capitalize">{i.tipo}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {i.prescripcionMeses != null ? `${i.prescripcionMeses} meses` : "—"}
+                    </TableCell>
                     <TableCell>
                       {i.activo ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">Activo</span>

@@ -22,7 +22,6 @@ const CSV_PATH = resolve(
   "ReporteCarteraActual-Table 1.csv"
 );
 
-const IMPUESTO_CODIGO_TRANSITO = "TRANSITO";
 const IMPUESTO_NOMBRE_TRANSITO = "Comparendos de tránsito";
 
 type TipoDocumentoCsv = "Cedula" | "Tarjeta Identidad";
@@ -155,12 +154,11 @@ async function getOrCreateImpuestoTransito(): Promise<number> {
   const [existente] = await db
     .select({ id: impuestos.id })
     .from(impuestos)
-    .where(eq(impuestos.codigo, IMPUESTO_CODIGO_TRANSITO));
+    .where(eq(impuestos.nombre, IMPUESTO_NOMBRE_TRANSITO));
   if (existente) return existente.id;
   const [inserted] = await db
     .insert(impuestos)
     .values({
-      codigo: IMPUESTO_CODIGO_TRANSITO,
       nombre: IMPUESTO_NOMBRE_TRANSITO,
       tipo: "municipal",
       descripcion: "Comparendos y sanciones de tránsito",

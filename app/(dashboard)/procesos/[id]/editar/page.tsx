@@ -33,7 +33,7 @@ export default async function EditarProcesoPage({ params }: Props) {
   }
 
   const [impuestosList, contribuyentesList, usuariosList, documentosRows] = await Promise.all([
-    db.select({ id: impuestos.id, nombre: impuestos.nombre, codigo: impuestos.codigo }).from(impuestos).where(eq(impuestos.activo, true)),
+    db.select({ id: impuestos.id, nombre: impuestos.nombre }).from(impuestos).where(eq(impuestos.activo, true)),
     db.select({ id: contribuyentes.id, nit: contribuyentes.nit, nombreRazonSocial: contribuyentes.nombreRazonSocial }).from(contribuyentes),
     db.select({ id: usuarios.id, nombre: usuarios.nombre }).from(usuarios).where(eq(usuarios.activo, true)),
     db

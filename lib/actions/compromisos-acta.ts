@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import {
   compromisosActa,
   compromisosActaHistorial,
+  documentosCompromisoActa,
   actasReunion,
   actasIntegrantes,
   clientesMiembros,
@@ -14,6 +15,12 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, inArray, desc } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
+import {
+  saveCompromisoDocument,
+  getCompromisoRelativePath,
+  isAllowedMime,
+  isAllowedSize,
+} from "@/lib/uploads";
 
 export type CompromisoGestionItem = {
   id: number;
@@ -170,7 +177,7 @@ export async function actualizarEstadoCompromiso(
   compromisoId: number,
   estado: "pendiente" | "cumplido" | "no_cumplido",
   detalle: string
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; historialId?: number }> {
   const session = await getSession();
   if (!session?.user) return { error: "Debes iniciar sesión." };
   if (!Number.isInteger(compromisoId) || compromisoId < 1) return { error: "Compromiso inválido." };
@@ -185,13 +192,16 @@ export async function actualizarEstadoCompromiso(
       .where(eq(compromisosActa.id, compromisoId));
     if (!compromiso) return { error: "Compromiso no encontrado." };
 
-    await db.insert(compromisosActaHistorial).values({
-      compromisoActaId: compromisoId,
-      estadoAnterior: compromiso.estadoAnterior,
-      estadoNuevo: estado,
-      detalle: detalle.trim() || null,
-      creadoPorId: session.user.id,
-    });
+    const [insertedHistorial] = await db
+      .insert(compromisosActaHistorial)
+      .values({
+        compromisoActaId: compromisoId,
+        estadoAnterior: compromiso.estadoAnterior,
+        estadoNuevo: estado,
+        detalle: detalle.trim() || null,
+        creadoPorId: session.user.id,
+      })
+      .returning({ id: compromisosActaHistorial.id });
 
     await db
       .update(compromisosActa)
@@ -207,7 +217,7 @@ export async function actualizarEstadoCompromiso(
     revalidatePath("/actas/compromisos");
     revalidatePath(`/actas/${compromiso.actaId}`);
     revalidatePath(`/actas/compromisos/${compromisoId}`);
-    return {};
+    return { historialId: insertedHistorial?.id };
   } catch (err) {
     console.error(err);
     return { error: "Error al actualizar el compromiso." };
@@ -230,7 +240,42 @@ export async function actualizarEstadoCompromisoAction(
   ) {
     return { error: "Datos inválidos." };
   }
-  return actualizarEstadoCompromiso(compromisoId, estado as (typeof estadosValidos)[number], detalle);
+  const result = await actualizarEstadoCompromiso(
+    compromisoId,
+    estado as (typeof estadosValidos)[number],
+    detalle
+  );
+  if (result.error) return result;
+  const historialId = result.historialId;
+  if (!historialId) return {};
+
+  const archivos = formData.getAll("archivos") as File[];
+  const files = Array.isArray(archivos) ? archivos : [archivos].filter(Boolean);
+  for (const file of files) {
+    if (!file || typeof file.size !== "number" || file.size === 0) continue;
+    if (!isAllowedSize(file.size)) continue;
+    if (!isAllowedMime(file.type)) continue;
+    try {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const storedFileName = await saveCompromisoDocument(
+        compromisoId,
+        buffer,
+        file.name,
+        file.type
+      );
+      const rutaArchivo = getCompromisoRelativePath(compromisoId, storedFileName);
+      await db.insert(documentosCompromisoActa).values({
+        compromisoActaHistorialId: historialId,
+        nombreOriginal: file.name,
+        rutaArchivo,
+        mimeType: file.type,
+        tamano: file.size,
+      });
+    } catch (err) {
+      console.error("Error al adjuntar documento al compromiso:", err);
+    }
+  }
+  return {};
 }
 
 export type CompromisoDetalleItem = {
@@ -249,6 +294,14 @@ export type CompromisoDetalleItem = {
   clientesNombres: string[];
 };
 
+export type DocumentoCompromisoItem = {
+  id: number;
+  nombreOriginal: string;
+  mimeType: string;
+  tamano: number;
+  creadoEn: Date;
+};
+
 export type CompromisoHistorialItem = {
   id: number;
   estadoAnterior: "pendiente" | "cumplido" | "no_cumplido" | null;
@@ -256,6 +309,7 @@ export type CompromisoHistorialItem = {
   detalle: string | null;
   creadoEn: Date;
   creadoPorNombre: string | null;
+  documentos: DocumentoCompromisoItem[];
 };
 
 export type CompromisoConHistorial = {
@@ -316,6 +370,37 @@ export async function obtenerCompromisoPorIdConHistorial(
     .where(eq(compromisosActaHistorial.compromisoActaId, compromisoId))
     .orderBy(desc(compromisosActaHistorial.creadoEn));
 
+  const historialIds = historialRows.map((h) => h.id);
+  const documentosRows =
+    historialIds.length > 0
+      ? await db
+          .select({
+            id: documentosCompromisoActa.id,
+            compromisoActaHistorialId: documentosCompromisoActa.compromisoActaHistorialId,
+            nombreOriginal: documentosCompromisoActa.nombreOriginal,
+            mimeType: documentosCompromisoActa.mimeType,
+            tamano: documentosCompromisoActa.tamano,
+            creadoEn: documentosCompromisoActa.creadoEn,
+          })
+          .from(documentosCompromisoActa)
+          .where(inArray(documentosCompromisoActa.compromisoActaHistorialId, historialIds))
+      : [];
+  const documentosPorHistorial = historialIds.reduce(
+    (acc, hid) => {
+      acc[hid] = documentosRows
+        .filter((d) => d.compromisoActaHistorialId === hid)
+        .map((d) => ({
+          id: d.id,
+          nombreOriginal: d.nombreOriginal,
+          mimeType: d.mimeType,
+          tamano: d.tamano,
+          creadoEn: d.creadoEn as Date,
+        }));
+      return acc;
+    },
+    {} as Record<number, DocumentoCompromisoItem[]>
+  );
+
   return {
     compromiso: {
       id: row.id,
@@ -340,6 +425,7 @@ export async function obtenerCompromisoPorIdConHistorial(
       detalle: h.detalle ?? null,
       creadoEn: h.creadoEn as Date,
       creadoPorNombre: h.creadoPorNombre ?? null,
+      documentos: documentosPorHistorial[h.id] ?? [],
     })),
   };
 }

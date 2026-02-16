@@ -65,6 +65,14 @@ export function getActaRelativePath(actaId: string, storedFileName: string): str
   return path.join("actas", String(actaId), storedFileName);
 }
 
+export function getCompromisoUploadDir(compromisoId: number): string {
+  return path.join(getUploadRoot(), "compromisos", String(compromisoId));
+}
+
+export function getCompromisoRelativePath(compromisoId: number, storedFileName: string): string {
+  return path.join("compromisos", String(compromisoId), storedFileName);
+}
+
 const APROBACION_FOTO_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const APROBACION_FOTO_MIMES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -275,6 +283,80 @@ export async function saveActaDocument(
   const fullPath = path.join(getUploadRoot(), rutaRelativa);
   await writeFile(fullPath, buffer);
   return storedFileName;
+}
+
+/**
+ * Guarda un archivo en el directorio del compromiso (actualización). Retorna el nombre del archivo almacenado.
+ */
+export async function saveCompromisoDocument(
+  compromisoId: number,
+  buffer: Buffer,
+  nombreOriginal: string,
+  mimeType: string
+): Promise<string> {
+  const ext = getSafeExtension(nombreOriginal);
+  const storedFileName = `${randomUUID()}${ext ? `.${ext.replace(/^\./, "")}` : ""}`;
+  const rutaRelativa = getCompromisoRelativePath(compromisoId, storedFileName);
+
+  if (useS3()) {
+    await getS3Client().send(
+      new PutObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+        Body: buffer,
+        ContentType: mimeType,
+      })
+    );
+    return storedFileName;
+  }
+
+  const dir = getCompromisoUploadDir(compromisoId);
+  await ensureDir(dir);
+  const fullPath = path.join(getUploadRoot(), rutaRelativa);
+  await writeFile(fullPath, buffer);
+  return storedFileName;
+}
+
+/**
+ * Elimina un archivo de compromiso por ruta relativa al upload root.
+ */
+export async function deleteCompromisoDocument(rutaRelativa: string): Promise<void> {
+  if (useS3()) {
+    await getS3Client().send(
+      new DeleteObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+      })
+    );
+    return;
+  }
+  const root = getUploadRoot();
+  const fullPath = path.join(root, rutaRelativa);
+  await unlink(fullPath);
+}
+
+/**
+ * Lee un archivo de compromiso por ruta relativa al upload root.
+ */
+export async function readCompromisoDocument(rutaRelativa: string): Promise<Buffer> {
+  if (useS3()) {
+    const response = await getS3Client().send(
+      new GetObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+      })
+    );
+    const body = response.Body;
+    if (!body) throw new Error("Empty S3 object");
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  }
+  const root = getUploadRoot();
+  const fullPath = path.join(root, rutaRelativa);
+  return readFile(fullPath);
 }
 
 /**

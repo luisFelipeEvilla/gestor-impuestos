@@ -108,7 +108,6 @@ export default async function DetalleProcesoPage({ params }: Props) {
       fechaInicioCobroCoactivo: procesos.fechaInicioCobroCoactivo,
       creadoEn: procesos.creadoEn,
       impuestoNombre: impuestos.nombre,
-      impuestoCodigo: impuestos.codigo,
       contribuyenteNit: contribuyentes.nit,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
       asignadoNombre: usuarios.nombre,
@@ -231,7 +230,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
           <Card className="w-full">
             <CardHeader>
               <CardTitle>
-                Proceso #{row.id} · {row.impuestoCodigo} – {row.contribuyenteNombre}
+                Proceso #{row.id} · {row.impuestoNombre} – {row.contribuyenteNombre}
               </CardTitle>
               <CardDescription>
                 Vigencia {row.vigencia}
@@ -245,7 +244,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
                 <div>
                   <dt className="text-muted-foreground">Impuesto</dt>
                   <dd className="font-medium">
-                    {row.impuestoCodigo} – {row.impuestoNombre}
+                    {row.impuestoNombre}
                   </dd>
                 </div>
                 <div>

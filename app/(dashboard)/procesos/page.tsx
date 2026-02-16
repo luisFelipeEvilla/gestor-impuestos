@@ -170,7 +170,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
       estadoActual: procesos.estadoActual,
       numeroResolucion: procesos.numeroResolucion,
       fechaLimite: procesos.fechaLimite,
-      impuestoCodigo: impuestos.codigo,
       impuestoNombre: impuestos.nombre,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
       contribuyenteNit: contribuyentes.nit,
@@ -269,7 +268,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                     <TableRow key={p.id}>
                       <TableCell>{p.id}</TableCell>
                       <TableCell className="font-medium">
-                        {p.impuestoCodigo}
+                        {p.impuestoNombre}
                       </TableCell>
                       <TableCell>
                         {p.contribuyenteNombre}
