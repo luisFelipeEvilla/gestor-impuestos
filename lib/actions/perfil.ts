@@ -11,7 +11,6 @@ import { getSession } from "@/lib/auth-server";
 const schemaPerfil = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio").max(200),
   email: z.string().email("Email no válido"),
-  password: z.string().min(6).optional().or(z.literal("")),
   cargoId: z
     .union([z.string(), z.number()])
     .optional()
@@ -31,6 +30,66 @@ function hashPassword(password: string): Promise<string> {
  * Actualiza el perfil del usuario autenticado. Solo permite modificar
  * nombre, email, cargo y contraseña (opcional). No permite cambiar rol ni activo.
  */
+const schemaCambiarContraseña = z
+  .object({
+    password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+    passwordConfirm: z.string().min(1, "Confirma la contraseña"),
+  })
+  .refine((data) => data.password === data.passwordConfirm, {
+    message: "Las contraseñas no coinciden",
+    path: ["passwordConfirm"],
+  });
+
+export interface EstadoFormCambiarContraseña {
+  error?: string;
+  errores?: Record<string, string[]>;
+}
+
+/**
+ * Cambia la contraseña del usuario autenticado.
+ */
+export async function cambiarContraseña(
+  _prev: EstadoFormCambiarContraseña | null,
+  formData: FormData
+): Promise<EstadoFormCambiarContraseña> {
+  const session = await getSession();
+  if (!session?.user?.id) return { error: "Debes iniciar sesión." };
+
+  const raw = {
+    password: formData.get("password"),
+    passwordConfirm: formData.get("passwordConfirm"),
+  };
+
+  const parsed = schemaCambiarContraseña.safeParse(raw);
+  if (!parsed.success) {
+    const flat = parsed.error.flatten();
+    const errores = flat.fieldErrors as Record<string, string[] | undefined>;
+    return {
+      error: flat.formErrors.join(" ") || "Datos inválidos",
+      errores: Object.keys(errores).length ? (errores as Record<string, string[]>) : undefined,
+    };
+  }
+
+  const userId = Number(session.user.id);
+  if (!Number.isInteger(userId) || userId < 1) return { error: "Sesión inválida." };
+
+  try {
+    const passwordHash = await hashPassword(parsed.data.password);
+    const [updated] = await db
+      .update(usuarios)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(usuarios.id, userId))
+      .returning({ id: usuarios.id });
+
+    if (!updated) return { error: "No se pudo actualizar la contraseña." };
+    revalidatePath("/perfil");
+    return {};
+  } catch (err) {
+    console.error(err);
+    return { error: "Error al cambiar la contraseña. Intenta de nuevo." };
+  }
+}
+
 export async function actualizarPerfil(
   _prev: EstadoFormPerfil | null,
   formData: FormData
@@ -41,15 +100,10 @@ export async function actualizarPerfil(
   const raw = {
     nombre: formData.get("nombre"),
     email: formData.get("email"),
-    password: formData.get("password"),
     cargoId: formData.get("cargoId"),
   };
 
-  const passwordRaw = raw.password;
-  const parsed = schemaPerfil.safeParse({
-    ...raw,
-    password: typeof passwordRaw === "string" && passwordRaw.length > 0 ? passwordRaw : "",
-  });
+  const parsed = schemaPerfil.safeParse(raw);
 
   if (!parsed.success) {
     const flat = parsed.error.flatten();
@@ -61,34 +115,19 @@ export async function actualizarPerfil(
   }
 
   const { nombre, email, cargoId } = parsed.data;
-  const password =
-    parsed.data.password && String(parsed.data.password).length >= 6
-      ? parsed.data.password
-      : null;
 
   const userId = Number(session.user.id);
   if (!Number.isInteger(userId) || userId < 1) return { error: "Sesión inválida." };
 
   try {
-    const updateData: {
-      nombre: string;
-      email: string;
-      cargoId: number | null;
-      updatedAt: Date;
-      passwordHash?: string;
-    } = {
-      nombre,
-      email: email.trim().toLowerCase(),
-      cargoId: cargoId ?? null,
-      updatedAt: new Date(),
-    };
-    if (password) {
-      updateData.passwordHash = await hashPassword(password);
-    }
-
     const [updated] = await db
       .update(usuarios)
-      .set(updateData)
+      .set({
+        nombre,
+        email: email.trim().toLowerCase(),
+        cargoId: cargoId ?? null,
+        updatedAt: new Date(),
+      })
       .where(eq(usuarios.id, userId))
       .returning({ id: usuarios.id });
 

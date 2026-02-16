@@ -1,22 +1,19 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { SidebarProvider } from "@/components/sidebar-provider";
 import { AppSidebar } from "@/components/app-sidebar";
-import { Navbar } from "@/components/dashboard/navbar";
+import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 
 export default async function DashboardLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const session = await getServerSession(authOptions);
   return (
-    <div className="min-h-screen">
-      <AppSidebar session={session} />
-      {/* Margen para no quedar debajo del sidebar fijo (w-60 = 15rem) */}
-      <div className="flex min-h-screen flex-col border-l border-border/40 pl-60">
-        <Navbar session={session} />
-        <main className="bg-background flex-1 overflow-auto">
-          {children}
-        </main>
+    <SidebarProvider>
+      <div className="min-h-screen">
+        <AppSidebar session={session} />
+        <DashboardShell session={session}>{children}</DashboardShell>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }
