@@ -16,6 +16,8 @@ import { relations } from "drizzle-orm";
 // Enums según definición del proyecto (Colombia)
 export const rolUsuarioEnum = pgEnum("rol_usuario", ["admin", "empleado"]);
 export const tipoImpuestoEnum = pgEnum("tipo_impuesto", ["nacional", "municipal"]);
+/** Naturaleza del impuesto: tributario (tributos) o no tributario (tasas, multas, etc.). */
+export const naturalezaImpuestoEnum = pgEnum("naturaleza_impuesto", ["tributario", "no_tributario"]);
 export const tipoDocumentoEnum = pgEnum("tipo_documento", ["nit", "cedula"]);
 export const estadoProcesoEnum = pgEnum("estado_proceso", [
   "pendiente",
@@ -36,12 +38,13 @@ export const tipoEventoHistorialEnum = pgEnum("tipo_evento_historial", [
   "pago",
 ]);
 
-/** Categoría de documentos y notas del proceso: general, en_contacto, acuerdo_pago, cobro_coactivo */
+/** Categoría de documentos y notas del proceso: general, en_contacto, acuerdo_pago, cobro_coactivo, evidencia_notificacion */
 export const categoriaDocumentoNotaEnum = pgEnum("categoria_documento_nota", [
   "general",
   "en_contacto",
   "acuerdo_pago",
   "cobro_coactivo",
+  "evidencia_notificacion",
 ]);
 
 /** Estado del acta de reunión */
@@ -158,6 +161,8 @@ export const impuestos = pgTable("impuestos", {
   nombre: text("nombre").notNull(),
   codigo: text("codigo").notNull().unique(),
   tipo: tipoImpuestoEnum("tipo").notNull(),
+  /** Tributario (tributos) o No tributario (tasas, multas, contribuciones no tributarias). */
+  naturaleza: naturalezaImpuestoEnum("naturaleza").notNull().default("tributario"),
   descripcion: text("descripcion"),
   activo: boolean("activo").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

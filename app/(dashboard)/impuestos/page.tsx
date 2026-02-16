@@ -51,6 +51,7 @@ export default async function ImpuestosPage({ searchParams }: Props) {
           codigo: impuestos.codigo,
           nombre: impuestos.nombre,
           tipo: impuestos.tipo,
+          naturaleza: impuestos.naturaleza,
           activo: impuestos.activo,
           clienteNombre: clientes.nombre,
         })
@@ -63,6 +64,7 @@ export default async function ImpuestosPage({ searchParams }: Props) {
           codigo: impuestos.codigo,
           nombre: impuestos.nombre,
           tipo: impuestos.tipo,
+          naturaleza: impuestos.naturaleza,
           activo: impuestos.activo,
           clienteNombre: clientes.nombre,
         })
@@ -93,7 +95,7 @@ export default async function ImpuestosPage({ searchParams }: Props) {
         <CardHeader>
           <CardTitle>Catálogo</CardTitle>
           <CardDescription>
-            Tipos de impuesto (nacional / municipal) para los procesos de cobro
+            Catálogo de impuestos tributarios y no tributarios (nacional / municipal)
             {verInactivos && " · Mostrando todos (incl. inactivos)"}
             {busqueda && " · Búsqueda aplicada"}
           </CardDescription>
@@ -112,6 +114,7 @@ export default async function ImpuestosPage({ searchParams }: Props) {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Código</TableHead>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Naturaleza</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead className="w-20">Estado</TableHead>
                   <TableHead className="w-[80px]">Acción</TableHead>
@@ -125,6 +128,7 @@ export default async function ImpuestosPage({ searchParams }: Props) {
                     </TableCell>
                     <TableCell>{i.codigo}</TableCell>
                     <TableCell>{i.nombre}</TableCell>
+                    <TableCell>{i.naturaleza === "no_tributario" ? "No tributario" : "Tributario"}</TableCell>
                     <TableCell className="capitalize">{i.tipo}</TableCell>
                     <TableCell>
                       {i.activo ? (

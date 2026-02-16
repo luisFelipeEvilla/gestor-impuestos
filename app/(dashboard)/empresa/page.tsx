@@ -3,8 +3,8 @@ import { listarCargosEmpresa } from "@/lib/actions/cargos-empresa";
 import { EmpresaForm } from "@/components/empresa/empresa-form";
 
 export const metadata = {
-  title: "Datos de la empresa",
-  description: "Configuración de la información de tu empresa",
+  title: "Configuración de la organización",
+  description: "Configuración de la información de tu organización",
 };
 
 export default async function EmpresaPage() {

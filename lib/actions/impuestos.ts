@@ -8,12 +8,14 @@ import { impuestos } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
 const tipoImpuestoValues = ["nacional", "municipal"] as const;
+const naturalezaImpuestoValues = ["tributario", "no_tributario"] as const;
 
 const schemaCrear = z.object({
   clienteId: z.coerce.number().int().positive("Selecciona un cliente"),
   nombre: z.string().min(1, "El nombre es obligatorio").max(200),
   codigo: z.string().min(1, "El código es obligatorio").max(50),
   tipo: z.enum(tipoImpuestoValues),
+  naturaleza: z.enum(naturalezaImpuestoValues),
   descripcion: z.string().max(500).optional().or(z.literal("")),
   activo: z.boolean().default(true),
 });
@@ -38,6 +40,7 @@ export async function crearImpuesto(
     nombre: formData.get("nombre"),
     codigo: formData.get("codigo"),
     tipo: formData.get("tipo"),
+    naturaleza: formData.get("naturaleza"),
     descripcion: formData.get("descripcion") || undefined,
     activo: formData.get("activo") === "on",
   };
@@ -52,7 +55,7 @@ export async function crearImpuesto(
     };
   }
 
-  const { clienteId, nombre, codigo, tipo, descripcion, activo } = parsed.data;
+  const { clienteId, nombre, codigo, tipo, naturaleza, descripcion, activo } = parsed.data;
 
   try {
     const [inserted] = await db
@@ -62,6 +65,7 @@ export async function crearImpuesto(
         nombre,
         codigo: codigo.trim(),
         tipo,
+        naturaleza,
         descripcion: descripcion?.trim() || null,
         activo,
       })
@@ -95,6 +99,7 @@ export async function actualizarImpuesto(
     nombre: formData.get("nombre"),
     codigo: formData.get("codigo"),
     tipo: formData.get("tipo"),
+    naturaleza: formData.get("naturaleza"),
     descripcion: formData.get("descripcion") || undefined,
     activo: formData.get("activo") === "on",
   };
@@ -109,7 +114,7 @@ export async function actualizarImpuesto(
     };
   }
 
-  const { clienteId, nombre, codigo, tipo, descripcion, activo } = parsed.data;
+  const { clienteId, nombre, codigo, tipo, naturaleza, descripcion, activo } = parsed.data;
 
   try {
     const [updated] = await db
@@ -119,6 +124,7 @@ export async function actualizarImpuesto(
         nombre,
         codigo: codigo.trim(),
         tipo,
+        naturaleza,
         descripcion: descripcion?.trim() || null,
         activo,
         updatedAt: new Date(),

@@ -104,7 +104,25 @@ export function ImpuestoForm({ action, initialData, submitLabel, clientes: clien
             )}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="tipo">Tipo</Label>
+            <Label htmlFor="naturaleza">Naturaleza</Label>
+            <select
+              id="naturaleza"
+              name="naturaleza"
+              defaultValue={initialData?.naturaleza ?? "tributario"}
+              className={cn(
+                "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+              )}
+              aria-invalid={!!state?.errores?.naturaleza}
+            >
+              <option value="tributario">Tributario</option>
+              <option value="no_tributario">No tributario</option>
+            </select>
+            {state?.errores?.naturaleza && (
+              <p className="text-destructive text-xs">{state.errores.naturaleza[0]}</p>
+            )}
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="tipo">Ámbito (tipo)</Label>
             <select
               id="tipo"
               name="tipo"
@@ -115,7 +133,7 @@ export function ImpuestoForm({ action, initialData, submitLabel, clientes: clien
               aria-invalid={!!state?.errores?.tipo}
             >
               <option value="" disabled>
-                Selecciona el tipo
+                Selecciona el ámbito
               </option>
               <option value="nacional">Nacional</option>
               <option value="municipal">Municipal</option>

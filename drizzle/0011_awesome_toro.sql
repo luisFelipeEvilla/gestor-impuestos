@@ -1,1 +1,1 @@
-ALTER TABLE "actas_reunion" ADD COLUMN "compromisos" text;
+ALTER TABLE "actas_reunion" ADD COLUMN IF NOT EXISTS "compromisos" text;

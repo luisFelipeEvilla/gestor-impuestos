@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -191,10 +191,16 @@ export function AgregarNotaForm({ procesoId, categoria }: AgregarNotaFormProps) 
   );
 }
 
+export type DocumentoEvidenciaItem = { id: number; nombreOriginal: string };
+
 type BotonesNotificacionProps = {
   procesoId: number;
   yaNotificado: boolean;
   fechaNotificacion?: Date | string | null;
+  /** Metadata del evento de notificación (tipo "fisica" | email) y documentoIds si es física */
+  notificacionMetadata?: { tipo?: string; documentoIds?: number[] } | null;
+  /** Documentos de evidencia cuando la notificación fue física (para mostrar enlaces) */
+  documentosEvidencia?: DocumentoEvidenciaItem[];
 };
 
 function formatFechaNotificacion(value: Date | string | null | undefined): string {
@@ -205,24 +211,55 @@ function formatFechaNotificacion(value: Date | string | null | undefined): strin
     : d.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
 }
 
+const ACCEPT_ARCHIVOS =
+  ".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv";
+
 export function BotonesNotificacion({
   procesoId,
   yaNotificado,
   fechaNotificacion,
+  notificacionMetadata,
+  documentosEvidencia = [],
 }: BotonesNotificacionProps) {
+  const [tipoNotificacion, setTipoNotificacion] = useState<"email" | "fisica">("email");
   const [state, formAction] = useActionState(
     (_prev: { error?: string } | null, formData: FormData) => enviarNotificacion(formData),
     null
   );
 
   if (yaNotificado) {
+    const esFisica =
+      notificacionMetadata &&
+      (notificacionMetadata as { tipo?: string }).tipo === "fisica" &&
+      Array.isArray((notificacionMetadata as { documentoIds?: number[] }).documentoIds) &&
+      (notificacionMetadata as { documentoIds?: number[] }).documentoIds!.length > 0;
+    const docs = documentosEvidencia ?? [];
+
     return (
       <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-200">
-        <p className="font-medium">Ya notificado</p>
+        <p className="font-medium">
+          {esFisica ? "Notificación física" : "Ya notificado"}
+        </p>
         {fechaNotificacion && (
           <p className="text-muted-foreground text-xs mt-0.5">
             {formatFechaNotificacion(fechaNotificacion)}
           </p>
+        )}
+        {esFisica && docs.length > 0 && (
+          <ul className="mt-2 space-y-1 text-xs">
+            {docs.map((doc) => (
+              <li key={doc.id}>
+                <a
+                  href={`/api/procesos/${procesoId}/documentos/${doc.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  {doc.nombreOriginal}
+                </a>
+              </li>
+            ))}
+          </ul>
         )}
         <p className="text-muted-foreground text-xs mt-0.5">
           Solo se puede notificar una vez por proceso.
@@ -232,13 +269,73 @@ export function BotonesNotificacion({
   }
 
   return (
-    <div className="flex flex-col justify-center gap-2">
-      <form action={formAction}>
-        <input type="hidden" name="procesoId" value={procesoId} />
-        <Button type="submit" size="sm" variant="outline" aria-label="Enviar notificaciones">
-          Enviar notificaciones
-        </Button>
-      </form>
+    <div className="flex flex-col gap-4">
+      <div className="space-y-2">
+        <p className="text-sm font-medium">Tipo de notificación</p>
+        <div className="flex gap-4">
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <input
+              type="radio"
+              name="tipoNotificacion"
+              value="email"
+              checked={tipoNotificacion === "email"}
+              onChange={() => setTipoNotificacion("email")}
+              className="rounded-full border-input"
+            />
+            Por email
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer text-sm">
+            <input
+              type="radio"
+              name="tipoNotificacion"
+              value="fisica"
+              checked={tipoNotificacion === "fisica"}
+              onChange={() => setTipoNotificacion("fisica")}
+              className="rounded-full border-input"
+            />
+            Por vía física
+          </label>
+        </div>
+      </div>
+
+      {tipoNotificacion === "email" ? (
+        <form action={formAction} className="space-y-2">
+          <input type="hidden" name="procesoId" value={procesoId} />
+          <input type="hidden" name="tipoNotificacion" value="email" />
+          <Button type="submit" size="sm" variant="outline" aria-label="Enviar por email">
+            Enviar por email
+          </Button>
+        </form>
+      ) : (
+        <form
+          action={formAction}
+          encType="multipart/form-data"
+          className="space-y-2"
+        >
+          <input type="hidden" name="procesoId" value={procesoId} />
+          <input type="hidden" name="tipoNotificacion" value="fisica" />
+          <div className="grid gap-1.5">
+            <Label htmlFor="archivo-notificacion" className="text-xs">
+              Evidencia (adjunte al menos un archivo)
+            </Label>
+            <Input
+              id="archivo-notificacion"
+              name="archivo"
+              type="file"
+              multiple
+              accept={ACCEPT_ARCHIVOS}
+              aria-invalid={!!state?.error}
+            />
+            <p className="text-muted-foreground text-xs">
+              PDF, imágenes, Word, Excel; máx. 10 MB por archivo.
+            </p>
+          </div>
+          <Button type="submit" size="sm" variant="outline" aria-label="Registrar notificación física">
+            Registrar notificación física
+          </Button>
+        </form>
+      )}
+
       {state?.error && (
         <p className="text-destructive text-xs w-full" role="alert">
           {state.error}

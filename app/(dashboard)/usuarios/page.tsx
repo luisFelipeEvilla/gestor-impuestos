@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { Users, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
-import { usuarios } from "@/lib/db/schema";
+import { usuarios, cargosEmpresa } from "@/lib/db/schema";
 import { eq, and, or, ilike, desc } from "drizzle-orm";
 import {
   Card,
@@ -45,8 +45,29 @@ export default async function UsuariosPage({ searchParams }: Props) {
     condiciones.length > 0 ? and(...condiciones) : undefined;
 
   const lista = await (whereCond
-    ? db.select().from(usuarios).where(whereCond)
-    : db.select().from(usuarios))
+    ? db
+        .select({
+          id: usuarios.id,
+          email: usuarios.email,
+          nombre: usuarios.nombre,
+          rol: usuarios.rol,
+          activo: usuarios.activo,
+          cargoNombre: cargosEmpresa.nombre,
+        })
+        .from(usuarios)
+        .leftJoin(cargosEmpresa, eq(usuarios.cargoId, cargosEmpresa.id))
+        .where(whereCond)
+    : db
+        .select({
+          id: usuarios.id,
+          email: usuarios.email,
+          nombre: usuarios.nombre,
+          rol: usuarios.rol,
+          activo: usuarios.activo,
+          cargoNombre: cargosEmpresa.nombre,
+        })
+        .from(usuarios)
+        .leftJoin(cargosEmpresa, eq(usuarios.cargoId, cargosEmpresa.id)))
     .orderBy(desc(usuarios.createdAt));
 
   return (
@@ -72,7 +93,11 @@ export default async function UsuariosPage({ searchParams }: Props) {
         <CardHeader>
           <CardTitle>Listado</CardTitle>
           <CardDescription>
-            Administradores y empleados del sistema
+            Administradores y empleados del sistema. Asigna cargos desde{" "}
+            <Link href="/cargos" className="text-primary underline hover:no-underline">
+              Cargos
+            </Link>
+            .
             {verInactivos && " · Mostrando todos (incl. inactivos)"}
             {busqueda && " · Búsqueda aplicada"}
           </CardDescription>
@@ -90,6 +115,7 @@ export default async function UsuariosPage({ searchParams }: Props) {
                 <TableRow>
                   <TableHead>Email</TableHead>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Cargo</TableHead>
                   <TableHead>Rol</TableHead>
                   <TableHead className="w-20">Estado</TableHead>
                   <TableHead className="w-[80px]">Acción</TableHead>
@@ -100,6 +126,9 @@ export default async function UsuariosPage({ searchParams }: Props) {
                   <TableRow key={u.id}>
                     <TableCell>{u.email}</TableCell>
                     <TableCell>{u.nombre}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {u.cargoNombre ?? "—"}
+                    </TableCell>
                     <TableCell className="capitalize">{u.rol}</TableCell>
                     <TableCell>
                       {u.activo ? (

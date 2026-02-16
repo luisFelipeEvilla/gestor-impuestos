@@ -1,4 +1,4 @@
-CREATE TABLE "empresa" (
+CREATE TABLE IF NOT EXISTS "empresa" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"nombre" text NOT NULL,
 	"tipo_documento" "tipo_documento" DEFAULT 'nit' NOT NULL,

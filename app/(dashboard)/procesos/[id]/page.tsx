@@ -64,7 +64,8 @@ const LABEL_CATEGORIA: Record<string, string> = {
 
 function labelTipoEvento(
   tipo: string,
-  categoriaNota?: string | null
+  categoriaNota?: string | null,
+  notificacionMetadata?: { tipo?: string } | null
 ): string {
   const map: Record<string, string> = {
     cambio_estado: "Cambio de estado",
@@ -73,6 +74,12 @@ function labelTipoEvento(
     notificacion: "Notificación",
     pago: "Pago",
   };
+  if (tipo === "notificacion" && notificacionMetadata?.tipo === "fisica") {
+    return "Notificación por vía física";
+  }
+  if (tipo === "notificacion") {
+    return "Notificación por email";
+  }
   const base = map[tipo] ?? tipo;
   if (tipo === "nota" && categoriaNota) {
     const catLabel = LABEL_CATEGORIA[categoriaNota] ?? categoriaNota;
@@ -158,9 +165,19 @@ export default async function DetalleProcesoPage({ params }: Props) {
   const notificacionEvent = historialRows.find((h) => h.tipoEvento === "notificacion");
   const yaNotificado = !!notificacionEvent;
   const fechaNotificacion = notificacionEvent?.fecha ?? null;
+  const notificacionMetadata = (notificacionEvent?.metadata as { tipo?: string; documentoIds?: number[] } | null) ?? null;
+  const notifDocIds = notificacionMetadata && notificacionMetadata.tipo === "fisica" && Array.isArray(notificacionMetadata.documentoIds)
+    ? notificacionMetadata.documentoIds
+    : [];
+  const documentosEvidencia = notifDocIds.length > 0
+    ? documentosRows
+        .filter((d) => notifDocIds.includes(d.id))
+        .sort((a, b) => notifDocIds.indexOf(a.id) - notifDocIds.indexOf(b.id))
+        .map((d) => ({ id: d.id, nombreOriginal: d.nombreOriginal }))
+    : [];
 
-  type CategoriaKey = "general" | "en_contacto" | "acuerdo_pago" | "cobro_coactivo";
-  const categorias: CategoriaKey[] = ["general", "en_contacto", "acuerdo_pago", "cobro_coactivo"];
+  type CategoriaKey = "general" | "en_contacto" | "acuerdo_pago" | "cobro_coactivo" | "evidencia_notificacion";
+  const categorias: CategoriaKey[] = ["general", "en_contacto", "acuerdo_pago", "cobro_coactivo", "evidencia_notificacion"];
 
   const documentosPorCategoria = categorias.reduce(
     (acc, cat) => {
@@ -330,7 +347,11 @@ export default async function DetalleProcesoPage({ params }: Props) {
                       <div className="min-w-0 flex-1 space-y-0.5 pt-0.5">
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
                           <span className="font-medium text-sm">
-                            {labelTipoEvento(h.tipoEvento, h.categoriaNota)}
+                            {labelTipoEvento(
+                              h.tipoEvento,
+                              h.categoriaNota,
+                              h.tipoEvento === "notificacion" ? (h.metadata as { tipo?: string } | null) : undefined
+                            )}
                           </span>
                           <span className="text-muted-foreground text-xs">
                             {formatDateTime(h.fecha)}
@@ -363,6 +384,33 @@ export default async function DetalleProcesoPage({ params }: Props) {
                                   {envio.resendId && ` · ID: ${envio.resendId}`}
                                 </p>
                               ))}
+                            </div>
+                          )}
+                        {h.tipoEvento === "notificacion" &&
+                          (h.metadata as { tipo?: string; documentoIds?: number[] } | null)?.tipo === "fisica" &&
+                          Array.isArray((h.metadata as { documentoIds?: number[] }).documentoIds) &&
+                          (h.metadata as { documentoIds: number[] }).documentoIds.length > 0 && (
+                            <div className="mt-2 rounded-md border border-border bg-muted/40 px-2 py-1.5 text-xs">
+                              <p className="font-medium text-foreground">Evidencia adjunta</p>
+                              {documentosRows
+                                .filter((d) => (h.metadata as { documentoIds: number[] }).documentoIds.includes(d.id))
+                                .sort(
+                                  (a, b) =>
+                                    (h.metadata as { documentoIds: number[] }).documentoIds.indexOf(a.id) -
+                                    (h.metadata as { documentoIds: number[] }).documentoIds.indexOf(b.id)
+                                )
+                                .map((doc) => (
+                                  <p key={doc.id} className="mt-0.5">
+                                    <a
+                                      href={`/api/procesos/${id}/documentos/${doc.id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline"
+                                    >
+                                      {doc.nombreOriginal}
+                                    </a>
+                                  </p>
+                                ))}
                             </div>
                           )}
                       </div>
@@ -420,6 +468,8 @@ export default async function DetalleProcesoPage({ params }: Props) {
               procesoId={row.id}
               yaNotificado={yaNotificado}
               fechaNotificacion={fechaNotificacion}
+              notificacionMetadata={notificacionMetadata}
+              documentosEvidencia={documentosEvidencia}
             />
           </CardContent>
         </Card>

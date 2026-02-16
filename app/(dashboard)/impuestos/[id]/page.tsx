@@ -26,6 +26,7 @@ export default async function DetalleImpuestoPage({ params }: Props) {
       codigo: impuestos.codigo,
       nombre: impuestos.nombre,
       tipo: impuestos.tipo,
+      naturaleza: impuestos.naturaleza,
       descripcion: impuestos.descripcion,
       activo: impuestos.activo,
       clienteId: impuestos.clienteId,
@@ -61,7 +62,9 @@ export default async function DetalleImpuestoPage({ params }: Props) {
           <CardDescription className="flex flex-wrap items-center gap-2">
             <span>Código: {impuesto.codigo}</span>
             <span>·</span>
-            <span>Tipo: {impuesto.tipo === "nacional" ? "Nacional" : "Municipal"}</span>
+            <span>Naturaleza: {impuesto.naturaleza === "no_tributario" ? "No tributario" : "Tributario"}</span>
+            <span>·</span>
+            <span>Ámbito: {impuesto.tipo === "nacional" ? "Nacional" : "Municipal"}</span>
             {impuesto.clienteNombre && (
               <>
                 <span>·</span>
@@ -96,7 +99,11 @@ export default async function DetalleImpuestoPage({ params }: Props) {
               <dd className="font-medium">{impuesto.nombre}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Tipo</dt>
+              <dt className="text-muted-foreground">Naturaleza</dt>
+              <dd className="font-medium">{impuesto.naturaleza === "no_tributario" ? "No tributario" : "Tributario"}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Ámbito (tipo)</dt>
               <dd className="font-medium capitalize">{impuesto.tipo}</dd>
             </div>
             {impuesto.descripcion && (

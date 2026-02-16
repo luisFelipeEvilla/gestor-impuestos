@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 import type { Session } from "next-auth";
 import {
@@ -85,10 +86,10 @@ export function Navbar({ session }: NavbarProps) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <a href="#" className="cursor-pointer">
+                <Link href="/perfil" className="cursor-pointer">
                   <User className="size-4" />
-                  Mi cuenta
-                </a>
+                  Mi perfil
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

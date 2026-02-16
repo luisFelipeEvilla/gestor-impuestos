@@ -7,6 +7,7 @@ export const CATEGORIAS_DOCUMENTO_NOTA = [
   "en_contacto",
   "acuerdo_pago",
   "cobro_coactivo",
+  "evidencia_notificacion",
 ] as const;
 
 export type CategoriaDocumentoNota = (typeof CATEGORIAS_DOCUMENTO_NOTA)[number];

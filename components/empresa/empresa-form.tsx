@@ -44,9 +44,9 @@ export function EmpresaForm({ action, initialData, cargos }: EmpresaFormProps) {
       )}
       <Card>
         <CardHeader>
-          <CardTitle>Datos de la empresa</CardTitle>
+          <CardTitle>Configuración de la organización</CardTitle>
           <CardDescription>
-            Información de tu empresa para actas, documentos y contacto con clientes.
+            Información de tu organización para actas, documentos y contacto con clientes.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -131,7 +131,7 @@ export function EmpresaForm({ action, initialData, cargos }: EmpresaFormProps) {
               id="direccion"
               name="direccion"
               defaultValue={initialData?.direccion ?? ""}
-              placeholder="Dirección de la empresa"
+              placeholder="Dirección de la organización"
               aria-invalid={!!state?.errores?.direccion}
             />
             {state?.errores?.direccion && (
@@ -194,7 +194,7 @@ export function EmpresaForm({ action, initialData, cargos }: EmpresaFormProps) {
             )}
           </div>
           <div className="flex justify-end pt-2">
-            <Button type="submit" aria-label="Guardar datos de la empresa">
+            <Button type="submit" aria-label="Guardar configuración de la organización">
               Guardar
             </Button>
           </div>

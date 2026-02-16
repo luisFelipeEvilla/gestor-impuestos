@@ -1,9 +1,14 @@
-CREATE TYPE "public"."estado_proceso" AS ENUM('pendiente', 'asignado', 'en_contacto', 'notificado', 'en_negociacion', 'cobrado', 'incobrable', 'en_cobro_coactivo', 'suspendido');--> statement-breakpoint
-CREATE TYPE "public"."rol_usuario" AS ENUM('admin', 'empleado');--> statement-breakpoint
-CREATE TYPE "public"."tipo_documento" AS ENUM('nit', 'cedula');--> statement-breakpoint
-CREATE TYPE "public"."tipo_evento_historial" AS ENUM('cambio_estado', 'asignacion', 'nota', 'notificacion', 'pago');--> statement-breakpoint
-CREATE TYPE "public"."tipo_impuesto" AS ENUM('nacional', 'municipal');--> statement-breakpoint
-CREATE TABLE "contribuyentes" (
+DO $$ BEGIN CREATE TYPE "public"."estado_proceso" AS ENUM('pendiente', 'asignado', 'en_contacto', 'notificado', 'en_negociacion', 'cobrado', 'incobrable', 'en_cobro_coactivo', 'suspendido'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."rol_usuario" AS ENUM('admin', 'empleado'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."tipo_documento" AS ENUM('nit', 'cedula'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."tipo_evento_historial" AS ENUM('cambio_estado', 'asignacion', 'nota', 'notificacion', 'pago'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+--> statement-breakpoint
+DO $$ BEGIN CREATE TYPE "public"."tipo_impuesto" AS ENUM('nacional', 'municipal'); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "contribuyentes" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"nit" text NOT NULL,
 	"tipo_documento" "tipo_documento" DEFAULT 'nit' NOT NULL,
@@ -17,7 +22,7 @@ CREATE TABLE "contribuyentes" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "historial_proceso" (
+CREATE TABLE IF NOT EXISTS "historial_proceso" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"proceso_id" integer NOT NULL,
 	"usuario_id" integer,
@@ -29,7 +34,7 @@ CREATE TABLE "historial_proceso" (
 	"fecha" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "impuestos" (
+CREATE TABLE IF NOT EXISTS "impuestos" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"nombre" text NOT NULL,
 	"codigo" text NOT NULL,
@@ -41,7 +46,7 @@ CREATE TABLE "impuestos" (
 	CONSTRAINT "impuestos_codigo_unique" UNIQUE("codigo")
 );
 --> statement-breakpoint
-CREATE TABLE "procesos" (
+CREATE TABLE IF NOT EXISTS "procesos" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"impuesto_id" integer NOT NULL,
 	"contribuyente_id" integer NOT NULL,
@@ -55,7 +60,7 @@ CREATE TABLE "procesos" (
 	"actualizado_en" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "usuarios" (
+CREATE TABLE IF NOT EXISTS "usuarios" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"email" text NOT NULL,
 	"nombre" text NOT NULL,
@@ -67,8 +72,12 @@ CREATE TABLE "usuarios" (
 	CONSTRAINT "usuarios_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-ALTER TABLE "historial_proceso" ADD CONSTRAINT "historial_proceso_proceso_id_procesos_id_fk" FOREIGN KEY ("proceso_id") REFERENCES "public"."procesos"("id") ON DELETE cascade ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "historial_proceso" ADD CONSTRAINT "historial_proceso_usuario_id_usuarios_id_fk" FOREIGN KEY ("usuario_id") REFERENCES "public"."usuarios"("id") ON DELETE set null ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "procesos" ADD CONSTRAINT "procesos_impuesto_id_impuestos_id_fk" FOREIGN KEY ("impuesto_id") REFERENCES "public"."impuestos"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "procesos" ADD CONSTRAINT "procesos_contribuyente_id_contribuyentes_id_fk" FOREIGN KEY ("contribuyente_id") REFERENCES "public"."contribuyentes"("id") ON DELETE restrict ON UPDATE cascade;--> statement-breakpoint
-ALTER TABLE "procesos" ADD CONSTRAINT "procesos_asignado_a_id_usuarios_id_fk" FOREIGN KEY ("asignado_a_id") REFERENCES "public"."usuarios"("id") ON DELETE set null ON UPDATE cascade;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'historial_proceso_proceso_id_procesos_id_fk') THEN ALTER TABLE "historial_proceso" ADD CONSTRAINT "historial_proceso_proceso_id_procesos_id_fk" FOREIGN KEY ("proceso_id") REFERENCES "public"."procesos"("id") ON DELETE cascade ON UPDATE cascade; END IF; END $$;
+--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'historial_proceso_usuario_id_usuarios_id_fk') THEN ALTER TABLE "historial_proceso" ADD CONSTRAINT "historial_proceso_usuario_id_usuarios_id_fk" FOREIGN KEY ("usuario_id") REFERENCES "public"."usuarios"("id") ON DELETE set null ON UPDATE cascade; END IF; END $$;
+--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'procesos_impuesto_id_impuestos_id_fk') THEN ALTER TABLE "procesos" ADD CONSTRAINT "procesos_impuesto_id_impuestos_id_fk" FOREIGN KEY ("impuesto_id") REFERENCES "public"."impuestos"("id") ON DELETE restrict ON UPDATE cascade; END IF; END $$;
+--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'procesos_contribuyente_id_contribuyentes_id_fk') THEN ALTER TABLE "procesos" ADD CONSTRAINT "procesos_contribuyente_id_contribuyentes_id_fk" FOREIGN KEY ("contribuyente_id") REFERENCES "public"."contribuyentes"("id") ON DELETE restrict ON UPDATE cascade; END IF; END $$;
+--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'procesos_asignado_a_id_usuarios_id_fk') THEN ALTER TABLE "procesos" ADD CONSTRAINT "procesos_asignado_a_id_usuarios_id_fk" FOREIGN KEY ("asignado_a_id") REFERENCES "public"."usuarios"("id") ON DELETE set null ON UPDATE cascade; END IF; END $$;

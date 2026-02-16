@@ -1,1 +1,1 @@
-ALTER TABLE "aprobaciones_acta_participante" ADD COLUMN "ruta_foto" text;
+ALTER TABLE "aprobaciones_acta_participante" ADD COLUMN IF NOT EXISTS "ruta_foto" text;

@@ -40,7 +40,10 @@ export async function proxy(req: NextRequest) {
   }
 
   const rol = (token as { rol?: "admin" | "empleado" }).rol;
-  if (pathname.startsWith("/usuarios") && rol !== "admin") {
+  if (
+    (pathname.startsWith("/usuarios") || pathname.startsWith("/cargos")) &&
+    rol !== "admin"
+  ) {
     return NextResponse.redirect(new URL("/", req.nextUrl.origin));
   }
 
