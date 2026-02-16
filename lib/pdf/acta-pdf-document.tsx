@@ -353,9 +353,31 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
             </View>
           </View>
 
+          {/* Actividades desarrolladas */}
+          {acta.actividades?.length > 0 ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>2. Actividades desarrolladas</Text>
+              <View style={styles.table}>
+                <View style={styles.tableHeaderRow}>
+                  <Text style={[styles.tableHeaderCell, styles.colNum]}>Cód.</Text>
+                  <Text style={[styles.tableHeaderCell, styles.colDescripcion]}>Descripción</Text>
+                </View>
+                {acta.actividades.map((a, idx) => (
+                  <View
+                    key={a.id}
+                    style={idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt}
+                  >
+                    <Text style={[styles.tableCell, styles.colNum]}>{a.codigo}</Text>
+                    <Text style={[styles.tableCell, styles.colDescripcion]}>{a.descripcion}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
           {/* Compromisos (tabla) */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>2. Compromisos</Text>
+            <Text style={styles.sectionTitle}>{acta.actividades?.length ? "3. Compromisos" : "2. Compromisos"}</Text>
             {tieneCompromisosLista ? (
               <View style={styles.table}>
                 <View style={styles.tableHeaderRow}>
@@ -407,7 +429,7 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
 
           {/* Asistentes: dos tablas (internos y externos) */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>3. Asistentes</Text>
+            <Text style={styles.sectionTitle}>{acta.actividades?.length ? "4. Asistentes" : "3. Asistentes"}</Text>
 
             {/* 3.1 Internos (empresa) */}
             <Text style={styles.subsectionTitle}>3.1 Asistentes de R&R Consultorias S.A.S</Text>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { usuarios } from "@/lib/db/schema";
+import { usuarios, cargosEmpresa } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   Card,
@@ -24,8 +24,21 @@ export default async function DetalleUsuarioPage({ params }: Props) {
   const id = parseInt(idStr, 10);
   if (Number.isNaN(id)) notFound();
 
-  const [usuario] = await db.select().from(usuarios).where(eq(usuarios.id, id));
-  if (!usuario) notFound();
+  const [row] = await db
+    .select({
+      id: usuarios.id,
+      nombre: usuarios.nombre,
+      email: usuarios.email,
+      rol: usuarios.rol,
+      activo: usuarios.activo,
+      cargoId: usuarios.cargoId,
+      cargoNombre: cargosEmpresa.nombre,
+    })
+    .from(usuarios)
+    .leftJoin(cargosEmpresa, eq(usuarios.cargoId, cargosEmpresa.id))
+    .where(eq(usuarios.id, id));
+  if (!row) notFound();
+  const usuario = { ...row, cargoNombre: row.cargoNombre ?? null };
 
   return (
     <div className="p-6">
@@ -73,6 +86,12 @@ export default async function DetalleUsuarioPage({ params }: Props) {
               <dt className="text-muted-foreground">Rol</dt>
               <dd className="font-medium capitalize">{usuario.rol}</dd>
             </div>
+            {usuario.cargoNombre && (
+              <div>
+                <dt className="text-muted-foreground">Cargo en la compañía</dt>
+                <dd className="font-medium">{usuario.cargoNombre}</dd>
+              </div>
+            )}
             <div>
               <dt className="text-muted-foreground">Estado</dt>
               <dd>

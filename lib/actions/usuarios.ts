@@ -16,6 +16,10 @@ const schemaCrear = z.object({
   email: z.string().email("Email no válido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
   rol: z.enum(rolValues),
+  cargoId: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? null : Number(v))),
   activo: z.boolean().default(true),
 });
 
@@ -25,6 +29,10 @@ const schemaActualizar = z.object({
   email: z.string().email("Email no válido"),
   password: z.string().min(6).optional().or(z.literal("")),
   rol: z.enum(rolValues),
+  cargoId: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? null : Number(v))),
   activo: z.boolean().default(true),
 });
 
@@ -49,6 +57,7 @@ export async function crearUsuario(
     email: formData.get("email"),
     password: formData.get("password"),
     rol: formData.get("rol"),
+    cargoId: formData.get("cargoId"),
     activo: formData.get("activo") === "on",
   };
 
@@ -62,7 +71,7 @@ export async function crearUsuario(
     };
   }
 
-  const { nombre, email, password, rol, activo } = parsed.data;
+  const { nombre, email, password, rol, cargoId, activo } = parsed.data;
 
   try {
     const passwordHash = await hashPassword(password);
@@ -73,6 +82,7 @@ export async function crearUsuario(
         email: email.trim().toLowerCase(),
         passwordHash,
         rol,
+        cargoId: cargoId ?? undefined,
         activo,
       })
       .returning({ id: usuarios.id });
@@ -109,6 +119,7 @@ export async function actualizarUsuario(
     email: formData.get("email"),
     password: typeof passwordRaw === "string" && passwordRaw.length > 0 ? passwordRaw : undefined,
     rol: formData.get("rol"),
+    cargoId: formData.get("cargoId"),
     activo: formData.get("activo") === "on",
   };
 
@@ -125,7 +136,7 @@ export async function actualizarUsuario(
     };
   }
 
-  const { nombre, email, rol, activo } = parsed.data;
+  const { nombre, email, rol, cargoId, activo } = parsed.data;
   const password = parsed.data.password && parsed.data.password.length >= 6 ? parsed.data.password : null;
 
   try {
@@ -133,6 +144,7 @@ export async function actualizarUsuario(
       nombre: string;
       email: string;
       rol: "admin" | "empleado";
+      cargoId: number | null;
       activo: boolean;
       updatedAt: Date;
       passwordHash?: string;
@@ -140,6 +152,7 @@ export async function actualizarUsuario(
       nombre,
       email: email.trim().toLowerCase(),
       rol,
+      cargoId: cargoId ?? null,
       activo,
       updatedAt: new Date(),
     };

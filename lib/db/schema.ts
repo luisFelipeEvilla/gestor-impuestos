@@ -82,6 +82,11 @@ export const usuarios = pgTable("usuarios", {
   nombre: text("nombre").notNull(),
   passwordHash: text("password_hash"),
   rol: rolUsuarioEnum("rol").notNull().default("empleado"),
+  /** Cargo que ocupa el empleado dentro de la compañía (ej. Gerente general, Abogado). */
+  cargoId: integer("cargo_id").references(() => cargosEmpresa.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
   activo: boolean("activo").notNull().default(true),
   /** Hash del token de recuperación de contraseña (SHA-256). Se limpia al restablecer o al expirar. */
   passwordResetTokenHash: text("password_reset_token_hash"),
@@ -381,6 +386,45 @@ export const historialActa = pgTable("historial_acta", {
   metadata: jsonb("metadata"),
 });
 
+// Tabla: obligaciones (obligaciones de gestión tributaria a las que se vinculan las actividades)
+export const obligaciones = pgTable("obligaciones", {
+  id: serial("id").primaryKey(),
+  descripcion: text("descripcion").notNull(),
+  orden: integer("orden").notNull().default(0),
+  activo: boolean("activo").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Tabla: actividades (catálogo de actividades de gestión tributaria y cobro coactivo)
+export const actividades = pgTable("actividades", {
+  id: serial("id").primaryKey(),
+  obligacionId: integer("obligacion_id").references(() => obligaciones.id, {
+    onDelete: "restrict",
+    onUpdate: "cascade",
+  }),
+  codigo: text("codigo").notNull().unique(),
+  descripcion: text("descripcion").notNull(),
+  orden: integer("orden").notNull().default(0),
+  activo: boolean("activo").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Tabla: actas_reunion_actividades (N:M acta – actividades desarrolladas en el acta)
+export const actasReunionActividades = pgTable(
+  "actas_reunion_actividades",
+  {
+    actaId: integer("acta_id")
+      .notNull()
+      .references(() => actasReunion.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    actividadId: integer("actividad_id")
+      .notNull()
+      .references(() => actividades.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  },
+  (t) => [{ primaryKey: { columns: [t.actaId, t.actividadId] } }]
+);
+
 // Tabla: actas_reunion_clientes (N:M acta – clientes)
 export const actasReunionClientes = pgTable(
   "actas_reunion_clientes",
@@ -396,14 +440,17 @@ export const actasReunionClientes = pgTable(
 );
 
 // Relaciones Drizzle (para queries con join)
-export const usuariosRelations = relations(usuarios, ({ many }) => ({
+export const usuariosRelations = relations(usuarios, ({ one, many }) => ({
+  cargo: one(cargosEmpresa, { fields: [usuarios.cargoId], references: [cargosEmpresa.id] }),
   procesosAsignados: many(procesos),
   historiales: many(historialProceso),
   actasCreadas: many(actasReunion),
   historialesActa: many(historialActa),
 }));
 
-export const cargosEmpresaRelations = relations(cargosEmpresa, () => ({}));
+export const cargosEmpresaRelations = relations(cargosEmpresa, ({ many }) => ({
+  usuarios: many(usuarios),
+}));
 
 export const empresaRelations = relations(empresa, () => ({}));
 
@@ -452,6 +499,21 @@ export const actasReunionRelations = relations(actasReunion, ({ one, many }) => 
   documentos: many(documentosActa),
   historial: many(historialActa),
   actasReunionClientes: many(actasReunionClientes),
+  actasReunionActividades: many(actasReunionActividades),
+}));
+
+export const obligacionesRelations = relations(obligaciones, ({ many }) => ({
+  actividades: many(actividades),
+}));
+
+export const actividadesRelations = relations(actividades, ({ one, many }) => ({
+  obligacion: one(obligaciones, { fields: [actividades.obligacionId], references: [obligaciones.id] }),
+  actasReunionActividades: many(actasReunionActividades),
+}));
+
+export const actasReunionActividadesRelations = relations(actasReunionActividades, ({ one }) => ({
+  acta: one(actasReunion),
+  actividad: one(actividades),
 }));
 
 export const actasReunionClientesRelations = relations(actasReunionClientes, ({ one }) => ({
@@ -533,3 +595,9 @@ export type CompromisoActaHistorial = typeof compromisosActaHistorial.$inferSele
 export type NewCompromisoActaHistorial = typeof compromisosActaHistorial.$inferInsert;
 export type ActaReunionCliente = typeof actasReunionClientes.$inferSelect;
 export type NewActaReunionCliente = typeof actasReunionClientes.$inferInsert;
+export type Obligacion = typeof obligaciones.$inferSelect;
+export type NewObligacion = typeof obligaciones.$inferInsert;
+export type Actividad = typeof actividades.$inferSelect;
+export type NewActividad = typeof actividades.$inferInsert;
+export type ActaReunionActividad = typeof actasReunionActividades.$inferSelect;
+export type NewActaReunionActividad = typeof actasReunionActividades.$inferInsert;

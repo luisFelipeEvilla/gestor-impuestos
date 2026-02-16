@@ -78,6 +78,7 @@ export type ActaDetalle = {
     tamano: number;
     creadoEn: Date;
   }[];
+  actividades: { id: number; codigo: string; descripcion: string }[];
 };
 
 export type HistorialActaItem = {

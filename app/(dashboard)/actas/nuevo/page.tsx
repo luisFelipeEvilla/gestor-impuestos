@@ -3,13 +3,14 @@ import { db } from "@/lib/db";
 import { usuarios, clientes } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { crearActa } from "@/lib/actions/actas";
+import { obtenerObligacionesConActividades } from "@/lib/actions/actividades";
 import { obtenerMiembrosPorClientes } from "@/lib/actions/clientes-miembros";
 import { listarCargosEmpresa } from "@/lib/actions/cargos-empresa";
 import { ActaForm } from "@/components/actas/acta-form";
 import { Button } from "@/components/ui/button";
 
 export default async function NuevaActaPage() {
-  const [usuariosList, clientesList, cargosEmpresa] = await Promise.all([
+  const [usuariosList, clientesList, cargosEmpresa, obligacionesConActividades] = await Promise.all([
     db
       .select({ id: usuarios.id, nombre: usuarios.nombre, email: usuarios.email })
       .from(usuarios)
@@ -20,6 +21,7 @@ export default async function NuevaActaPage() {
       .where(eq(clientes.activo, true))
       .orderBy(clientes.nombre),
     listarCargosEmpresa(),
+    obtenerObligacionesConActividades(),
   ]);
 
   const clientesMiembrosList =
@@ -40,6 +42,7 @@ export default async function NuevaActaPage() {
           submitLabel="Crear acta"
           usuarios={usuariosList}
           clientes={clientesList}
+          obligacionesConActividades={obligacionesConActividades}
           cargosEmpresa={cargosEmpresa}
           clientesMiembros={clientesMiembrosList}
         />

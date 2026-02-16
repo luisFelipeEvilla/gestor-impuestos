@@ -8,6 +8,8 @@ import {
   actasReunion,
   actasIntegrantes,
   actasReunionClientes,
+  actasReunionActividades,
+  actividades,
   compromisosActa,
   clientesMiembros,
   historialActa,
@@ -73,6 +75,17 @@ function parseIntegrantes(value: unknown): z.infer<typeof integrantesSchema> {
 }
 
 function parseClienteIds(value: unknown): number[] {
+  if (typeof value !== "string" || value.trim() === "") return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((x): x is number => typeof x === "number" && Number.isInteger(x) && x > 0);
+  } catch {
+    return [];
+  }
+}
+
+function parseActividadesIds(value: unknown): number[] {
   if (typeof value !== "string" || value.trim() === "") return [];
   try {
     const parsed = JSON.parse(value) as unknown;
@@ -176,6 +189,7 @@ export async function obtenerActaParaPreviewParticipante(
   compromisos: string | null;
   compromisosLista: CompromisoDetalle[];
   documentos: { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date }[];
+  actividades: { id: number; codigo: string; descripcion: string }[];
 } | null> {
   if (!Number.isInteger(actaId) || actaId < 1) return null;
   const [acta] = await db
@@ -190,7 +204,7 @@ export async function obtenerActaParaPreviewParticipante(
     .from(actasReunion)
     .where(eq(actasReunion.id, actaId));
   if (!acta || acta.estado !== "enviada") return null;
-  const [documentosRows, compromisosRows] = await Promise.all([
+  const [documentosRows, compromisosRows, actividadesRows] = await Promise.all([
     db
       .select({
         id: documentosActa.id,
@@ -218,6 +232,15 @@ export async function obtenerActaParaPreviewParticipante(
       .leftJoin(actasIntegrantes, eq(compromisosActa.actaIntegranteId, actasIntegrantes.id))
       .leftJoin(clientesMiembros, eq(compromisosActa.clienteMiembroId, clientesMiembros.id))
       .where(eq(compromisosActa.actaId, actaId)),
+    db
+      .select({
+        id: actividades.id,
+        codigo: actividades.codigo,
+        descripcion: actividades.descripcion,
+      })
+      .from(actasReunionActividades)
+      .innerJoin(actividades, eq(actasReunionActividades.actividadId, actividades.id))
+      .where(eq(actasReunionActividades.actaId, actaId)),
   ]);
   return {
     id: acta.id,
@@ -242,6 +265,7 @@ export async function obtenerActaParaPreviewParticipante(
       tamano: d.tamano,
       creadoEn: d.creadoEn,
     })),
+    actividades: actividadesRows.map((a) => ({ id: a.id, codigo: a.codigo, descripcion: a.descripcion })),
   };
 }
 
@@ -346,6 +370,16 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
     .innerJoin(clientes, eq(actasReunionClientes.clienteId, clientes.id))
     .where(eq(actasReunionClientes.actaId, actaId));
 
+  const actividadesRows = await db
+    .select({
+      id: actividades.id,
+      codigo: actividades.codigo,
+      descripcion: actividades.descripcion,
+    })
+    .from(actasReunionActividades)
+    .innerJoin(actividades, eq(actasReunionActividades.actividadId, actividades.id))
+    .where(eq(actasReunionActividades.actaId, actaId));
+
   return {
     id: acta.id,
     fecha: acta.fecha as unknown as Date,
@@ -386,6 +420,7 @@ export async function obtenerActaPorId(actaId: number): Promise<ActaDetalle | nu
       tamano: d.tamano,
       creadoEn: d.creadoEn,
     })),
+    actividades: actividadesRows.map((a) => ({ id: a.id, codigo: a.codigo, descripcion: a.descripcion })),
   };
 }
 
@@ -402,6 +437,7 @@ export async function crearActa(
   const compromisosRaw = formData.get("compromisos");
   const integrantesRaw = formData.get("integrantes");
   const clientesIdsRaw = formData.get("clientesIds");
+  const actividadesIdsRaw = formData.get("actividadesIds");
 
   const parsed = schemaCrear.safeParse({
     fecha: fechaStr,
@@ -423,6 +459,7 @@ export async function crearActa(
 
   const integrantes = parseIntegrantes(integrantesRaw);
   const clientesIds = parseClienteIds(clientesIdsRaw);
+  const actividadesIds = parseActividadesIds(actividadesIdsRaw);
   const compromisosForm = parseCompromisos(compromisosRaw);
 
   try {
@@ -494,6 +531,12 @@ export async function crearActa(
       );
     }
 
+    if (actividadesIds.length > 0) {
+      await db.insert(actasReunionActividades).values(
+        actividadesIds.map((actividadId) => ({ actaId: inserted.id, actividadId }))
+      );
+    }
+
     await db.insert(historialActa).values({
       actaId: inserted.id,
       usuarioId: session.user.id,
@@ -531,6 +574,7 @@ export async function actualizarActa(
   const compromisosRaw = formData.get("compromisos");
   const integrantesRaw = formData.get("integrantes");
   const clientesIdsRaw = formData.get("clientesIds");
+  const actividadesIdsRaw = formData.get("actividadesIds");
 
   const parsed = schemaActualizar.safeParse({
     id: Number.isNaN(id) ? undefined : id,
@@ -553,6 +597,7 @@ export async function actualizarActa(
 
   const integrantes = parseIntegrantes(integrantesRaw);
   const clientesIds = parseClienteIds(clientesIdsRaw);
+  const actividadesIds = parseActividadesIds(actividadesIdsRaw);
   const compromisosForm = parseCompromisos(compromisosRaw);
 
   try {
@@ -637,11 +682,18 @@ export async function actualizarActa(
       );
     }
 
+    await db.delete(actasReunionActividades).where(eq(actasReunionActividades.actaId, parsed.data.id));
+    if (actividadesIds.length > 0) {
+      await db.insert(actasReunionActividades).values(
+        actividadesIds.map((actividadId) => ({ actaId: parsed.data.id, actividadId }))
+      );
+    }
+
     await db.insert(historialActa).values({
       actaId: parsed.data.id,
       usuarioId: session.user.id,
       tipoEvento: "edicion",
-      metadata: { campos: ["fecha", "objetivo", "contenido", "compromisos", "integrantes", "clientes"] },
+      metadata: { campos: ["fecha", "objetivo", "contenido", "compromisos", "integrantes", "clientes", "actividades"] },
     });
 
     revalidatePath("/actas");

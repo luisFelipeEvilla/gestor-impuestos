@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { actasReunion, actasIntegrantes, actasReunionClientes, usuarios, documentosActa, clientes, compromisosActa } from "@/lib/db/schema";
+import { actasReunion, actasIntegrantes, actasReunionClientes, actasReunionActividades, usuarios, documentosActa, clientes, compromisosActa } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { actualizarActa } from "@/lib/actions/actas";
+import { obtenerObligacionesConActividades } from "@/lib/actions/actividades";
 import { obtenerMiembrosPorClientes } from "@/lib/actions/clientes-miembros";
 import { listarCargosEmpresa } from "@/lib/actions/cargos-empresa";
 import { ActaForm } from "@/components/actas/acta-form";
@@ -84,17 +85,21 @@ export default async function EditarActaPage({ params }: Props) {
     notFound();
   }
 
-  const actaClientes = await db
-    .select({ clienteId: actasReunionClientes.clienteId })
-    .from(actasReunionClientes)
-    .where(eq(actasReunionClientes.actaId, actaId));
-  const clientesIds = actaClientes.map((r) => r.clienteId);
-
-  const allClienteIds = clientesList.map((c) => c.id);
-  const [clientesMiembrosList, cargosEmpresa] = await Promise.all([
-    obtenerMiembrosPorClientes(allClienteIds),
+  const [actaClientes, actaActividades, clientesMiembrosList, cargosEmpresa, obligacionesConActividades] = await Promise.all([
+    db
+      .select({ clienteId: actasReunionClientes.clienteId })
+      .from(actasReunionClientes)
+      .where(eq(actasReunionClientes.actaId, actaId)),
+    db
+      .select({ actividadId: actasReunionActividades.actividadId })
+      .from(actasReunionActividades)
+      .where(eq(actasReunionActividades.actaId, actaId)),
+    obtenerMiembrosPorClientes(clientesList.map((c) => c.id)),
     listarCargosEmpresa(),
+    obtenerObligacionesConActividades(),
   ]);
+  const clientesIds = actaClientes.map((r) => r.clienteId);
+  const actividadesIds = actaActividades.map((r) => r.actividadId);
 
   const compromisosInitial = compromisosRows.map((c) => {
     const foundIndex =
@@ -127,6 +132,7 @@ export default async function EditarActaPage({ params }: Props) {
       solicitarAprobacionCorreo: i.solicitarAprobacionCorreo ?? true,
     })),
     clientesIds,
+    actividadesIds,
   };
 
   return (
@@ -142,6 +148,7 @@ export default async function EditarActaPage({ params }: Props) {
           submitLabel="Guardar cambios"
           usuarios={usuariosList}
           clientes={clientesList}
+          obligacionesConActividades={obligacionesConActividades}
           cargosEmpresa={cargosEmpresa}
           clientesMiembros={clientesMiembrosList}
           initialData={initialData}

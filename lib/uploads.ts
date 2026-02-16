@@ -1,9 +1,12 @@
 import { mkdir, writeFile, unlink, readFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 const UPLOAD_DIR_ENV = "UPLOAD_DIR";
 const DEFAULT_UPLOAD_DIR = "uploads";
+const S3_BUCKET_ENV = "S3_BUCKET";
+const S3_PREFIX_ENV = "S3_PREFIX";
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_MIME_PREFIXES = [
   "application/pdf",
@@ -13,6 +16,33 @@ const ALLOWED_MIME_PREFIXES = [
   "text/plain",
   "text/csv",
 ];
+
+function useS3(): boolean {
+  return Boolean(process.env[S3_BUCKET_ENV]?.trim());
+}
+
+let s3Client: S3Client | null = null;
+
+function getS3Client(): S3Client {
+  if (!s3Client) {
+    const region = process.env.AWS_REGION?.trim() || "us-east-1";
+    s3Client = new S3Client({ region });
+  }
+  return s3Client;
+}
+
+function getS3Bucket(): string {
+  const bucket = process.env[S3_BUCKET_ENV]?.trim();
+  if (!bucket) throw new Error("S3_BUCKET is not configured");
+  return bucket;
+}
+
+/** Convierte ruta relativa (guardada en BD) a clave S3. */
+function getS3Key(rutaRelativa: string): string {
+  const prefix = process.env[S3_PREFIX_ENV]?.trim() ?? "";
+  const normalized = rutaRelativa.replace(/\\/g, "/");
+  return prefix ? `${prefix.replace(/\/$/, "")}/${normalized}` : normalized;
+}
 
 export function getUploadRoot(): string {
   const root = process.env[UPLOAD_DIR_ENV] ?? path.join(process.cwd(), DEFAULT_UPLOAD_DIR);
@@ -54,6 +84,11 @@ export function isAllowedAprobacionFotoSize(size: number): boolean {
   return size > 0 && size <= APROBACION_FOTO_MAX_BYTES;
 }
 
+export async function ensureDir(dir: string): Promise<void> {
+  if (useS3()) return;
+  await mkdir(dir, { recursive: true });
+}
+
 /**
  * Guarda la foto de aprobación de un participante. Solo imágenes (JPEG, PNG, WebP), máx 5 MB.
  * Retorna la ruta relativa al upload root para guardar en BD.
@@ -70,27 +105,52 @@ export async function saveAprobacionFoto(
   if (!isAllowedAprobacionFotoSize(buffer.length)) {
     throw new Error("La imagen no debe superar 5 MB.");
   }
-  const dir = getAprobacionFotoDir(actaId);
-  await ensureDir(dir);
   const ext = getSafeExtension(nombreOriginal) || ".jpg";
   const safeExt = ext.startsWith(".") ? ext.slice(1) : ext;
   const storedFileName = `${randomUUID()}.${safeExt.replace(/[^a-z0-9]/g, "")}`;
-  const fullPath = path.join(dir, storedFileName);
+  const rutaRelativa = getAprobacionFotoRelativePath(actaId, storedFileName);
+
+  if (useS3()) {
+    await getS3Client().send(
+      new PutObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+        Body: buffer,
+        ContentType: mimeType,
+      })
+    );
+    return rutaRelativa;
+  }
+
+  const dir = getAprobacionFotoDir(actaId);
+  await ensureDir(dir);
+  const fullPath = path.join(getUploadRoot(), rutaRelativa);
   await writeFile(fullPath, buffer);
-  return getAprobacionFotoRelativePath(actaId, storedFileName);
+  return rutaRelativa;
 }
 
 /**
  * Lee la foto de aprobación por ruta relativa al upload root.
  */
 export async function readAprobacionFoto(rutaRelativa: string): Promise<Buffer> {
+  if (useS3()) {
+    const response = await getS3Client().send(
+      new GetObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+      })
+    );
+    const body = response.Body;
+    if (!body) throw new Error("Empty S3 object");
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  }
   const root = getUploadRoot();
   const fullPath = path.join(root, rutaRelativa);
   return readFile(fullPath);
-}
-
-export async function ensureDir(dir: string): Promise<void> {
-  await mkdir(dir, { recursive: true });
 }
 
 export function isAllowedMime(mimeType: string): boolean {
@@ -120,11 +180,25 @@ export async function saveProcesoDocument(
   nombreOriginal: string,
   mimeType: string
 ): Promise<string> {
-  const dir = getProcesoUploadDir(procesoId);
-  await ensureDir(dir);
   const ext = getSafeExtension(nombreOriginal);
   const storedFileName = `${randomUUID()}${ext ? `.${ext.replace(/^\./, "")}` : ""}`;
-  const fullPath = path.join(dir, storedFileName);
+  const rutaRelativa = getRelativePath(procesoId, storedFileName);
+
+  if (useS3()) {
+    await getS3Client().send(
+      new PutObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+        Body: buffer,
+        ContentType: mimeType,
+      })
+    );
+    return storedFileName;
+  }
+
+  const dir = getProcesoUploadDir(procesoId);
+  await ensureDir(dir);
+  const fullPath = path.join(getUploadRoot(), rutaRelativa);
   await writeFile(fullPath, buffer);
   return storedFileName;
 }
@@ -133,6 +207,15 @@ export async function saveProcesoDocument(
  * Elimina un archivo por ruta relativa al upload root.
  */
 export async function deleteProcesoDocument(rutaRelativa: string): Promise<void> {
+  if (useS3()) {
+    await getS3Client().send(
+      new DeleteObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+      })
+    );
+    return;
+  }
   const root = getUploadRoot();
   const fullPath = path.join(root, rutaRelativa);
   await unlink(fullPath);
@@ -142,6 +225,21 @@ export async function deleteProcesoDocument(rutaRelativa: string): Promise<void>
  * Lee un archivo por ruta relativa al upload root.
  */
 export async function readProcesoDocument(rutaRelativa: string): Promise<Buffer> {
+  if (useS3()) {
+    const response = await getS3Client().send(
+      new GetObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+      })
+    );
+    const body = response.Body;
+    if (!body) throw new Error("Empty S3 object");
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  }
   const root = getUploadRoot();
   const fullPath = path.join(root, rutaRelativa);
   return readFile(fullPath);
@@ -156,11 +254,25 @@ export async function saveActaDocument(
   nombreOriginal: string,
   mimeType: string
 ): Promise<string> {
-  const dir = getActaUploadDir(actaId);
-  await ensureDir(dir);
   const ext = getSafeExtension(nombreOriginal);
   const storedFileName = `${randomUUID()}${ext ? `.${ext.replace(/^\./, "")}` : ""}`;
-  const fullPath = path.join(dir, storedFileName);
+  const rutaRelativa = getActaRelativePath(actaId, storedFileName);
+
+  if (useS3()) {
+    await getS3Client().send(
+      new PutObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+        Body: buffer,
+        ContentType: mimeType,
+      })
+    );
+    return storedFileName;
+  }
+
+  const dir = getActaUploadDir(actaId);
+  await ensureDir(dir);
+  const fullPath = path.join(getUploadRoot(), rutaRelativa);
   await writeFile(fullPath, buffer);
   return storedFileName;
 }
@@ -169,6 +281,15 @@ export async function saveActaDocument(
  * Elimina un archivo de acta por ruta relativa al upload root.
  */
 export async function deleteActaDocument(rutaRelativa: string): Promise<void> {
+  if (useS3()) {
+    await getS3Client().send(
+      new DeleteObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+      })
+    );
+    return;
+  }
   const root = getUploadRoot();
   const fullPath = path.join(root, rutaRelativa);
   await unlink(fullPath);
@@ -178,6 +299,21 @@ export async function deleteActaDocument(rutaRelativa: string): Promise<void> {
  * Lee un archivo de acta por ruta relativa al upload root.
  */
 export async function readActaDocument(rutaRelativa: string): Promise<Buffer> {
+  if (useS3()) {
+    const response = await getS3Client().send(
+      new GetObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+      })
+    );
+    const body = response.Body;
+    if (!body) throw new Error("Empty S3 object");
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  }
   const root = getUploadRoot();
   const fullPath = path.join(root, rutaRelativa);
   return readFile(fullPath);
@@ -185,8 +321,10 @@ export async function readActaDocument(rutaRelativa: string): Promise<Buffer> {
 
 /**
  * Resuelve la ruta absoluta de un documento (solo para verificación de existencia si se necesita).
+ * Con S3 no hay ruta local; devuelve la clave lógica para referencia.
  */
 export function resolveDocumentPath(rutaRelativa: string): string {
+  if (useS3()) return getS3Key(rutaRelativa);
   return path.join(getUploadRoot(), rutaRelativa);
 }
 

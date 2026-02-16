@@ -128,6 +128,28 @@ export default async function ActaDetallePage({ params }: Props) {
         </CardContent>
       </Card>
 
+      {acta.actividades.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Actividades desarrolladas</CardTitle>
+            <CardDescription>
+              Actividades de gestión tributaria y cobro coactivo desarrolladas en esta reunión
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2" role="list">
+              {acta.actividades.map((a) => (
+                <li key={a.id} className="text-sm">
+                  <span className="font-medium text-foreground">{a.codigo}</span>
+                  {" — "}
+                  <span className="text-muted-foreground">{a.descripcion}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Compromisos</CardTitle>

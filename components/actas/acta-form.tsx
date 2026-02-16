@@ -21,6 +21,12 @@ type UsuarioOption = { id: number; nombre: string; email: string };
 type ClienteOption = { id: number; nombre: string; codigo: string | null };
 type ClienteMiembroOption = { id: number; clienteId: number; nombre: string; email: string; cargo: string | null };
 type CargoOption = { id: number; nombre: string };
+type ObligacionConActividades = {
+  id: number;
+  descripcion: string;
+  orden: number;
+  actividades: { id: number; codigo: string; descripcion: string }[];
+};
 
 type ActaFormProps = {
   action: (
@@ -30,6 +36,8 @@ type ActaFormProps = {
   submitLabel: string;
   usuarios: UsuarioOption[];
   clientes: ClienteOption[];
+  /** Obligaciones con sus actividades para elegir por obligación. */
+  obligacionesConActividades?: ObligacionConActividades[];
   /** Cargos de la empresa para asignar a integrantes internos (ej. Gerente general, Abogado). */
   cargosEmpresa?: CargoOption[];
   /** Miembros de clientes (para asignar compromisos a miembros del cliente). */
@@ -42,6 +50,7 @@ type ActaFormProps = {
     compromisos: CompromisoFormItem[];
     integrantes: IntegranteItem[];
     clientesIds?: number[];
+    actividadesIds?: number[];
   } | null;
 };
 
@@ -56,6 +65,7 @@ export function ActaForm({
   submitLabel,
   usuarios,
   clientes: clientesList,
+  obligacionesConActividades = [],
   cargosEmpresa = [],
   clientesMiembros = [],
   initialData,
@@ -70,12 +80,32 @@ export function ActaForm({
   const [clientesIds, setClientesIds] = useState<number[]>(
     initialData?.clientesIds ?? []
   );
+  const [actividadesIds, setActividadesIds] = useState<number[]>(
+    initialData?.actividadesIds ?? []
+  );
+  const primeraObligacionId =
+    obligacionesConActividades.find((o) => o.actividades.length > 0)?.id ??
+    obligacionesConActividades[0]?.id ??
+    null;
+  const [obligacionSeleccionadaId, setObligacionSeleccionadaId] = useState<number | null>(
+    primeraObligacionId
+  );
+  const actividadesDeLaObligacion =
+    obligacionesConActividades.find((o) => o.id === obligacionSeleccionadaId)?.actividades ?? [];
 
   const handleToggleCliente = (clienteId: number) => {
     setClientesIds((prev) =>
       prev.includes(clienteId)
         ? prev.filter((id) => id !== clienteId)
         : [...prev, clienteId]
+    );
+  };
+
+  const handleToggleActividad = (actividadId: number) => {
+    setActividadesIds((prev) =>
+      prev.includes(actividadId)
+        ? prev.filter((id) => id !== actividadId)
+        : [...prev, actividadId]
     );
   };
 
@@ -87,6 +117,8 @@ export function ActaForm({
     if (hiddenCompromisos) hiddenCompromisos.value = JSON.stringify(compromisos);
     const hiddenClientes = form.querySelector('input[name="clientesIds"]') as HTMLInputElement | null;
     if (hiddenClientes) hiddenClientes.value = JSON.stringify(clientesIds);
+    const hiddenActividades = form.querySelector('input[name="actividadesIds"]') as HTMLInputElement | null;
+    if (hiddenActividades) hiddenActividades.value = JSON.stringify(actividadesIds);
   };
 
   return (
@@ -214,6 +246,72 @@ export function ActaForm({
         </CardContent>
       </Card>
       <input type="hidden" name="integrantes" value="" readOnly aria-hidden />
+
+      {obligacionesConActividades.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Actividades desarrolladas</CardTitle>
+            <CardDescription>
+              Elige la obligación y marca las actividades que se desarrollaron en esta reunión. Puedes cambiar de obligación y agregar actividades de varias.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="obligacion-select">Obligación</Label>
+              <select
+                id="obligacion-select"
+                value={obligacionSeleccionadaId ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setObligacionSeleccionadaId(v ? Number(v) : null);
+                }}
+                className="border-input bg-transparent focus-visible:ring-ring flex h-9 w-full max-w-xl rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-2"
+                aria-label="Seleccionar obligación"
+              >
+                <option value="">Seleccione una obligación</option>
+                {obligacionesConActividades.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.id === 0 ? o.descripcion : `${o.orden}. ${o.descripcion}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {obligacionSeleccionadaId != null && actividadesDeLaObligacion.length > 0 && (
+              <div className="space-y-2">
+                <Label>Actividades de esta obligación</Label>
+                <ul className="space-y-3" role="list">
+                  {actividadesDeLaObligacion.map((a) => (
+                    <li key={a.id} className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        id={`actividad-${a.id}`}
+                        checked={actividadesIds.includes(a.id)}
+                        onChange={() => handleToggleActividad(a.id)}
+                        className="mt-1 h-4 w-4 rounded border-input shrink-0"
+                        aria-label={a.descripcion.length > 60 ? `Actividad ${a.codigo}: ${a.descripcion.slice(0, 60)}…` : `Actividad ${a.codigo}: ${a.descripcion}`}
+                      />
+                      <Label htmlFor={`actividad-${a.id}`} className="font-normal cursor-pointer text-sm leading-snug">
+                        <span className="font-medium text-foreground">{a.codigo}</span>
+                        {" — "}
+                        {a.descripcion}
+                      </Label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {obligacionSeleccionadaId != null && actividadesDeLaObligacion.length === 0 && (
+              <p className="text-muted-foreground text-sm">Esta obligación no tiene actividades en el catálogo.</p>
+            )}
+            {actividadesIds.length > 0 && (
+              <p className="text-muted-foreground text-xs">
+                Total seleccionadas: {actividadesIds.length} actividad{actividadesIds.length !== 1 ? "es" : ""}.
+              </p>
+            )}
+            <input type="hidden" name="actividadesIds" value="" readOnly aria-hidden />
+          </CardContent>
+        </Card>
+      )}
 
       <Card
         className={cn(

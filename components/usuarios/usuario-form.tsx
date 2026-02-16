@@ -16,13 +16,16 @@ import type { EstadoFormUsuario } from "@/lib/actions/usuarios";
 import type { Usuario } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
+type CargoOption = { id: number; nombre: string };
+
 type UsuarioFormProps = {
   action: (prev: EstadoFormUsuario | null, formData: FormData) => Promise<EstadoFormUsuario>;
   initialData?: Usuario | null;
+  cargos?: CargoOption[];
   submitLabel: string;
 };
 
-export function UsuarioForm({ action, initialData, submitLabel }: UsuarioFormProps) {
+export function UsuarioForm({ action, initialData, cargos = [], submitLabel }: UsuarioFormProps) {
   const [state, formAction] = useActionState(action, null);
   const isEdit = initialData != null;
 
@@ -121,6 +124,31 @@ export function UsuarioForm({ action, initialData, submitLabel }: UsuarioFormPro
               <p className="text-destructive text-xs">{state.errores.rol[0]}</p>
             )}
           </div>
+          {cargos.length > 0 && (
+            <div className="grid gap-2">
+              <Label htmlFor="cargoId">Cargo en la compañía</Label>
+              <select
+                id="cargoId"
+                name="cargoId"
+                defaultValue={initialData?.cargoId ?? ""}
+                className={cn(
+                  "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                )}
+                aria-invalid={!!state?.errores?.cargoId}
+                aria-label="Cargo que ocupa el empleado en la compañía"
+              >
+                <option value="">Sin asignar</option>
+                {cargos.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+              {state?.errores?.cargoId && (
+                <p className="text-destructive text-xs">{state.errores.cargoId[0]}</p>
+              )}
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <input
               type="checkbox"

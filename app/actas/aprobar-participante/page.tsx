@@ -342,7 +342,7 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
                 <input type="hidden" name="firma" value={firmaParam} readOnly aria-hidden />
                 <div className="grid gap-2">
                   <label htmlFor="motivoRechazo" className="text-sm font-medium">
-                    Rechazar acta (opcional: indique el motivo)
+                    Motivo del rechazo (recomendado)
                   </label>
                   <textarea
                     id="motivoRechazo"

@@ -38,7 +38,8 @@ export async function GET(_request: Request, context: RouteContext) {
     logoPath,
   });
 
-  const buffer = await renderToBuffer(doc);
+  // renderToBuffer expects DocumentProps at type level; our component renders Document internally
+  const buffer = await renderToBuffer(doc as React.ReactElement);
 
   const filename = `acta-${actaId}-${new Date(acta.fecha).toISOString().slice(0, 10)}.pdf`;
 
