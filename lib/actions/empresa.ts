@@ -12,7 +12,7 @@ const schemaEmpresa = z.object({
     .transform((s) => (typeof s === "string" ? s.trim() : ""))
     .pipe(z.string().min(1, "El nombre es obligatorio").max(300)),
   tipoDocumento: z.enum(["nit", "cedula"], {
-    errorMap: () => ({ message: "Selecciona un tipo de documento." }),
+    message: "Selecciona un tipo de documento.",
   }),
   numeroDocumento: z
     .string()

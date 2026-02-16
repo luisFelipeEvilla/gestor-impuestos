@@ -11,8 +11,7 @@ import {
 import type { ActaDetalle } from "@/lib/actions/actas-types";
 import { stripHtml } from "./strip-html";
 
-// Evitar partición de palabras en medio (ej. "Secre-tario", "Cumpli-do", "app-works")
-Font.registerHyphenationCallback((word) => [word]);
+Font.registerHyphenationCallback((word: string) => [word]);
 
 type EmpresaData = {
   nombre: string;
@@ -25,248 +24,248 @@ type EmpresaData = {
 } | null;
 
 const COLORS = {
-  primary: "#0f172a",
-  primaryLight: "#1e293b",
-  border: "#cbd5e1",
-  borderLight: "#e2e8f0",
-  muted: "#64748b",
-  mutedBg: "#f8fafc",
+  navy: "#1e3a5f",
+  navyLight: "#2c5282",
+  slate: "#475569",
+  slateLight: "#64748b",
+  border: "#e2e8f0",
+  borderLight: "#f1f5f9",
+  bgSection: "#fafbfc",
   white: "#ffffff",
-  text: "#334155",
-  textMuted: "#64748b",
+  text: "#1e293b",
+  textSecondary: "#475569",
 };
 
 const styles = StyleSheet.create({
   page: {
     padding: 0,
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: "Helvetica",
     color: COLORS.text,
   },
-  // —— Letterhead ——
-  letterhead: {
+  // —— Encabezado ——
+  header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 40,
-    paddingTop: 28,
-    paddingBottom: 20,
+    paddingHorizontal: 48,
+    paddingTop: 32,
+    paddingBottom: 24,
     borderBottomWidth: 2,
-    borderBottomColor: COLORS.primary,
-    backgroundColor: COLORS.white,
+    borderBottomColor: COLORS.navy,
   },
-  letterheadLeft: {
+  headerLeft: {
     flexDirection: "row",
-    alignItems: "stretch",
-    gap: 16,
+    alignItems: "center",
+    gap: 20,
   },
   logo: {
-    width: 100,
-    height: 40,
+    width: 88,
+    height: 44,
     objectFit: "contain",
   },
-  companyNameWrap: {
-    height: 40,
-    justifyContent: "center",
-  },
   companyName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "bold",
-    color: COLORS.primary,
-    letterSpacing: 0.2,
-    lineHeight: 1.25,
+    color: COLORS.navy,
+    letterSpacing: 0.3,
+    lineHeight: 1.3,
   },
-  // —— Content area ——
-  content: {
-    paddingHorizontal: 40,
-    paddingTop: 24,
-    paddingBottom: 100,
+  // —— Contenido principal ——
+  main: {
+    paddingHorizontal: 48,
+    paddingTop: 28,
+    paddingBottom: 120,
   },
-  docTitleWrap: {
-    width: "100%",
+  docTitleBlock: {
+    marginBottom: 24,
     alignItems: "center",
-    marginBottom: 20,
   },
   docTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
-    color: COLORS.primary,
-    textAlign: "center",
+    color: COLORS.navy,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  docSubtitle: {
+    fontSize: 11,
+    color: COLORS.slate,
+    marginTop: 4,
     letterSpacing: 0.2,
   },
-  infoGrid: {
+  // —— Bloque de datos del acta ——
+  metaBlock: {
+    marginBottom: 22,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    backgroundColor: COLORS.bgSection,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.navy,
+  },
+  metaRow: {
     flexDirection: "row",
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.mutedBg,
-  },
-  infoCell: {
-    flex: 1,
-    padding: 12,
-    borderRightWidth: 1,
-    borderRightColor: COLORS.border,
-  },
-  infoCellLast: {
-    flex: 1,
-    padding: 12,
-  },
-  infoLabel: {
-    fontSize: 7,
-    color: COLORS.muted,
-    textTransform: "uppercase",
-    letterSpacing: 0.35,
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: COLORS.primary,
-  },
-  section: {
-    marginBottom: 18,
-  },
-  sectionTitle: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: COLORS.primary,
-    marginBottom: 8,
-    paddingBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-    textTransform: "uppercase",
-    letterSpacing: 0.35,
-  },
-  subsectionTitle: {
-    fontSize: 9,
-    fontWeight: "bold",
-    color: COLORS.primaryLight,
-    marginTop: 12,
     marginBottom: 6,
   },
-  sectionContent: {
-    padding: 12,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
+  metaRowLast: {
+    flexDirection: "row",
+    marginBottom: 0,
+  },
+  metaLabel: {
+    fontSize: 8,
+    color: COLORS.slateLight,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    width: 100,
+    flexShrink: 0,
+  },
+  metaValue: {
+    fontSize: 10,
+    color: COLORS.text,
+    flex: 1,
+    lineHeight: 1.4,
+  },
+  // —— Secciones ——
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: COLORS.navy,
+    marginBottom: 10,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    letterSpacing: 0.2,
+  },
+  sectionBody: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     backgroundColor: COLORS.white,
-    minHeight: 40,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minHeight: 32,
   },
   sectionText: {
-    fontSize: 9,
-    lineHeight: 1.5,
+    fontSize: 10,
+    lineHeight: 1.55,
     textAlign: "justify",
     color: COLORS.text,
   },
-  // —— Tables ——
+  sectionEmpty: {
+    fontSize: 10,
+    color: COLORS.slateLight,
+    fontStyle: "italic",
+    lineHeight: 1.5,
+  },
+  subsectionTitle: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: COLORS.navyLight,
+    marginTop: 14,
+    marginBottom: 8,
+    letterSpacing: 0.15,
+  },
+  // —— Tablas ——
   table: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginTop: 4,
+    marginTop: 6,
   },
   tableHeaderRow: {
     flexDirection: "row",
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: COLORS.navy,
   },
   tableHeaderCell: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    fontSize: 7,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    fontSize: 8,
     fontWeight: "bold",
     color: COLORS.white,
     textTransform: "uppercase",
-    letterSpacing: 0.25,
+    letterSpacing: 0.3,
   },
   tableRow: {
     flexDirection: "row",
     borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
+    borderTopColor: COLORS.border,
   },
   tableRowAlt: {
     flexDirection: "row",
     borderTopWidth: 1,
-    borderTopColor: COLORS.borderLight,
-    backgroundColor: COLORS.mutedBg,
+    borderTopColor: COLORS.border,
+    backgroundColor: COLORS.bgSection,
   },
   tableCell: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    fontSize: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    fontSize: 9,
     lineHeight: 1.35,
     color: COLORS.text,
   },
-  // Compromisos columns (anchos suficientes para evitar cortes de palabras)
-  colNum: { width: 24 },
-  colDescripcion: { flex: 1, minWidth: 80 },
-  colFechaLimite: { width: 72 },
-  colResponsable: { width: 118 },
-  colEstado: { width: 64 },
-  // Asistentes columns
-  colNombre: { flex: 1, minWidth: 80 },
-  colEmail: { width: 155 },
-  colCargo: { width: 78 },
-  estadoPendiente: { color: COLORS.muted },
-  estadoCumplido: { color: "#15803d", fontWeight: "bold" },
-  estadoNoCumplido: { color: "#b91c1c", fontWeight: "bold" },
+  colNum: { width: 28 },
+  colCodigo: { width: 36 },
+  colDescripcion: { flex: 1, minWidth: 90 },
+  colFechaLimite: { width: 76 },
+  colResponsable: { width: 110 },
+  colEstado: { width: 58 },
+  colNombre: { flex: 1, minWidth: 90 },
+  colEmail: { width: 140 },
+  colCargo: { width: 72 },
+  estadoPendiente: { color: COLORS.slateLight },
+  estadoCumplido: { color: "#0d9488", fontWeight: "bold" },
+  estadoNoCumplido: { color: "#dc2626", fontWeight: "bold" },
   // —— Firma ——
-  firmaSection: {
-    marginTop: 28,
-    paddingTop: 20,
+  firmaBlock: {
+    marginTop: 36,
+    paddingTop: 24,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
   firmaLabel: {
     fontSize: 8,
-    color: COLORS.muted,
+    color: COLORS.slateLight,
     textTransform: "uppercase",
-    letterSpacing: 0.35,
-    marginBottom: 12,
+    letterSpacing: 0.4,
+    marginBottom: 14,
   },
   firmaLine: {
-    width: 240,
+    width: 220,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.primary,
+    borderBottomColor: COLORS.navy,
     marginBottom: 6,
   },
   firmaCargo: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "bold",
-    color: COLORS.primary,
+    color: COLORS.navy,
   },
-  // —— Footer ——
+  // —— Pie de página ——
   footer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    paddingVertical: 18,
-    paddingHorizontal: 40,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    backgroundColor: COLORS.mutedBg,
+    backgroundColor: COLORS.bgSection,
   },
-  footerCompany: {
+  footerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 10,
+    marginBottom: 8,
     fontSize: 8,
-    color: COLORS.text,
-    lineHeight: 1.4,
-  },
-  footerCompanyLeft: {
-    flex: 1,
-    maxWidth: "50%",
-  },
-  footerCompanyRight: {
-    flex: 1,
-    maxWidth: "50%",
-    textAlign: "right",
+    color: COLORS.textSecondary,
+    lineHeight: 1.45,
   },
   footerLegal: {
     fontSize: 7,
-    color: COLORS.muted,
+    color: COLORS.slateLight,
     textAlign: "center",
-    fontStyle: "italic",
     lineHeight: 1.5,
   },
 });
@@ -307,59 +306,60 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
   const contenidoTexto = stripHtml(acta.contenido);
   const compromisosTexto = acta.compromisos ? stripHtml(acta.compromisos) : null;
   const tieneCompromisosLista = acta.compromisosLista?.length > 0;
-  const cargoFirmante = empresa?.cargoFirmanteActas?.trim() || "Gerente general";
+  const cargoFirmante = empresa?.cargoFirmanteActas?.trim() || "Representante legal";
+  const nombreEmpresa = empresa?.nombre ?? "R&R Consultorías S.A.S";
   const internos = acta.integrantes.filter((i) => (i.tipo ?? "externo") === "interno");
   const externos = acta.integrantes.filter((i) => (i.tipo ?? "externo") === "externo");
+  const tieneActividades = (acta.actividades?.length ?? 0) > 0;
+  const numContenido = 1;
+  const numActividades = 2;
+  const numCompromisos = tieneActividades ? 3 : 2;
+  const numAsistentes = tieneActividades ? 4 : 3;
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Letterhead */}
-        <View style={styles.letterhead}>
-          <View style={styles.letterheadLeft}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
             <Image src={logoPath} style={styles.logo} />
             {empresa && (
-              <View style={styles.companyNameWrap}>
-                <Text style={styles.companyName}>{empresa.nombre}</Text>
-              </View>
+              <Text style={styles.companyName}>{empresa.nombre}</Text>
             )}
           </View>
         </View>
 
-        <View style={styles.content}>
-          <View style={styles.docTitleWrap}>
-            <Text style={styles.docTitle}>ACTA DE REUNIÓN N.º {acta.id}</Text>
+        <View style={styles.main}>
+          <View style={styles.docTitleBlock}>
+            <Text style={styles.docTitle}>Acta de reunión</Text>
+            <Text style={styles.docSubtitle}>No. {acta.id}</Text>
           </View>
 
-          {/* Fecha y objetivo en grid */}
-          <View style={styles.infoGrid}>
-            <View style={styles.infoCell}>
-              <Text style={styles.infoLabel}>Fecha</Text>
-              <Text style={styles.infoValue}>{formatFecha(acta.fecha)}</Text>
+          <View style={styles.metaBlock}>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Fecha</Text>
+              <Text style={styles.metaValue}>{formatFecha(acta.fecha)}</Text>
             </View>
-            <View style={[styles.infoCell, styles.infoCellLast]}>
-              <Text style={styles.infoLabel}>Objetivo específico</Text>
-              <Text style={[styles.infoValue, { fontSize: 9 }]}>{acta.objetivo}</Text>
+            <View style={styles.metaRowLast}>
+              <Text style={styles.metaLabel}>Objetivo</Text>
+              <Text style={styles.metaValue}>{acta.objetivo}</Text>
             </View>
           </View>
 
-          {/* Contenido */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>1. Contenido</Text>
-            <View style={styles.sectionContent}>
-              <Text style={styles.sectionText}>
+            <Text style={styles.sectionTitle}>{numContenido}. Contenido</Text>
+            <View style={styles.sectionBody}>
+              <Text style={contenidoTexto ? styles.sectionText : styles.sectionEmpty}>
                 {contenidoTexto || "Sin contenido registrado."}
               </Text>
             </View>
           </View>
 
-          {/* Actividades desarrolladas */}
           {acta.actividades?.length > 0 ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>2. Actividades desarrolladas</Text>
+              <Text style={styles.sectionTitle}>{numActividades}. Actividades desarrolladas</Text>
               <View style={styles.table}>
                 <View style={styles.tableHeaderRow}>
-                  <Text style={[styles.tableHeaderCell, styles.colNum]}>Cód.</Text>
+                  <Text style={[styles.tableHeaderCell, styles.colCodigo]}>Cód.</Text>
                   <Text style={[styles.tableHeaderCell, styles.colDescripcion]}>Descripción</Text>
                 </View>
                 {acta.actividades.map((a, idx) => (
@@ -367,7 +367,7 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
                     key={a.id}
                     style={idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt}
                   >
-                    <Text style={[styles.tableCell, styles.colNum]}>{a.codigo}</Text>
+                    <Text style={[styles.tableCell, styles.colCodigo]}>{a.codigo}</Text>
                     <Text style={[styles.tableCell, styles.colDescripcion]}>{a.descripcion}</Text>
                   </View>
                 ))}
@@ -375,9 +375,8 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
             </View>
           ) : null}
 
-          {/* Compromisos (tabla) */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{acta.actividades?.length ? "3. Compromisos" : "2. Compromisos"}</Text>
+            <Text style={styles.sectionTitle}>{numCompromisos}. Compromisos</Text>
             {tieneCompromisosLista ? (
               <View style={styles.table}>
                 <View style={styles.tableHeaderRow}>
@@ -415,24 +414,19 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
                 ))}
               </View>
             ) : compromisosTexto ? (
-              <View style={styles.sectionContent}>
+              <View style={styles.sectionBody}>
                 <Text style={styles.sectionText}>{compromisosTexto}</Text>
               </View>
             ) : (
-              <View style={styles.sectionContent}>
-                <Text style={[styles.sectionText, { color: COLORS.muted }]}>
-                  Sin compromisos registrados.
-                </Text>
+              <View style={styles.sectionBody}>
+                <Text style={styles.sectionEmpty}>Sin compromisos registrados.</Text>
               </View>
             )}
           </View>
 
-          {/* Asistentes: dos tablas (internos y externos) */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{acta.actividades?.length ? "4. Asistentes" : "3. Asistentes"}</Text>
-
-            {/* 3.1 Internos (empresa) */}
-            <Text style={styles.subsectionTitle}>3.1 Asistentes de R&R Consultorias S.A.S</Text>
+            <Text style={styles.sectionTitle}>{numAsistentes}. Asistentes</Text>
+            <Text style={styles.subsectionTitle}>Asistentes de {nombreEmpresa}</Text>
             {internos.length > 0 ? (
               <View style={styles.table}>
                 <View style={styles.tableHeaderRow}>
@@ -452,15 +446,12 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
                 ))}
               </View>
             ) : (
-              <View style={styles.sectionContent}>
-                <Text style={[styles.sectionText, { color: COLORS.muted }]}>
-                  No hay asistentes internos.
-                </Text>
+              <View style={styles.sectionBody}>
+                <Text style={styles.sectionEmpty}>No hay asistentes internos.</Text>
               </View>
             )}
 
-            {/* 3.2 Externos */}
-            <Text style={styles.subsectionTitle}>3.2 Asistentes externos</Text>
+            <Text style={styles.subsectionTitle}>Asistentes externos</Text>
             {externos.length > 0 ? (
               <View style={styles.table}>
                 <View style={styles.tableHeaderRow}>
@@ -480,31 +471,27 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
                 ))}
               </View>
             ) : (
-              <View style={styles.sectionContent}>
-                <Text style={[styles.sectionText, { color: COLORS.muted }]}>
-                  No hay asistentes externos.
-                </Text>
+              <View style={styles.sectionBody}>
+                <Text style={styles.sectionEmpty}>No hay asistentes externos.</Text>
               </View>
             )}
           </View>
 
-          {/* Firma */}
-          <View style={styles.firmaSection}>
+          <View style={styles.firmaBlock}>
             <Text style={styles.firmaLabel}>Firma del representante legal</Text>
             <View style={styles.firmaLine} />
             <Text style={styles.firmaCargo}>{cargoFirmante}</Text>
           </View>
         </View>
 
-        {/* Footer */}
         <View style={styles.footer} fixed>
           {empresa && (
-            <View style={styles.footerCompany}>
-              <View style={styles.footerCompanyLeft}>
+            <View style={styles.footerRow}>
+              <View>
                 <Text>{empresa.nombre}</Text>
                 {empresa.direccion ? <Text>{empresa.direccion}</Text> : null}
               </View>
-              <View style={styles.footerCompanyRight}>
+              <View style={{ alignItems: "flex-end" }}>
                 {(empresa.telefonoContacto || empresa.numeroContacto) ? (
                   <Text>
                     Tel: {[empresa.telefonoContacto, empresa.numeroContacto].filter(Boolean).join(" · ")}
@@ -514,9 +501,8 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
             </View>
           )}
           <Text style={styles.footerLegal}>
-            Documento generado electrónicamente. Tiene plena validez y fuerza ejecutoria conforme a
-            la Ley 527 de 1999 (mensajes de datos y firma digital), Decreto 2364 de 2012 y
-            normatividad aplicable en Colombia.
+            Documento generado electrónicamente. Tiene plena validez conforme a la Ley 527 de 1999
+            (mensajes de datos y firma digital), Decreto 2364 de 2012 y normatividad aplicable en Colombia.
           </Text>
         </View>
       </Page>

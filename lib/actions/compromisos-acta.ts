@@ -119,7 +119,7 @@ export async function obtenerCompromisosParaGestion(
     actualizadoEn: r.actualizadoEn as Date | null,
     actualizadoPorNombre: r.actualizadoPorNombre ?? null,
     actaId: r.actaId,
-    actaFecha: r.actaFecha as Date,
+    actaFecha: new Date(r.actaFecha),
     actaObjetivo: r.actaObjetivo,
     asignadoNombre: r.nombreIntegrante ?? r.nombreClienteMiembro ?? null,
     asignadoTipo: r.actaIntegranteId != null ? "interno" : r.clienteMiembroId != null ? "cliente" : null,
@@ -326,7 +326,7 @@ export async function obtenerCompromisoPorIdConHistorial(
       actualizadoEn: row.actualizadoEn as Date | null,
       actualizadoPorNombre: row.actualizadoPorNombre ?? null,
       actaId: row.actaId,
-      actaFecha: row.actaFecha as Date,
+      actaFecha: new Date(row.actaFecha),
       actaObjetivo: row.actaObjetivo,
       asignadoNombre: row.nombreIntegrante ?? row.nombreClienteMiembro ?? null,
       asignadoTipo:

@@ -39,11 +39,11 @@ export async function GET(_request: Request, context: RouteContext) {
   });
 
   // renderToBuffer expects DocumentProps at type level; our component renders Document internally
-  const buffer = await renderToBuffer(doc as React.ReactElement);
+  const buffer = await renderToBuffer(doc as React.ReactElement<any>);
 
   const filename = `acta-${actaId}-${new Date(acta.fecha).toISOString().slice(0, 10)}.pdf`;
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
