@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Eye } from "lucide-react";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -17,6 +18,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -80,17 +82,29 @@ export function LoginForm() {
             ¿Olvidaste tu contraseña?
           </Link>
         </div>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          disabled={isLoading}
-          aria-invalid={!!error}
-        />
+        <div className="relative">
+          <Input
+
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={isLoading}
+            aria-invalid={!!error}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute right-2 top-1/2 -translate-y-1/2"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       {restablecido && (
         <p className="text-sm text-green-600 dark:text-green-400" role="status">

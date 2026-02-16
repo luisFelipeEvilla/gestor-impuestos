@@ -97,6 +97,24 @@ pnpm run db:check
 
 Ese script intenta conectarse con tu `DATABASE_URL` y muestra el error exacto (base no existe, usuario incorrecto, conexión rechazada, etc.).
 
+## Despliegue en Vercel
+
+Para que el **login y la base de datos** funcionen en producción:
+
+1. **Variables de entorno** (Vercel → proyecto → Settings → Environment Variables, ámbito **Production**):
+
+   | Variable        | Descripción |
+   |-----------------|-------------|
+   | `DATABASE_URL`  | URL de PostgreSQL (Supabase: usar **Connection pooling** en puerto **6543**). |
+   | `NEXTAUTH_URL`  | **URL pública de la app**, sin barra final. Ej: `https://gestor-impuestos-xxx.vercel.app`. |
+   | `AUTH_SECRET`   | Mismo valor que en local (o uno nuevo; generar con `openssl rand -base64 32`). |
+
+   Si `NEXTAUTH_URL` no está definida o es `http://localhost:3000`, NextAuth falla en producción (redirects y cookies incorrectos). El login puede devolver 401 y errores tipo "Failed query" si la conexión a la BD también falla.
+
+2. **Supabase**: Usa la cadena del **pooler en modo transacción** (puerto 6543). La app ya está configurada con `prepare: false` y `ssl: require` para ese caso.
+
+3. Tras cambiar variables, haz un **nuevo deploy** (Redeploy en Vercel) para que se apliquen.
+
 ## Problemas frecuentes
 
 - **`role "postgres" does not exist`**  
