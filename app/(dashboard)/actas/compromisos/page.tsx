@@ -178,7 +178,7 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                         </span>
                         {c.actualizadoEn && (
                           <span className="text-muted-foreground text-xs block">
-                            {new Date(c.actualizadoEn).toLocaleDateString("es-CO", {
+                            {new Date(c.actualizadoEn).toLocaleString("es-CO", {
                               dateStyle: "short",
                               timeStyle: "short",
                             })}

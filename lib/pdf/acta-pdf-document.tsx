@@ -6,9 +6,13 @@ import {
   Text,
   Image,
   StyleSheet,
+  Font,
 } from "@react-pdf/renderer";
 import type { ActaDetalle } from "@/lib/actions/actas-types";
 import { stripHtml } from "./strip-html";
+
+// Evitar partición de palabras en medio (ej. "Secre-tario", "Cumpli-do", "app-works")
+Font.registerHyphenationCallback((word) => [word]);
 
 type EmpresaData = {
   nombre: string;
@@ -53,7 +57,7 @@ const styles = StyleSheet.create({
   },
   letterheadLeft: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "stretch",
     gap: 16,
   },
   logo: {
@@ -61,26 +65,16 @@ const styles = StyleSheet.create({
     height: 40,
     objectFit: "contain",
   },
+  companyNameWrap: {
+    height: 40,
+    justifyContent: "center",
+  },
   companyName: {
     fontSize: 14,
     fontWeight: "bold",
     color: COLORS.primary,
-    letterSpacing: 0.5,
-  },
-  letterheadRight: {
-    alignItems: "flex-end",
-  },
-  docTypeLabel: {
-    fontSize: 8,
-    color: COLORS.muted,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-    marginBottom: 2,
-  },
-  docTypeValue: {
-    fontSize: 11,
-    fontWeight: "bold",
-    color: COLORS.primary,
+    letterSpacing: 0.2,
+    lineHeight: 1.25,
   },
   // —— Content area ——
   content: {
@@ -88,13 +82,17 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 100,
   },
+  docTitleWrap: {
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 20,
+  },
   docTitle: {
     fontSize: 16,
     fontWeight: "bold",
     color: COLORS.primary,
     textAlign: "center",
-    marginBottom: 20,
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
   },
   infoGrid: {
     flexDirection: "row",
@@ -117,7 +115,7 @@ const styles = StyleSheet.create({
     fontSize: 7,
     color: COLORS.muted,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.35,
     marginBottom: 4,
   },
   infoValue: {
@@ -137,7 +135,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.35,
   },
   subsectionTitle: {
     fontSize: 9,
@@ -171,12 +169,12 @@ const styles = StyleSheet.create({
   },
   tableHeaderCell: {
     paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     fontSize: 7,
     fontWeight: "bold",
     color: COLORS.white,
     textTransform: "uppercase",
-    letterSpacing: 0.3,
+    letterSpacing: 0.25,
   },
   tableRow: {
     flexDirection: "row",
@@ -190,21 +188,22 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.mutedBg,
   },
   tableCell: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     fontSize: 8,
+    lineHeight: 1.35,
     color: COLORS.text,
   },
-  // Compromisos columns
-  colNum: { width: 22 },
-  colDescripcion: { flex: 1, minWidth: 0 },
-  colFechaLimite: { width: 68 },
-  colResponsable: { width: 90 },
-  colEstado: { width: 52 },
-  // Asistentes columns (sin columna Tipo; se usan dos tablas)
-  colNombre: { flex: 1, minWidth: 0 },
-  colEmail: { width: 110 },
-  colCargo: { width: 70 },
+  // Compromisos columns (anchos suficientes para evitar cortes de palabras)
+  colNum: { width: 24 },
+  colDescripcion: { flex: 1, minWidth: 80 },
+  colFechaLimite: { width: 72 },
+  colResponsable: { width: 118 },
+  colEstado: { width: 64 },
+  // Asistentes columns
+  colNombre: { flex: 1, minWidth: 80 },
+  colEmail: { width: 155 },
+  colCargo: { width: 78 },
   estadoPendiente: { color: COLORS.muted },
   estadoCumplido: { color: "#15803d", fontWeight: "bold" },
   estadoNoCumplido: { color: "#b91c1c", fontWeight: "bold" },
@@ -219,7 +218,7 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: COLORS.muted,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.35,
     marginBottom: 12,
   },
   firmaLine: {
@@ -239,7 +238,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 40,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
@@ -248,17 +247,27 @@ const styles = StyleSheet.create({
   footerCompany: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
+    alignItems: "flex-start",
+    marginBottom: 10,
     fontSize: 8,
     color: COLORS.text,
+    lineHeight: 1.4,
+  },
+  footerCompanyLeft: {
+    flex: 1,
+    maxWidth: "50%",
+  },
+  footerCompanyRight: {
+    flex: 1,
+    maxWidth: "50%",
+    textAlign: "right",
   },
   footerLegal: {
     fontSize: 7,
     color: COLORS.muted,
     textAlign: "center",
     fontStyle: "italic",
-    lineHeight: 1.4,
+    lineHeight: 1.5,
   },
 });
 
@@ -302,9 +311,6 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
   const internos = acta.integrantes.filter((i) => (i.tipo ?? "externo") === "interno");
   const externos = acta.integrantes.filter((i) => (i.tipo ?? "externo") === "externo");
 
-  const docTipoLabel = empresa?.tipoDocumento === "nit" ? "NIT" : "Cédula";
-  const docTipoValue = empresa?.numeroDocumento ?? "—";
-
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -313,17 +319,17 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
           <View style={styles.letterheadLeft}>
             <Image src={logoPath} style={styles.logo} />
             {empresa && (
-              <Text style={styles.companyName}>{empresa.nombre}</Text>
+              <View style={styles.companyNameWrap}>
+                <Text style={styles.companyName}>{empresa.nombre}</Text>
+              </View>
             )}
-          </View>
-          <View style={styles.letterheadRight}>
-            <Text style={styles.docTypeLabel}>Documento</Text>
-            <Text style={styles.docTypeValue}>{docTipoLabel} {docTipoValue}</Text>
           </View>
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.docTitle}>ACTA DE REUNIÓN N.º {acta.id}</Text>
+          <View style={styles.docTitleWrap}>
+            <Text style={styles.docTitle}>ACTA DE REUNIÓN N.º {acta.id}</Text>
+          </View>
 
           {/* Fecha y objetivo en grid */}
           <View style={styles.infoGrid}>
@@ -472,15 +478,17 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
         <View style={styles.footer} fixed>
           {empresa && (
             <View style={styles.footerCompany}>
-              <Text>
-                {empresa.nombre} · {docTipoLabel} {empresa.numeroDocumento}
-              </Text>
-              {empresa.direccion && <Text>{empresa.direccion}</Text>}
-              {(empresa.telefonoContacto || empresa.numeroContacto) && (
-                <Text>
-                  Tel: {[empresa.telefonoContacto, empresa.numeroContacto].filter(Boolean).join(" · ")}
-                </Text>
-              )}
+              <View style={styles.footerCompanyLeft}>
+                <Text>{empresa.nombre}</Text>
+                {empresa.direccion ? <Text>{empresa.direccion}</Text> : null}
+              </View>
+              <View style={styles.footerCompanyRight}>
+                {(empresa.telefonoContacto || empresa.numeroContacto) ? (
+                  <Text>
+                    Tel: {[empresa.telefonoContacto, empresa.numeroContacto].filter(Boolean).join(" · ")}
+                  </Text>
+                ) : null}
+              </View>
             </View>
           )}
           <Text style={styles.footerLegal}>
