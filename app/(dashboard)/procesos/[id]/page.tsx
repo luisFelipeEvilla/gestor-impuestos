@@ -35,6 +35,10 @@ import {
 } from "@/components/procesos/documentos-proceso";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { DetalleConHistorial } from "./detalle-con-historial";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -89,6 +93,7 @@ function labelTipoEvento(
 }
 
 export default async function DetalleProcesoPage({ params }: Props) {
+  unstable_noStore();
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
   if (Number.isNaN(id)) notFound();

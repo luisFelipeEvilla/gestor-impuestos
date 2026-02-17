@@ -6,10 +6,15 @@ import { eq } from "drizzle-orm";
 import { actualizarCliente } from "@/lib/actions/clientes";
 import { ClienteForm } from "@/components/clientes/cliente-form";
 import { Button } from "@/components/ui/button";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function EditarClientePage({ params }: Props) {
+  unstable_noStore();
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
   if (Number.isNaN(id)) notFound();

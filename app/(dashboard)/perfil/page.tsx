@@ -5,8 +5,13 @@ import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { listarCargosEmpresa } from "@/lib/actions/cargos-empresa";
 import { PerfilForm } from "@/components/perfil/perfil-form";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export default async function PerfilPage() {
+  unstable_noStore();
   const session = await getSession();
   if (!session?.user?.id) redirect("/login");
 

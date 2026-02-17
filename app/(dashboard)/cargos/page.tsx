@@ -19,8 +19,13 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { listarCargosEmpresaConOrden } from "@/lib/actions/cargos-empresa";
 import { EliminarCargoButton } from "./boton-eliminar-cargo";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export default async function CargosPage() {
+  unstable_noStore();
   const lista = await listarCargosEmpresaConOrden();
 
   return (

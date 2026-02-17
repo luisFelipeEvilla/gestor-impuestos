@@ -30,6 +30,10 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { FiltrosProcesos } from "./filtros-procesos";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 const ESTADOS_VALIDOS = [
   "pendiente",
@@ -81,6 +85,7 @@ type Props = {
 };
 
 export default async function ProcesosPage({ searchParams }: Props) {
+  unstable_noStore();
   const session = await getSession();
   const params = await searchParams;
   const estadoParam = params.estado;

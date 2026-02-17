@@ -17,6 +17,10 @@ import { Button } from "@/components/ui/button";
 import { ListaDocumentosActa, SubirDocumentoActaForm } from "@/components/actas/documentos-acta";
 import { HistorialActa } from "@/components/actas/historial-acta";
 import { BotonesActa } from "./botones-acta";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -38,6 +42,7 @@ function sanitizeHtmlForDisplay(html: string): string {
 }
 
 export default async function ActaDetallePage({ params }: Props) {
+  unstable_noStore();
   const { id } = await params;
   if (!id) notFound();
 

@@ -12,6 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { FormEstadoCompromiso } from "@/components/actas/form-estado-compromiso";
 import { obtenerCompromisoPorIdConHistorial } from "@/lib/actions/compromisos-acta";
 import { Clock, User, FileText, Building2, Paperclip } from "lucide-react";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 const LABEL_ESTADO: Record<string, string> = {
   pendiente: "Pendiente",
@@ -24,6 +28,8 @@ type Props = {
 };
 
 export default async function CompromisoDetallePage({ params }: Props) {
+  unstable_noStore();
+  unstable_noStore();
   const { id } = await params;
   const compromisoId = parseInt(id, 10);
   if (Number.isNaN(compromisoId) || compromisoId < 1) notFound();

@@ -23,10 +23,15 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { FiltroInactivos } from "./filtro-inactivos";
 import { FiltroBusquedaImpuestos } from "./filtro-busqueda";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 type Props = { searchParams: Promise<{ inactivos?: string; q?: string }> };
 
 export default async function ImpuestosPage({ searchParams }: Props) {
+  unstable_noStore();
   const { inactivos: inactivosParam, q: query } = await searchParams;
   const verInactivos = inactivosParam === "1";
   const busqueda = (query ?? "").trim();

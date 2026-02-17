@@ -5,8 +5,13 @@ import { eq } from "drizzle-orm";
 import { crearImpuesto } from "@/lib/actions/impuestos";
 import { ImpuestoForm } from "@/components/impuestos/impuesto-form";
 import { Button } from "@/components/ui/button";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export default async function NuevoImpuestoPage() {
+  unstable_noStore();
   const clientesList = await db
     .select({ id: clientes.id, nombre: clientes.nombre, codigo: clientes.codigo })
     .from(clientes)

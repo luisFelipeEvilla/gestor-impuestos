@@ -25,6 +25,10 @@ import { ListChecks } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FormEstadoCompromiso } from "@/components/actas/form-estado-compromiso";
 import { FiltrosCompromisosForm } from "./filtros-compromisos-form";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 const LABEL_ESTADO: Record<string, string> = {
   pendiente: "Pendiente",
@@ -37,6 +41,7 @@ type Props = {
 };
 
 export default async function GestionCompromisosPage({ searchParams }: Props) {
+  unstable_noStore();
   const params = await searchParams;
   const clienteIdParam = params.cliente ? parseInt(params.cliente, 10) : undefined;
   const clienteId = clienteIdParam != null && !Number.isNaN(clienteIdParam) ? clienteIdParam : undefined;

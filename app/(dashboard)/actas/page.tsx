@@ -21,6 +21,10 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FiltrosActasForm } from "./filtros-actas-form";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 const ESTADOS: { value: string; label: string }[] = [
   { value: "borrador", label: "Borrador" },
@@ -79,6 +83,7 @@ type Props = {
 };
 
 export default async function ActasPage({ searchParams }: Props) {
+  unstable_noStore();
   const params = await searchParams;
   const estadoParam =
     params.estado && ESTADOS.some((e) => e.value === params.estado)

@@ -22,10 +22,15 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FiltroBusquedaClientes } from "./filtro-busqueda";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 type Props = { searchParams: Promise<{ inactivos?: string; q?: string }> };
 
 export default async function ClientesPage({ searchParams }: Props) {
+  unstable_noStore();
   const { inactivos: inactivosParam, q: query } = await searchParams;
   const verInactivos = inactivosParam === "1";
   const busqueda = (query ?? "").trim();

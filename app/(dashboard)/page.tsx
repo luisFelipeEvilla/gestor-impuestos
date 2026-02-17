@@ -28,6 +28,10 @@ import {
   usuarios,
 } from "@/lib/db/schema";
 import { eq, desc, and, gte, lte, sql, notInArray } from "drizzle-orm";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 const ESTADOS_CERRADOS = ["cobrado", "incobrable"] as const;
 
@@ -49,6 +53,7 @@ function formatMonto(value: string | number): string {
 }
 
 export default async function DashboardPage({ searchParams }: Props) {
+  unstable_noStore();
   const { vigencia: vigenciaParam } = await searchParams;
   const vigenciaNum =
     vigenciaParam != null && /^\d{4}$/.test(vigenciaParam)
