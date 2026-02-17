@@ -2,12 +2,8 @@ import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const STATIC_FILE_RE = /\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?)$/i;
-
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
-
-  if (STATIC_FILE_RE.test(pathname)) return NextResponse.next();
 
   const token = await getToken({
     req,
@@ -54,5 +50,19 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    "/",
+    "/actas/:path*",
+    "/procesos/:path*",
+    "/clientes/:path*",
+    "/contribuyentes/:path*",
+    "/impuestos/:path*",
+    "/usuarios/:path*",
+    "/cargos/:path*",
+    "/perfil/:path*",
+    "/empresa/:path*",
+    "/login",
+    "/recuperar-password/:path*",
+    "/api/:path*",
+  ],
 };
