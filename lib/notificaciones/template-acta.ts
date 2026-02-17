@@ -12,6 +12,8 @@ export type DatosEmailActa = {
   enlaceActa: string;
   /** Enlace para que el participante confirme que ha leído y aprobado el acta (URL completa). */
   enlaceAprobarParticipante?: string;
+  /** Número de acta (serial) para el asunto del correo y búsqueda posterior. */
+  numeroActa?: number;
 };
 
 function escapeHtml(text: string): string {
@@ -62,7 +64,10 @@ export function renderTemplateActa(datos: DatosEmailActa, baseUrl: string): stri
     ? sanitizeHtmlForEmail(datos.compromisosHtml)
     : "";
   const compromisosSafe = compromisosTexto ? escapeHtml(compromisosTexto) : "";
-  const enlaceCompleto = baseUrl.replace(/\/$/, "") + datos.enlaceActa;
+  const enlaceCompleto =
+    datos.enlaceActa.startsWith("http://") || datos.enlaceActa.startsWith("https://")
+      ? datos.enlaceActa
+      : baseUrl.replace(/\/$/, "") + (datos.enlaceActa.startsWith("/") ? datos.enlaceActa : `/${datos.enlaceActa}`);
 
   return `
 <!DOCTYPE html>

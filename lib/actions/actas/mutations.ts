@@ -489,9 +489,14 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
               .join("\n")
           : acta.compromisos ?? undefined,
       enlaceActa: `/actas/${actaId}`,
+      numeroActa: acta.serial,
     };
 
     const bccActas = ["gerencia@rrconsultorias.com.co"];
+    /** Resend limita a 2 peticiones por segundo; esperamos entre envíos. */
+    const delayResend = (ms: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, ms));
+    const RESEND_DELAY_MS = 550;
 
     let enviados = 0;
     for (const inv of integrantesConEmail) {
@@ -508,6 +513,7 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
         { bcc: bccActas }
       );
       if (resultado.ok) enviados++;
+      await delayResend(RESEND_DELAY_MS);
     }
 
     const { generarFirmaSoloLectura } = await import("@/lib/actas-aprobacion");
@@ -525,6 +531,7 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
         { bcc: bccActas }
       );
       if (resultado.ok) enviados++;
+      await delayResend(RESEND_DELAY_MS);
     }
 
     for (const c of contactosDestino) {
@@ -543,6 +550,7 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
         { bcc: bccActas }
       );
       if (resultado.ok) enviados++;
+      await delayResend(RESEND_DELAY_MS);
     }
 
     await db

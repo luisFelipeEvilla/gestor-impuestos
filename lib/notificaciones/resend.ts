@@ -68,7 +68,7 @@ export async function enviarNotificacionCobroPorEmail(
   }
 }
 
-const SUBJECT_ACTA = "Acta de reunión – Gestor de Impuestos";
+const SUBJECT_ACTA_BASE = "Acta de reunión – Gestor de Impuestos";
 
 /**
  * Envía por Resend el acta de reunión al destinatario.
@@ -95,6 +95,11 @@ export async function enviarActaPorEmail(
       : [options.bcc.trim()]
     : undefined;
 
+  const subject =
+    datos.numeroActa != null
+      ? `Acta de reunión #${datos.numeroActa} – Gestor de Impuestos`
+      : SUBJECT_ACTA_BASE;
+
   try {
     const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
     const resend = new Resend(RESEND_API_KEY);
@@ -103,7 +108,7 @@ export async function enviarActaPorEmail(
     const { data, error } = await resend.emails.send({
       from: `${FROM_NAME} <${FROM_EMAIL}>`,
       to: trimmedTo,
-      subject: SUBJECT_ACTA,
+      subject,
       html,
       ...(bcc && bcc.length > 0 && { bcc }),
     });
