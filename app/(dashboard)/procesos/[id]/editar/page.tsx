@@ -15,10 +15,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function EditarProcesoPage({ params }: Props) {
+  unstable_noStore();
   const { id: idStr } = await params;
   const id = parseInt(idStr, 10);
   if (Number.isNaN(id)) notFound();

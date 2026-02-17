@@ -11,6 +11,10 @@ import { listarCargosEmpresa } from "@/lib/actions/cargos-empresa";
 import { ActaForm } from "@/components/actas/acta-form";
 import { Button } from "@/components/ui/button";
 import { SubirDocumentoActaForm, ListaDocumentosActa } from "@/components/actas/documentos-acta";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -21,6 +25,7 @@ function formatDateForInput(value: Date | string | null | undefined): string {
 }
 
 export default async function EditarActaPage({ params }: Props) {
+  unstable_noStore();
   const { id } = await params;
   if (!id) notFound();
 

@@ -5,8 +5,13 @@ import { eq } from "drizzle-orm";
 import { crearProceso } from "@/lib/actions/procesos";
 import { ProcesoForm } from "@/components/procesos/proceso-form";
 import { Button } from "@/components/ui/button";
+import { unstable_noStore } from "next/cache";
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export default async function NuevoProcesoPage() {
+  unstable_noStore();
   const [impuestosList, contribuyentesList, usuariosList] = await Promise.all([
     db.select({ id: impuestos.id, nombre: impuestos.nombre }).from(impuestos).where(eq(impuestos.activo, true)),
     db.select({ id: contribuyentes.id, nit: contribuyentes.nit, nombreRazonSocial: contribuyentes.nombreRazonSocial }).from(contribuyentes),
