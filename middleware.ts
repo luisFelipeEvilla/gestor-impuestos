@@ -2,12 +2,17 @@ import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+const STATIC_FILE_RE = /\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff2?)$/i;
+
 export async function middleware(req: NextRequest) {
+  const pathname = req.nextUrl.pathname;
+
+  if (STATIC_FILE_RE.test(pathname)) return NextResponse.next();
+
   const token = await getToken({
     req,
     secret: process.env.AUTH_SECRET ?? process.env.NEXT_AUTH_SECRET,
   });
-  const pathname = req.nextUrl.pathname;
 
   const isLoginPage = pathname === "/login";
   const isAuthApi = pathname.startsWith("/api/auth");
@@ -49,7 +54,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
