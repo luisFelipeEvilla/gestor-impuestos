@@ -20,7 +20,7 @@ function formatDateForInput(value: Date | string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "" : (d as Date).toISOString().slice(0, 10);
 }
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function EditarActaPage({ params }: Props) {
   const { id } = await params;

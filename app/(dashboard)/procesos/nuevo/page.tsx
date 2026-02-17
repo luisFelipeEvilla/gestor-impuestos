@@ -6,7 +6,7 @@ import { crearProceso } from "@/lib/actions/procesos";
 import { ProcesoForm } from "@/components/procesos/proceso-form";
 import { Button } from "@/components/ui/button";
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function NuevoProcesoPage() {
   const [impuestosList, contribuyentesList, usuariosList] = await Promise.all([
