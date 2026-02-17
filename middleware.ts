@@ -2,7 +2,7 @@ import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export async function proxy(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const token = await getToken({
     req,
     secret: process.env.AUTH_SECRET ?? process.env.NEXT_AUTH_SECRET,
@@ -14,9 +14,7 @@ export async function proxy(req: NextRequest) {
   const isHealthApi = pathname === "/api/health";
   const isRecuperarPassword =
     pathname === "/recuperar-password" || pathname.startsWith("/recuperar-password/");
-  /** Vista previa y aprobación del acta por participantes (enlace del correo, sin sesión). */
   const isAprobarParticipante = pathname === "/actas/aprobar-participante";
-  /** Descarga de documento del acta con enlace firmado (participante sin sesión). */
   const isDescargaDocumentoActa = pathname === "/api/actas/documentos/descargar";
 
   if (
@@ -52,13 +50,6 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     * - public folder
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
