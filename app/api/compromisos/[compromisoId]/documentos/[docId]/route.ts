@@ -12,6 +12,8 @@ import { getSession } from "@/lib/auth-server";
 
 type Params = { params: Promise<{ compromisoId: string; docId: string }> };
 
+export const runtime = 'nodejs';
+
 export async function GET(_request: Request, { params }: Params) {
   const { compromisoId: compromisoIdStr, docId: docIdStr } = await params;
   const compromisoId = parseInt(compromisoIdStr, 10);

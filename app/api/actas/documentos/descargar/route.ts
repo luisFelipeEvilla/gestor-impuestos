@@ -5,6 +5,8 @@ import { eq, and } from "drizzle-orm";
 import { readActaDocument } from "@/lib/uploads";
 import { verificarFirmaDescargaDocumento } from "@/lib/actas-aprobacion";
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const actaParam = searchParams.get("acta");

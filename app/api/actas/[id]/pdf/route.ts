@@ -9,6 +9,8 @@ import { getSession } from "@/lib/auth-server";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+export const runtime = 'nodejs';
+
 export async function GET(_request: Request, context: RouteContext) {
   const session = await getSession();
   if (!session?.user) {

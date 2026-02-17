@@ -6,6 +6,8 @@ import { readActaDocument } from "@/lib/uploads";
 
 type Params = { params: Promise<{ id: string; docId: string }> };
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest, { params }: Params) {
   const { id: actaId, docId: docIdStr } = await params;
   const docId = parseInt(docIdStr, 10);

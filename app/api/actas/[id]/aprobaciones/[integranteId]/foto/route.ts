@@ -7,6 +7,8 @@ import { readAprobacionFoto } from "@/lib/uploads";
 
 type Params = { params: Promise<{ id: string; integranteId: string }> };
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest, { params }: Params) {
   const session = await getSession();
   if (!session?.user) {

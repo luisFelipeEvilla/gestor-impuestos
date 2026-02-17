@@ -6,6 +6,8 @@ import { readProcesoDocument } from "@/lib/uploads";
 
 type Params = { params: Promise<{ id: string; docId: string }> };
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest, { params }: Params) {
   const { id: procesoIdStr, docId: docIdStr } = await params;
   const procesoId = parseInt(procesoIdStr, 10);
