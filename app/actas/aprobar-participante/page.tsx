@@ -16,6 +16,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { db } from "@/lib/db";
+import { actasReunion } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 export const metadata = {
   title: "Aprobar acta | Gestor de Impuestos",
@@ -40,6 +43,7 @@ type Props = {
     rechazado?: string;
     error?: string;
     motivo?: string;
+    soloLectura?: string;
   }>;
 };
 
@@ -70,19 +74,19 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
   const aprobado = params.aprobado === "1";
   const rechazado = params.rechazado === "1";
   const errorParam = params.error === "1";
+  const soloLectura = params.soloLectura === "1";
 
-  if (!actaParam || !integranteParam || !firmaParam) {
+  if (!actaParam || !firmaParam) {
     return (
       <ErrorCard
         title="Enlace inválido"
-        description="Falta información en el enlace. Utilice el enlace que recibió por correo para ver y aprobar el acta."
+        description="Falta información en el enlace. Utilice el enlace que recibió por correo para ver el acta."
       />
     );
   }
 
   const actaId = actaParam?.trim() ?? "";
-  const integranteId = parseInt(integranteParam, 10);
-  if (!actaId || Number.isNaN(integranteId) || integranteId < 1) {
+  if (!actaId) {
     return (
       <ErrorCard
         title="Enlace inválido o expirado"
@@ -91,11 +95,42 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
     );
   }
 
-  const validacion = await validarEnlaceAprobacionParticipante(
-    actaId,
-    integranteId,
-    firmaParam.trim()
-  );
+  let integranteId: number | null = null;
+  if (integranteParam) {
+    integranteId = parseInt(integranteParam, 10);
+    if (Number.isNaN(integranteId) || integranteId < 1) {
+      integranteId = null;
+    }
+  }
+
+  // Validar según el tipo de enlace
+  let validacion: { valido: boolean; error?: string };
+  if (soloLectura && !integranteId) {
+    // Enlace de solo lectura para contactos de cliente (sin integranteId)
+    const { verificarFirmaSoloLectura } = await import("@/lib/actas-aprobacion");
+    if (!verificarFirmaSoloLectura(actaId, firmaParam.trim())) {
+      validacion = { valido: false, error: "Enlace inválido o expirado." };
+    } else {
+      const [acta] = await db
+        .select({ estado: actasReunion.estado })
+        .from(actasReunion)
+        .where(eq(actasReunion.id, actaId));
+      if (!acta || acta.estado !== "enviada") {
+        validacion = { valido: false, error: "Enlace inválido o expirado." };
+      } else {
+        validacion = { valido: true };
+      }
+    }
+  } else if (integranteId) {
+    // Enlace normal con integranteId (con o sin soloLectura)
+    validacion = await validarEnlaceAprobacionParticipante(
+      actaId,
+      integranteId,
+      firmaParam.trim()
+    );
+  } else {
+    validacion = { valido: false, error: "Enlace inválido." };
+  }
 
   if (!validacion.valido) {
     return (
@@ -170,7 +205,9 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
     );
   }
 
-  const respuesta = await obtenerRespuestaParticipante(actaId, integranteId);
+  const respuesta = integranteId
+    ? await obtenerRespuestaParticipante(actaId, integranteId)
+    : { respondido: false };
   const contenidoSanitizado =
     acta.contenido && acta.contenido.trim() !== ""
       ? sanitizeHtmlForDisplay(acta.contenido)
@@ -193,7 +230,9 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
         <div className="text-center">
           <h1 className="text-2xl font-bold tracking-tight">Vista previa del acta</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Revise el contenido del acta y confirme su aprobación a continuación.
+            {soloLectura
+              ? "Revise el contenido del acta a continuación."
+              : "Revise el contenido del acta y confirme su aprobación a continuación."}
           </p>
         </div>
 
@@ -261,20 +300,28 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
                 <p className="text-muted-foreground text-sm font-medium">Documentos adjuntos</p>
                 <ul className="mt-2 space-y-1.5 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm" role="list">
                   {acta.documentos.map((doc) => {
-                    const firmaDoc = generarFirmaDescargaDocumento(actaId, integranteId, doc.id);
-                    const urlDescarga = `/api/actas/documentos/descargar?acta=${actaId}&integrante=${integranteId}&doc=${doc.id}&firma=${firmaDoc}`;
+                    const urlDescarga = integranteId
+                      ? (() => {
+                          const firmaDoc = generarFirmaDescargaDocumento(actaId, integranteId, doc.id);
+                          return `/api/actas/documentos/descargar?acta=${actaId}&integrante=${integranteId}&doc=${doc.id}&firma=${firmaDoc}`;
+                        })()
+                      : null;
                     return (
                       <li
                         key={doc.id}
                         className="flex flex-wrap items-center justify-between gap-2"
                       >
-                        <Link
-                          href={urlDescarga}
-                          className="text-primary hover:underline font-medium"
-                          download
-                        >
-                          {doc.nombreOriginal}
-                        </Link>
+                        {urlDescarga ? (
+                          <Link
+                            href={urlDescarga}
+                            className="text-primary hover:underline font-medium"
+                            download
+                          >
+                            {doc.nombreOriginal}
+                          </Link>
+                        ) : (
+                          <span className="font-medium">{doc.nombreOriginal}</span>
+                        )}
                         <span className="text-muted-foreground text-xs">
                           {formatTamano(doc.tamano)}
                           {" · "}
@@ -293,72 +340,76 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
           </CardContent>
         </Card>
 
-        {respuesta.respondido ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {respuesta.rechazado ? "Has rechazado este acta" : "Ya has aprobado este acta"}
-              </CardTitle>
-              <CardDescription>
-                {respuesta.rechazado ? (
-                  <>
-                    Tu rechazo fue registrado anteriormente.
-                    {respuesta.motivoRechazo && (
-                      <span className="mt-2 block rounded-md border border-border bg-muted/30 p-2 text-sm">
-                        Motivo: {respuesta.motivoRechazo}
-                      </span>
+        {!soloLectura && (
+          <>
+            {respuesta.respondido ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>
+                    {respuesta.rechazado ? "Has rechazado este acta" : "Ya has aprobado este acta"}
+                  </CardTitle>
+                  <CardDescription>
+                    {respuesta.rechazado ? (
+                      <>
+                        Tu rechazo fue registrado anteriormente.
+                        {respuesta.motivoRechazo && (
+                          <span className="mt-2 block rounded-md border border-border bg-muted/30 p-2 text-sm">
+                            Motivo: {respuesta.motivoRechazo}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      "Tu aprobación fue registrada anteriormente. Gracias por confirmar."
                     )}
-                  </>
-                ) : (
-                  "Tu aprobación fue registrada anteriormente. Gracias por confirmar."
-                )}
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Confirmar aprobación o rechazo</CardTitle>
-              <CardDescription>
-                Revise el acta y confirme su aprobación o indique su rechazo con un motivo.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <form action={aprobarParticipanteFromPreviewAction} className="flex flex-col gap-4">
-                <input type="hidden" name="actaId" value={actaId} readOnly aria-hidden />
-                <input type="hidden" name="integranteId" value={integranteId} readOnly aria-hidden />
-                <input type="hidden" name="firma" value={firmaParam} readOnly aria-hidden />
-                <FormAprobarSubmitButton />
-              </form>
-              <div className="relative">
-                <span className="bg-card text-muted-foreground absolute left-1/2 -translate-x-1/2 px-2 text-xs">
-                  o
-                </span>
-                <div className="border-t border-border pt-4" />
-              </div>
-              <form action={rechazarParticipanteFromPreviewAction} className="flex flex-col gap-4">
-                <input type="hidden" name="actaId" value={actaId} readOnly aria-hidden />
-                <input type="hidden" name="integranteId" value={integranteId} readOnly aria-hidden />
-                <input type="hidden" name="firma" value={firmaParam} readOnly aria-hidden />
-                <div className="grid gap-2">
-                  <label htmlFor="motivoRechazo" className="text-sm font-medium">
-                    Motivo del rechazo (recomendado)
-                  </label>
-                  <textarea
-                    id="motivoRechazo"
-                    name="motivoRechazo"
-                    rows={3}
-                    placeholder="Ej.: No estoy de acuerdo con el punto 2 porque..."
-                    className="border-input bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-2"
-                    aria-label="Motivo del rechazo"
-                  />
-                </div>
-                <Button type="submit" variant="destructive">
-                  Rechazar acta
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Confirmar aprobación o rechazo</CardTitle>
+                  <CardDescription>
+                    Revise el acta y confirme su aprobación o indique su rechazo con un motivo.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <form action={aprobarParticipanteFromPreviewAction} className="flex flex-col gap-4">
+                    <input type="hidden" name="actaId" value={actaId} readOnly aria-hidden />
+                    <input type="hidden" name="integranteId" value={integranteId!} readOnly aria-hidden />
+                    <input type="hidden" name="firma" value={firmaParam} readOnly aria-hidden />
+                    <FormAprobarSubmitButton />
+                  </form>
+                  <div className="relative">
+                    <span className="bg-card text-muted-foreground absolute left-1/2 -translate-x-1/2 px-2 text-xs">
+                      o
+                    </span>
+                    <div className="border-t border-border pt-4" />
+                  </div>
+                  <form action={rechazarParticipanteFromPreviewAction} className="flex flex-col gap-4">
+                    <input type="hidden" name="actaId" value={actaId} readOnly aria-hidden />
+                    <input type="hidden" name="integranteId" value={integranteId!} readOnly aria-hidden />
+                    <input type="hidden" name="firma" value={firmaParam} readOnly aria-hidden />
+                    <div className="grid gap-2">
+                      <label htmlFor="motivoRechazo" className="text-sm font-medium">
+                        Motivo del rechazo (recomendado)
+                      </label>
+                      <textarea
+                        id="motivoRechazo"
+                        name="motivoRechazo"
+                        rows={3}
+                        placeholder="Ej.: No estoy de acuerdo con el punto 2 porque..."
+                        className="border-input bg-background focus-visible:ring-ring w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-2"
+                        aria-label="Motivo del rechazo"
+                      />
+                    </div>
+                    <Button type="submit" variant="destructive">
+                      Rechazar acta
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
     </div>

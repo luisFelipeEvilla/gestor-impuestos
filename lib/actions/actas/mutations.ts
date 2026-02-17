@@ -503,19 +503,24 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
           ...datosComunes,
           nombreDestinatario: inv.nombre,
           enlaceAprobarParticipante,
+          enlaceActa: enlaceAprobarParticipante,
         },
         { bcc: bccActas }
       );
       if (resultado.ok) enviados++;
     }
 
+    const { generarFirmaSoloLectura } = await import("@/lib/actas-aprobacion");
     for (const inv of integrantesSoloVisualizacion) {
+      const firma = generarFirmaAprobacion(actaId, inv.id);
+      const enlaceVerActa = `${baseUrlClean}/actas/aprobar-participante?acta=${actaId}&integrante=${inv.id}&firma=${firma}&soloLectura=1`;
       const resultado = await enviarActaPorEmail(
         inv.email!,
         {
           ...datosComunes,
           nombreDestinatario: inv.nombre,
           enlaceAprobarParticipante: undefined,
+          enlaceActa: enlaceVerActa,
         },
         { bcc: bccActas }
       );
@@ -525,12 +530,15 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
     for (const c of contactosDestino) {
       const nombreDestinatario =
         c.nombreContacto?.trim() || c.nombreCliente || "Contacto";
+      const firmaSoloLectura = generarFirmaSoloLectura(actaId);
+      const enlaceVerActa = `${baseUrlClean}/actas/aprobar-participante?acta=${actaId}&firma=${firmaSoloLectura}&soloLectura=1`;
       const resultado = await enviarActaPorEmail(
         c.emailContacto!.trim(),
         {
           ...datosComunes,
           nombreDestinatario,
           enlaceAprobarParticipante: undefined,
+          enlaceActa: enlaceVerActa,
         },
         { bcc: bccActas }
       );

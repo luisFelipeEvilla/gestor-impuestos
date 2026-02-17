@@ -91,3 +91,35 @@ export function verificarFirmaDescargaDocumento(
     return false;
   }
 }
+
+/**
+ * Genera la firma HMAC-SHA256 para el enlace de solo visualización del acta (sin integrante).
+ * Usado para contactos de cliente que no son integrantes del acta.
+ * Payload: "acta:{actaId}:soloLectura"
+ */
+export function generarFirmaSoloLectura(actaId: string): string {
+  const payload = `${PAYLOAD_PREFIX}${actaId}:soloLectura`;
+  const hmac = createHmac("sha256", getSecret());
+  hmac.update(payload);
+  return hmac.digest("hex");
+}
+
+/**
+ * Verifica la firma de solo lectura del acta (comparación en tiempo constante).
+ */
+export function verificarFirmaSoloLectura(actaId: string, firma: string): boolean {
+  if (!firma || typeof firma !== "string" || firma.trim() === "") {
+    return false;
+  }
+  try {
+    const expected = generarFirmaSoloLectura(actaId);
+    if (expected.length !== firma.length) return false;
+    let result = 0;
+    for (let i = 0; i < expected.length; i++) {
+      result |= expected.charCodeAt(i) ^ firma.charCodeAt(i);
+    }
+    return result === 0;
+  } catch {
+    return false;
+  }
+}
