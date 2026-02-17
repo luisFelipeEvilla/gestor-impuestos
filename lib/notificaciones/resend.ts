@@ -73,10 +73,12 @@ const SUBJECT_ACTA = "Acta de reunión – Gestor de Impuestos";
 /**
  * Envía por Resend el acta de reunión al destinatario.
  * Requiere RESEND_API_KEY en el entorno.
+ * @param options.bcc - Correos en copia oculta (ej. gerencia, admin) para dejar evidencia del envío.
  */
 export async function enviarActaPorEmail(
   to: string,
-  datos: DatosEmailActa
+  datos: DatosEmailActa,
+  options?: { bcc?: string | string[] }
 ): Promise<ResultadoEnvioEmail> {
   if (!RESEND_API_KEY || RESEND_API_KEY.trim() === "") {
     return { ok: false, error: "RESEND_API_KEY no configurada." };
@@ -86,6 +88,12 @@ export async function enviarActaPorEmail(
   if (!trimmedTo) {
     return { ok: false, error: "El correo del destinatario es obligatorio." };
   }
+
+  const bcc = options?.bcc
+    ? Array.isArray(options.bcc)
+      ? options.bcc.filter((e) => e?.trim()).map((e) => e!.trim())
+      : [options.bcc.trim()]
+    : undefined;
 
   try {
     const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
@@ -97,6 +105,7 @@ export async function enviarActaPorEmail(
       to: trimmedTo,
       subject: SUBJECT_ACTA,
       html,
+      ...(bcc && bcc.length > 0 && { bcc }),
     });
 
     if (error) {

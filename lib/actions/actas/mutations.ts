@@ -427,6 +427,9 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
     const integrantesConEmail = acta.integrantes.filter(
       (i) => i.email?.trim() && i.solicitarAprobacionCorreo
     );
+    const integrantesSoloVisualizacion = acta.integrantes.filter(
+      (i) => i.email?.trim() && !i.solicitarAprobacionCorreo
+    );
 
     const contactosCliente = await db
       .select({
@@ -447,16 +450,22 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
       (c) => c.emailContacto?.trim()
     );
     const emailsIntegrantes = new Set(
-      integrantesConEmail.map((i) => i.email!.trim().toLowerCase())
+      acta.integrantes
+        .filter((i) => i.email?.trim())
+        .map((i) => i.email!.trim().toLowerCase())
     );
     const contactosDestino = contactosConEmail.filter(
       (c) => !emailsIntegrantes.has(c.emailContacto!.trim().toLowerCase())
     );
 
-    if (integrantesConEmail.length === 0 && contactosDestino.length === 0) {
+    const hayDestinatarios =
+      integrantesConEmail.length > 0 ||
+      integrantesSoloVisualizacion.length > 0 ||
+      contactosDestino.length > 0;
+    if (!hayDestinatarios) {
       return {
         error:
-          "No hay destinatarios: agrega asistentes con «Solicitar aprobación por correo» y/o configura el correo de contacto en los clientes asociados al acta.",
+          "No hay destinatarios: agrega asistentes con correo y/o configura el correo de contacto en los clientes asociados al acta.",
       };
     }
 
@@ -482,26 +491,49 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
       enlaceActa: `/actas/${actaId}`,
     };
 
+    const bccActas = ["gerencia@rrconsultorias.com.co"];
+
     let enviados = 0;
     for (const inv of integrantesConEmail) {
       const firma = generarFirmaAprobacion(actaId, inv.id);
       const enlaceAprobarParticipante = `${baseUrlClean}/actas/aprobar-participante?acta=${actaId}&integrante=${inv.id}&firma=${firma}`;
-      const resultado = await enviarActaPorEmail(inv.email, {
-        ...datosComunes,
-        nombreDestinatario: inv.nombre,
-        enlaceAprobarParticipante,
-      });
+      const resultado = await enviarActaPorEmail(
+        inv.email,
+        {
+          ...datosComunes,
+          nombreDestinatario: inv.nombre,
+          enlaceAprobarParticipante,
+        },
+        { bcc: bccActas }
+      );
+      if (resultado.ok) enviados++;
+    }
+
+    for (const inv of integrantesSoloVisualizacion) {
+      const resultado = await enviarActaPorEmail(
+        inv.email!,
+        {
+          ...datosComunes,
+          nombreDestinatario: inv.nombre,
+          enlaceAprobarParticipante: undefined,
+        },
+        { bcc: bccActas }
+      );
       if (resultado.ok) enviados++;
     }
 
     for (const c of contactosDestino) {
       const nombreDestinatario =
         c.nombreContacto?.trim() || c.nombreCliente || "Contacto";
-      const resultado = await enviarActaPorEmail(c.emailContacto!.trim(), {
-        ...datosComunes,
-        nombreDestinatario,
-        enlaceAprobarParticipante: undefined,
-      });
+      const resultado = await enviarActaPorEmail(
+        c.emailContacto!.trim(),
+        {
+          ...datosComunes,
+          nombreDestinatario,
+          enlaceAprobarParticipante: undefined,
+        },
+        { bcc: bccActas }
+      );
       if (resultado.ok) enviados++;
     }
 
@@ -516,7 +548,10 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
       tipoEvento: "envio_correo",
       metadata: {
         destinatarios: enviados,
-        total: integrantesConEmail.length + contactosDestino.length,
+        total:
+          integrantesConEmail.length +
+          integrantesSoloVisualizacion.length +
+          contactosDestino.length,
       },
     });
 
