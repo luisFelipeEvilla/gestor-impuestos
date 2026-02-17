@@ -560,7 +560,7 @@ export async function enviarNotificacion(formData: FormData): Promise<EstadoGest
 
 type RowProcesoNotificacion = {
   asignadoAId: number | null;
-  estadoActual: string;
+  estadoActual: (typeof estadoProcesoValues)[number];
   montoCop: string;
   vigencia: number;
   periodo: string | null;
