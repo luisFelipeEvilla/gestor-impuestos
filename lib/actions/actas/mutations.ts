@@ -618,20 +618,23 @@ export async function registrarAprobacionParticipante(
     if (!integrante) {
       return { error: "Enlace inválido o expirado." };
     }
-    await db
-      .insert(aprobacionesActaParticipante)
-      .values({
+    const [existente] = await db
+      .select({ id: aprobacionesActaParticipante.id })
+      .from(aprobacionesActaParticipante)
+      .where(
+        and(
+          eq(aprobacionesActaParticipante.actaId, actaId),
+          eq(aprobacionesActaParticipante.actaIntegranteId, integranteId)
+        )
+      );
+    if (!existente) {
+      await db.insert(aprobacionesActaParticipante).values({
         actaId,
         actaIntegranteId: integranteId,
         rutaFoto: rutaFoto?.trim() || null,
         rechazado: false,
-      })
-      .onConflictDoNothing({
-        target: [
-          aprobacionesActaParticipante.actaId,
-          aprobacionesActaParticipante.actaIntegranteId,
-        ],
       });
+    }
     return {};
   } catch (err) {
     console.error(err);
@@ -671,20 +674,23 @@ export async function registrarRechazoParticipante(
     if (!integrante) {
       return { error: "Enlace inválido o expirado." };
     }
-    await db
-      .insert(aprobacionesActaParticipante)
-      .values({
+    const [existente] = await db
+      .select({ id: aprobacionesActaParticipante.id })
+      .from(aprobacionesActaParticipante)
+      .where(
+        and(
+          eq(aprobacionesActaParticipante.actaId, actaId),
+          eq(aprobacionesActaParticipante.actaIntegranteId, integranteId)
+        )
+      );
+    if (!existente) {
+      await db.insert(aprobacionesActaParticipante).values({
         actaId,
         actaIntegranteId: integranteId,
         rechazado: true,
         motivoRechazo: motivoRechazo.trim() || null,
-      })
-      .onConflictDoNothing({
-        target: [
-          aprobacionesActaParticipante.actaId,
-          aprobacionesActaParticipante.actaIntegranteId,
-        ],
       });
+    }
     await db.insert(historialActa).values({
       actaId,
       usuarioId: null,

@@ -197,6 +197,13 @@
       "when": 1771283200000,
       "tag": "0027_documentos_compromiso_acta",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1771283300000,
+      "tag": "0029_restore_aprobaciones_uniq",
+      "breakpoints": true
     }
   ]
 }
