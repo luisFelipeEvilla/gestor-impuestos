@@ -14,6 +14,8 @@ export type DatosEmailActa = {
   enlaceAprobarParticipante?: string;
   /** Número de acta (serial) para el asunto del correo y búsqueda posterior. */
   numeroActa?: number;
+  /** Si true, no se muestra el botón «Ver acta en la aplicación» (p. ej. miembros internos). */
+  ocultarBotonVerActa?: boolean;
 };
 
 function escapeHtml(text: string): string {
@@ -97,7 +99,7 @@ export function renderTemplateActa(datos: DatosEmailActa, baseUrl: string): stri
     </table>
     ${contenidoSafe ? `<div style="margin: 16px 0; padding: 12px; background: #f8fafc; border-radius: 6px; white-space: pre-wrap;">${contenidoSafe}</div>` : ""}
     ${compromisosSafe ? `<div style="margin: 16px 0;"><strong>Compromisos</strong></div><div style="margin: 8px 0 16px; padding: 12px; background: #f8fafc; border-radius: 6px; white-space: pre-wrap;">${compromisosSafe}</div>` : ""}
-    <p style="margin-top: 16px;"><a href="${escapeHtml(enlaceCompleto)}" style="display: inline-block; background: #64748b; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; font-weight: 500;">Ver acta en la aplicación</a></p>
+    ${!datos.ocultarBotonVerActa ? `<p style="margin-top: 16px;"><a href="${escapeHtml(enlaceCompleto)}" style="display: inline-block; background: #64748b; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; font-weight: 500;">Ver acta en la aplicación</a></p>` : ""}
     ${datos.enlaceAprobarParticipante ? `<p style="margin-top: 12px;"><a href="${escapeHtml(datos.enlaceAprobarParticipante)}" style="display: inline-block; background: #2563eb; color: white; padding: 10px 18px; text-decoration: none; border-radius: 6px; font-weight: 500;">Confirmar que he leído y aprobado este acta</a></p>` : ""}
     <p style="color: #64748b; font-size: 0.875rem; margin-top: 24px;">Este es un mensaje automático. Por favor no responda directamente a este correo.</p>
   </div>

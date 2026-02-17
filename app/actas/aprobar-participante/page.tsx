@@ -6,7 +6,10 @@ import {
   rechazarParticipanteFromPreviewAction,
   obtenerActaParaPreviewParticipante,
 } from "@/lib/actions/actas";
-import { generarFirmaDescargaDocumento } from "@/lib/actas-aprobacion";
+import {
+  generarFirmaDescargaDocumento,
+  generarFirmaDescargaDocumentoSoloLectura,
+} from "@/lib/actas-aprobacion";
 import { FormAprobarSubmitButton } from "@/components/actas/form-aprobar-submit-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -305,7 +308,12 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
                           const firmaDoc = generarFirmaDescargaDocumento(actaId, integranteId, doc.id);
                           return `/api/actas/documentos/descargar?acta=${actaId}&integrante=${integranteId}&doc=${doc.id}&firma=${firmaDoc}`;
                         })()
-                      : null;
+                      : soloLectura
+                        ? (() => {
+                            const firmaDoc = generarFirmaDescargaDocumentoSoloLectura(actaId, doc.id);
+                            return `/api/actas/documentos/descargar?acta=${actaId}&doc=${doc.id}&firma=${firmaDoc}&soloLectura=1`;
+                          })()
+                        : null;
                     return (
                       <li
                         key={doc.id}

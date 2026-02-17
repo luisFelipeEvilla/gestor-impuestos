@@ -123,3 +123,41 @@ export function verificarFirmaSoloLectura(actaId: string, firma: string): boolea
     return false;
   }
 }
+
+/**
+ * Genera la firma HMAC para descarga de documento en vista solo lectura (sin integrante).
+ * Payload: "acta:{actaId}:soloLectura:doc:{docId}"
+ */
+export function generarFirmaDescargaDocumentoSoloLectura(
+  actaId: string,
+  docId: number
+): string {
+  const payload = `${PAYLOAD_PREFIX}${actaId}:soloLectura${PAYLOAD_DOC}${docId}`;
+  const hmac = createHmac("sha256", getSecret());
+  hmac.update(payload);
+  return hmac.digest("hex");
+}
+
+/**
+ * Verifica la firma de descarga de documento en modo solo lectura.
+ */
+export function verificarFirmaDescargaDocumentoSoloLectura(
+  actaId: string,
+  docId: number,
+  firma: string
+): boolean {
+  if (!firma || typeof firma !== "string" || firma.trim() === "") {
+    return false;
+  }
+  try {
+    const expected = generarFirmaDescargaDocumentoSoloLectura(actaId, docId);
+    if (expected.length !== firma.length) return false;
+    let result = 0;
+    for (let i = 0; i < expected.length; i++) {
+      result |= expected.charCodeAt(i) ^ firma.charCodeAt(i);
+    }
+    return result === 0;
+  } catch {
+    return false;
+  }
+}

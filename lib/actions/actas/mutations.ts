@@ -509,6 +509,7 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
           nombreDestinatario: inv.nombre,
           enlaceAprobarParticipante,
           enlaceActa: enlaceAprobarParticipante,
+          ocultarBotonVerActa: inv.tipo === "interno",
         },
         { bcc: bccActas }
       );
@@ -527,6 +528,7 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
           nombreDestinatario: inv.nombre,
           enlaceAprobarParticipante: undefined,
           enlaceActa: enlaceVerActa,
+          ocultarBotonVerActa: inv.tipo === "interno",
         },
         { bcc: bccActas }
       );

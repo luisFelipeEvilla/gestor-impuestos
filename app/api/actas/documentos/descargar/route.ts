@@ -3,9 +3,12 @@ import { db } from "@/lib/db";
 import { actasReunion, actasIntegrantes, documentosActa } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { readActaDocument } from "@/lib/uploads";
-import { verificarFirmaDescargaDocumento } from "@/lib/actas-aprobacion";
+import {
+  verificarFirmaDescargaDocumento,
+  verificarFirmaDescargaDocumentoSoloLectura,
+} from "@/lib/actas-aprobacion";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -13,22 +16,27 @@ export async function GET(request: NextRequest) {
   const integranteParam = searchParams.get("integrante");
   const docParam = searchParams.get("doc");
   const firmaParam = searchParams.get("firma");
+  const soloLectura = searchParams.get("soloLectura") === "1";
 
   const actaId = actaParam?.trim() ?? "";
   const integranteId = integranteParam ? parseInt(integranteParam, 10) : NaN;
   const docId = docParam ? parseInt(docParam, 10) : NaN;
 
-  if (
-    !actaId ||
-    Number.isNaN(integranteId) ||
-    Number.isNaN(docId) ||
-    !firmaParam?.trim()
-  ) {
+  if (!actaId || Number.isNaN(docId) || !firmaParam?.trim()) {
     return NextResponse.json({ error: "Enlace inválido" }, { status: 400 });
   }
 
-  if (!verificarFirmaDescargaDocumento(actaId, integranteId, docId, firmaParam.trim())) {
-    return NextResponse.json({ error: "Enlace inválido o expirado" }, { status: 403 });
+  if (soloLectura) {
+    if (!verificarFirmaDescargaDocumentoSoloLectura(actaId, docId, firmaParam.trim())) {
+      return NextResponse.json({ error: "Enlace inválido o expirado" }, { status: 403 });
+    }
+  } else {
+    if (Number.isNaN(integranteId)) {
+      return NextResponse.json({ error: "Enlace inválido" }, { status: 400 });
+    }
+    if (!verificarFirmaDescargaDocumento(actaId, integranteId, docId, firmaParam.trim())) {
+      return NextResponse.json({ error: "Enlace inválido o expirado" }, { status: 403 });
+    }
   }
 
   const [acta] = await db
@@ -39,17 +47,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "No disponible" }, { status: 404 });
   }
 
-  const [integrante] = await db
-    .select({ id: actasIntegrantes.id })
-    .from(actasIntegrantes)
-    .where(
-      and(
-        eq(actasIntegrantes.actaId, actaId),
-        eq(actasIntegrantes.id, integranteId)
-      )
-  );
-  if (!integrante) {
-    return NextResponse.json({ error: "No disponible" }, { status: 404 });
+  if (!soloLectura) {
+    const [integrante] = await db
+      .select({ id: actasIntegrantes.id })
+      .from(actasIntegrantes)
+      .where(
+        and(
+          eq(actasIntegrantes.actaId, actaId),
+          eq(actasIntegrantes.id, integranteId)
+        )
+      );
+    if (!integrante) {
+      return NextResponse.json({ error: "No disponible" }, { status: 404 });
+    }
   }
 
   const [doc] = await db
