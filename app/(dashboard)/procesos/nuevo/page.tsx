@@ -6,6 +6,8 @@ import { crearProceso } from "@/lib/actions/procesos";
 import { ProcesoForm } from "@/components/procesos/proceso-form";
 import { Button } from "@/components/ui/button";
 
+export const dynamic = 'force-dynamic';
+
 export default async function NuevoProcesoPage() {
   const [impuestosList, contribuyentesList, usuariosList] = await Promise.all([
     db.select({ id: impuestos.id, nombre: impuestos.nombre }).from(impuestos).where(eq(impuestos.activo, true)),

@@ -9,6 +9,8 @@ import { listarCargosEmpresa } from "@/lib/actions/cargos-empresa";
 import { ActaForm } from "@/components/actas/acta-form";
 import { Button } from "@/components/ui/button";
 
+export const dynamic = 'force-dynamic';
+
 export default async function NuevaActaPage() {
   const [usuariosList, clientesList, cargosEmpresaList, obligacionesConActividades] = await Promise.all([
     db
