@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { procesos, historialProceso, impuestos, contribuyentes, usuarios, documentosProceso } from "@/lib/db/schema";
+import type { NewHistorialProceso } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   enviarNotificacionCobroPorEmail,
@@ -653,7 +654,7 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
     await db.insert(historialProceso).values({
       procesoId,
       tipoEvento: "notificacion",
-      estadoAnterior: row.estadoActual,
+      estadoAnterior: row.estadoActual as NewHistorialProceso["estadoAnterior"],
       estadoNuevo: "notificado",
       comentario: "Notificación enviada por correo electrónico",
       metadata: { envios: [evidencia] },
@@ -737,7 +738,7 @@ async function registrarNotificacionFisica(
     await db.insert(historialProceso).values({
       procesoId,
       tipoEvento: "notificacion",
-      estadoAnterior: row.estadoActual,
+      estadoAnterior: row.estadoActual as NewHistorialProceso["estadoAnterior"],
       estadoNuevo: "notificado",
       comentario: "Notificación entregada por vía física",
       metadata: { tipo: "fisica", documentoIds },

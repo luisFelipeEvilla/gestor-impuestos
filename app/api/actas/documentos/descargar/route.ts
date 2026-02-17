@@ -12,12 +12,12 @@ export async function GET(request: NextRequest) {
   const docParam = searchParams.get("doc");
   const firmaParam = searchParams.get("firma");
 
-  const actaId = actaParam ? parseInt(actaParam, 10) : NaN;
+  const actaId = actaParam?.trim() ?? "";
   const integranteId = integranteParam ? parseInt(integranteParam, 10) : NaN;
   const docId = docParam ? parseInt(docParam, 10) : NaN;
 
   if (
-    Number.isNaN(actaId) ||
+    !actaId ||
     Number.isNaN(integranteId) ||
     Number.isNaN(docId) ||
     !firmaParam?.trim()

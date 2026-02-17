@@ -17,7 +17,7 @@ import { CompromisosActa } from "./compromisos-acta";
 import type { EstadoFormActa, CompromisoFormItem } from "@/lib/actions/actas-types";
 import { cn } from "@/lib/utils";
 
-type UsuarioOption = { id: number; nombre: string; email: string };
+type UsuarioOption = { id: number; nombre: string; email: string; cargoNombre?: string | null };
 type ClienteOption = { id: number; nombre: string; codigo: string | null };
 type ClienteMiembroOption = { id: number; clienteId: number; nombre: string; email: string; cargo: string | null };
 type CargoOption = { id: number; nombre: string };

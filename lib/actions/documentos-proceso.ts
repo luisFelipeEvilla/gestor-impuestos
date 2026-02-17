@@ -10,12 +10,117 @@ import {
   deleteProcesoDocument,
   isAllowedMime,
   isAllowedSize,
+  useS3,
+  isAllowedSizeForS3,
+  createPresignedPutUrl,
+  generateNewProcesoDocumentPath,
 } from "@/lib/uploads";
 import {
   CATEGORIAS_DOCUMENTO_NOTA,
   type CategoriaDocumentoNota,
   type EstadoDocumentoProceso,
 } from "@/lib/proceso-categorias";
+
+export type PresignedDocumentoProcesoResult = {
+  url?: string;
+  rutaArchivo?: string;
+  error?: string;
+};
+
+/** Obtiene URL pre-firmada para subir directo a S3. Si no hay S3, devuelve error para usar subida por servidor. */
+export async function obtenerPresignedUrlDocumentoProceso(
+  procesoId: number,
+  nombreOriginal: string,
+  mimeType: string,
+  tamano: number,
+  categoria: CategoriaDocumentoNota
+): Promise<PresignedDocumentoProcesoResult> {
+  if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
+  if (!nombreOriginal?.trim()) return { error: "Nombre de archivo requerido." };
+  if (!CATEGORIAS_DOCUMENTO_NOTA.includes(categoria)) return { error: "Categoría inválida." };
+  if (!isAllowedMime(mimeType)) {
+    return { error: "Tipo de archivo no permitido. Usa PDF, imágenes, Word, Excel o texto." };
+  }
+  if (!useS3()) return { error: "DIRECT_UPLOAD" };
+  if (!isAllowedSizeForS3(tamano)) {
+    return { error: "El archivo supera el tamaño máximo para subida directa (100 MB)." };
+  }
+
+  try {
+    const session = await getSession();
+    const [proceso] = await db
+      .select({ id: procesos.id, asignadoAId: procesos.asignadoAId })
+      .from(procesos)
+      .where(eq(procesos.id, procesoId));
+    if (!proceso) return { error: "Proceso no encontrado." };
+    const esAdmin = session?.user?.rol === "admin";
+    const esAsignado = session?.user?.id != null && proceso.asignadoAId === session.user.id;
+    if (!esAdmin && !esAsignado) {
+      return { error: "No tienes permiso para subir documentos a este proceso." };
+    }
+
+    const rutaArchivo = generateNewProcesoDocumentPath(procesoId, nombreOriginal);
+    const url = await createPresignedPutUrl(rutaArchivo, mimeType);
+    return { url, rutaArchivo };
+  } catch (err) {
+    console.error(err);
+    return { error: "Error al generar la URL de subida." };
+  }
+}
+
+/** Registra en BD un documento de proceso ya subido a S3. */
+export async function registrarDocumentoProceso(
+  procesoId: number,
+  rutaArchivo: string,
+  nombreOriginal: string,
+  mimeType: string,
+  tamano: number,
+  categoria: CategoriaDocumentoNota
+): Promise<EstadoDocumentoProceso> {
+  if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
+  if (!rutaArchivo?.trim() || !nombreOriginal?.trim()) return { error: "Datos del archivo incompletos." };
+  if (!CATEGORIAS_DOCUMENTO_NOTA.includes(categoria)) return { error: "Categoría inválida." };
+  if (!isAllowedMime(mimeType)) return { error: "Tipo de archivo no permitido." };
+
+  try {
+    const session = await getSession();
+    const [proceso] = await db
+      .select({ id: procesos.id, asignadoAId: procesos.asignadoAId })
+      .from(procesos)
+      .where(eq(procesos.id, procesoId));
+    if (!proceso) return { error: "Proceso no encontrado." };
+    const esAdmin = session?.user?.rol === "admin";
+    const esAsignado = session?.user?.id != null && proceso.asignadoAId === session.user.id;
+    if (!esAdmin && !esAsignado) {
+      return { error: "No tienes permiso para subir documentos a este proceso." };
+    }
+
+    await db.insert(documentosProceso).values({
+      procesoId,
+      categoria,
+      nombreOriginal,
+      rutaArchivo,
+      mimeType,
+      tamano,
+    });
+
+    revalidatePath(`/procesos/${procesoId}`);
+    revalidatePath(`/procesos/${procesoId}/editar`);
+    revalidatePath("/procesos");
+    return {};
+  } catch (err) {
+    if (
+      err &&
+      typeof err === "object" &&
+      "digest" in err &&
+      typeof (err as { digest?: string }).digest === "string"
+    ) {
+      throw err;
+    }
+    console.error(err);
+    return { error: "Error al registrar el documento." };
+  }
+}
 
 export async function subirDocumentoProceso(
   formData: FormData

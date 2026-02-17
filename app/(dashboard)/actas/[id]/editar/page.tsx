@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { actasReunion, actasIntegrantes, actasReunionClientes, actasReunionActividades, usuarios, documentosActa, clientes, compromisosActa } from "@/lib/db/schema";
+import { actasReunion, actasIntegrantes, actasReunionClientes, actasReunionActividades, usuarios, cargosEmpresa as cargosEmpresaTable, documentosActa, clientes, compromisosActa } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { actualizarActa } from "@/lib/actions/actas";
@@ -68,8 +68,10 @@ export default async function EditarActaPage({ params }: Props) {
         id: usuarios.id,
         nombre: usuarios.nombre,
         email: usuarios.email,
+        cargoNombre: cargosEmpresaTable.nombre,
       })
       .from(usuarios)
+      .leftJoin(cargosEmpresaTable, eq(usuarios.cargoId, cargosEmpresaTable.id))
       .where(eq(usuarios.activo, true)),
     db
       .select({ id: clientes.id, nombre: clientes.nombre, codigo: clientes.codigo })
@@ -84,7 +86,7 @@ export default async function EditarActaPage({ params }: Props) {
     notFound();
   }
 
-  const [actaClientes, actaActividades, clientesMiembrosList, cargosEmpresa, obligacionesConActividades] = await Promise.all([
+  const [actaClientes, actaActividades, clientesMiembrosList, cargosEmpresaList, obligacionesConActividades] = await Promise.all([
     db
       .select({ clienteId: actasReunionClientes.clienteId })
       .from(actasReunionClientes)
@@ -93,7 +95,7 @@ export default async function EditarActaPage({ params }: Props) {
       .select({ actividadId: actasReunionActividades.actividadId })
       .from(actasReunionActividades)
       .where(eq(actasReunionActividades.actaId, id)),
-    obtenerMiembrosPorClientes(clientesList.map((c) => c.id)),
+    obtenerMiembrosPorClientes(clientesList.map((c: { id: number }) => c.id)),
     listarCargosEmpresa(),
     obtenerObligacionesConActividades(),
   ]);
@@ -148,7 +150,7 @@ export default async function EditarActaPage({ params }: Props) {
           usuarios={usuariosList}
           clientes={clientesList}
           obligacionesConActividades={obligacionesConActividades}
-          cargosEmpresa={cargosEmpresa}
+          cargosEmpresa={cargosEmpresaList}
           clientesMiembros={clientesMiembrosList}
           initialData={initialData}
         />

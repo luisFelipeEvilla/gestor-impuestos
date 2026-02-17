@@ -1,11 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { subirDocumentoProceso, eliminarDocumentoProceso } from "@/lib/actions/documentos-proceso";
+import {
+  subirDocumentoProceso,
+  eliminarDocumentoProceso,
+  obtenerPresignedUrlDocumentoProceso,
+  registrarDocumentoProceso,
+} from "@/lib/actions/documentos-proceso";
 import {
   type CategoriaDocumentoNota,
   type EstadoDocumentoProceso,
@@ -26,37 +32,111 @@ type SubirDocumentoFormProps = {
   categoria: CategoriaDocumentoNota;
 };
 
+const MAX_S3_MB = 100;
+
 export function SubirDocumentoForm({ procesoId, categoria }: SubirDocumentoFormProps) {
+  const router = useRouter();
+  const forceDirectSubmit = useRef(false);
   const [state, formAction] = useActionState(
     (_prev: EstadoDocumentoProceso | null, formData: FormData) =>
       subirDocumentoProceso(formData),
     null
   );
+  const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (forceDirectSubmit.current) {
+      forceDirectSubmit.current = false;
+      return;
+    }
+    e.preventDefault();
+    setSubmitError(null);
+    const form = e.currentTarget;
+    const fileInput = form.querySelector<HTMLInputElement>('input[name="archivo"]');
+    const file = fileInput?.files?.[0];
+    if (!file || file.size === 0) {
+      setSubmitError("Selecciona un archivo.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const presigned = await obtenerPresignedUrlDocumentoProceso(
+        procesoId,
+        file.name,
+        file.type || "application/octet-stream",
+        file.size,
+        categoria
+      );
+
+      if (presigned.error && presigned.error !== "DIRECT_UPLOAD") {
+        setSubmitError(presigned.error);
+        return;
+      }
+      if (presigned.error === "DIRECT_UPLOAD" || !presigned.url || !presigned.rutaArchivo) {
+        forceDirectSubmit.current = true;
+        form.requestSubmit();
+        return;
+      }
+
+      const putRes = await fetch(presigned.url, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+      if (!putRes.ok) {
+        setSubmitError("Error al subir el archivo. Vuelve a intentarlo.");
+        return;
+      }
+
+      const reg = await registrarDocumentoProceso(
+        procesoId,
+        presigned.rutaArchivo,
+        file.name,
+        file.type || "application/octet-stream",
+        file.size,
+        categoria
+      );
+      if (reg.error) {
+        setSubmitError(reg.error);
+        return;
+      }
+      form.reset();
+      router.refresh();
+      setLoading(false);
+    } catch {
+      setSubmitError("Error inesperado. Puedes intentar adjuntar de nuevo.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <form action={formAction} className="space-y-2">
+    <form action={formAction} onSubmit={handleSubmit} className="space-y-2">
       <input type="hidden" name="procesoId" value={procesoId} />
       <input type="hidden" name="categoria" value={categoria} />
       <div className="flex flex-wrap items-end gap-2">
         <div className="grid flex-1 min-w-[200px] gap-1.5">
           <Label htmlFor="archivo" className="text-xs">
-            Archivo (PDF, imágenes, Word, Excel; máx. 10 MB)
+            Archivo (PDF, imágenes, Word, Excel; hasta {MAX_S3_MB} MB con S3)
           </Label>
           <Input
             id="archivo"
             name="archivo"
             type="file"
             accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv"
-            aria-invalid={!!state?.error}
+            aria-invalid={!!(state?.error || submitError)}
+            disabled={loading}
           />
         </div>
-        <Button type="submit" size="sm">
-          Adjuntar
+        <Button type="submit" size="sm" disabled={loading}>
+          {loading ? "Subiendo…" : "Adjuntar"}
         </Button>
       </div>
-      {state?.error && (
+      {(state?.error || submitError) && (
         <p className="text-destructive text-xs" role="alert">
-          {state.error}
+          {submitError ?? state?.error}
         </p>
       )}
     </form>

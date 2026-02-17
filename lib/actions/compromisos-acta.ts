@@ -107,7 +107,7 @@ export async function obtenerCompromisosParaGestion(
       : await base.orderBy(actasReunion.fecha, compromisosActa.id);
 
   const actaIdsUnicos = [...new Set(rows.map((r) => r.actaId))];
-  const clientesPorActa: Record<number, string[]> = {};
+  const clientesPorActa: Record<string, string[]> = {};
   for (const aid of actaIdsUnicos) {
     const clientesRows = await db
       .select({ nombre: clientes.nombre })

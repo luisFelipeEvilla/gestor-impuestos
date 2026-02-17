@@ -7,11 +7,10 @@ import { readActaDocument } from "@/lib/uploads";
 type Params = { params: Promise<{ id: string; docId: string }> };
 
 export async function GET(request: NextRequest, { params }: Params) {
-  const { id: actaIdStr, docId: docIdStr } = await params;
-  const actaId = parseInt(actaIdStr, 10);
+  const { id: actaId, docId: docIdStr } = await params;
   const docId = parseInt(docIdStr, 10);
 
-  if (Number.isNaN(actaId) || Number.isNaN(docId)) {
+  if (!actaId?.trim() || Number.isNaN(docId)) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
 

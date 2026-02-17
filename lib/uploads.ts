@@ -2,12 +2,15 @@ import { mkdir, writeFile, unlink, readFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const UPLOAD_DIR_ENV = "UPLOAD_DIR";
 const DEFAULT_UPLOAD_DIR = "uploads";
 const S3_BUCKET_ENV = "S3_BUCKET";
 const S3_PREFIX_ENV = "S3_PREFIX";
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+/** Límite para subida directa a S3 (presigned); no aplica límite de Vercel. */
+const MAX_FILE_SIZE_S3_BYTES = 100 * 1024 * 1024; // 100 MB
 const ALLOWED_MIME_PREFIXES = [
   "application/pdf",
   "image/",
@@ -17,7 +20,7 @@ const ALLOWED_MIME_PREFIXES = [
   "text/csv",
 ];
 
-function useS3(): boolean {
+export function useS3(): boolean {
   return Boolean(process.env[S3_BUCKET_ENV]?.trim());
 }
 
@@ -171,12 +174,54 @@ export function isAllowedSize(size: number): boolean {
   return size > 0 && size <= MAX_FILE_SIZE_BYTES;
 }
 
+export function isAllowedSizeForS3(size: number): boolean {
+  return size > 0 && size <= MAX_FILE_SIZE_S3_BYTES;
+}
+
+/**
+ * Genera una URL pre-firmada para que el cliente suba el archivo directo a S3 (PUT).
+ * Solo cuando useS3() es true. El cliente debe hacer PUT con el mismo Content-Type.
+ */
+export async function createPresignedPutUrl(
+  rutaRelativa: string,
+  contentType: string,
+  expiresInSeconds: number = 900
+): Promise<string> {
+  if (!useS3()) throw new Error("S3 not configured");
+  const command = new PutObjectCommand({
+    Bucket: getS3Bucket(),
+    Key: getS3Key(rutaRelativa),
+    ContentType: contentType,
+  });
+  return getSignedUrl(getS3Client(), command, { expiresIn: expiresInSeconds });
+}
+
 /**
  * Sanitiza el nombre original para usarlo como parte del nombre almacenado (solo extensión segura).
  */
 function getSafeExtension(nombreOriginal: string): string {
   const ext = path.extname(nombreOriginal).toLowerCase().replace(/[^a-z0-9.]/g, "");
   return ext || "";
+}
+
+/**
+ * Genera la ruta relativa para un nuevo documento de acta (para uso con presigned URL).
+ * Devuelve la ruta con barras normales para guardar en BD.
+ */
+export function generateNewActaDocumentPath(actaId: string, nombreOriginal: string): string {
+  const ext = getSafeExtension(nombreOriginal);
+  const storedFileName = `${randomUUID()}${ext ? `.${ext.replace(/^\./, "")}` : ""}`;
+  return getActaRelativePath(actaId, storedFileName).replace(/\\/g, "/");
+}
+
+/**
+ * Genera la ruta relativa para un nuevo documento de proceso (para uso con presigned URL).
+ * Devuelve la ruta con barras normales para guardar en BD.
+ */
+export function generateNewProcesoDocumentPath(procesoId: number, nombreOriginal: string): string {
+  const ext = getSafeExtension(nombreOriginal);
+  const storedFileName = `${randomUUID()}${ext ? `.${ext.replace(/^\./, "")}` : ""}`;
+  return getRelativePath(procesoId, storedFileName).replace(/\\/g, "/");
 }
 
 /**

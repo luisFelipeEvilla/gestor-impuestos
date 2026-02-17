@@ -13,11 +13,10 @@ export async function GET(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const { id: actaIdStr, integranteId: integranteIdStr } = await params;
-  const actaId = parseInt(actaIdStr, 10);
+  const { id: actaId, integranteId: integranteIdStr } = await params;
   const integranteId = parseInt(integranteIdStr, 10);
 
-  if (Number.isNaN(actaId) || Number.isNaN(integranteId)) {
+  if (!actaId?.trim() || Number.isNaN(integranteId)) {
     return NextResponse.json({ error: "No encontrado" }, { status: 404 });
   }
 

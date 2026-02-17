@@ -97,7 +97,7 @@ export async function crearActa(
               tipo,
               nombre: i.nombre,
               email: i.email,
-              cargo: tipo === "externo" ? (i.cargo?.trim() || null) : null,
+              cargo: (i.cargo?.trim() || null),
               usuarioId: i.usuarioId ?? null,
               solicitarAprobacionCorreo: i.solicitarAprobacionCorreo ?? true,
             };
@@ -259,7 +259,7 @@ export async function actualizarActa(
               tipo,
               nombre: i.nombre,
               email: i.email,
-              cargo: tipo === "externo" ? (i.cargo?.trim() || null) : null,
+              cargo: (i.cargo?.trim() || null),
               usuarioId: i.usuarioId ?? null,
               solicitarAprobacionCorreo: i.solicitarAprobacionCorreo ?? true,
             };
