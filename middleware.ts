@@ -42,8 +42,7 @@ export async function middleware(req: NextRequest) {
   if (
     (pathname.startsWith("/usuarios") ||
       pathname.startsWith("/cargos") ||
-      pathname.startsWith("/impuestos") ||
-      pathname.startsWith("/clientes")) &&
+      pathname.startsWith("/impuestos")) &&
     rol !== "admin"
   ) {
     return NextResponse.redirect(new URL("/", req.nextUrl.origin));
