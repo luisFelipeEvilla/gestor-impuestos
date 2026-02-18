@@ -15,7 +15,7 @@ import {
   documentosActa,
   clientes,
 } from "@/lib/db/schema";
-import { eq, and, desc, gte, lte, inArray, count } from "drizzle-orm";
+import { eq, and, or, desc, gte, lte, inArray, count } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import {
   estadoActaValues,
@@ -118,15 +118,33 @@ export async function obtenerActas(filtros?: {
   }
 
   if (session.user.rol !== "admin") {
+    // Los empleados pueden ver:
+    // 1. Actas donde participan como integrantes
+    // 2. Actas que ellos mismos crearon
     const actasDondeParticipa = await db
       .selectDistinct({ actaId: actasIntegrantes.actaId })
       .from(actasIntegrantes)
       .where(eq(actasIntegrantes.usuarioId, session.user.id));
-    const actaIds = actasDondeParticipa.map((r) => r.actaId);
-    if (actaIds.length === 0) {
-      return { actas: [], total: 0, page: 1, pageSize: ACTAS_PAGE_SIZE, totalPages: 0 };
+    const actaIdsParticipacion = actasDondeParticipa.map((r) => r.actaId);
+    
+    // Combinar actas donde participa y actas que creó
+    const condicionesEmpleado: ReturnType<typeof inArray | typeof eq>[] = [];
+    
+    // Incluir actas donde participa como integrante
+    if (actaIdsParticipacion.length > 0) {
+      condicionesEmpleado.push(inArray(actasReunion.id, actaIdsParticipacion));
     }
-    conditions.push(inArray(actasReunion.id, actaIds));
+    
+    // Siempre incluir las actas que creó
+    condicionesEmpleado.push(eq(actasReunion.creadoPorId, session.user.id));
+    
+    // Usar OR para incluir actas donde participa O actas que creó
+    // Si solo hay una condición, usarla directamente; si hay más, usar OR
+    if (condicionesEmpleado.length === 1) {
+      conditions.push(condicionesEmpleado[0]);
+    } else {
+      conditions.push(or(...condicionesEmpleado)!);
+    }
   }
 
   const whereCond = conditions.length > 0 ? and(...conditions) : undefined;
@@ -347,16 +365,21 @@ export async function obtenerActaPorId(actaId: string): Promise<ActaDetalle | nu
   if (!acta) return null;
 
   if (session.user.rol !== "admin") {
-    const [participa] = await db
-      .select({ id: actasIntegrantes.id })
-      .from(actasIntegrantes)
-      .where(
-        and(
-          eq(actasIntegrantes.actaId, actaId),
-          eq(actasIntegrantes.usuarioId, session.user.id)
-        )
-      );
-    if (!participa) return null;
+    // Los empleados pueden ver actas donde participan como integrantes
+    // o actas que ellos mismos crearon
+    const esCreador = acta.creadoPorId === session.user.id;
+    if (!esCreador) {
+      const [participa] = await db
+        .select({ id: actasIntegrantes.id })
+        .from(actasIntegrantes)
+        .where(
+          and(
+            eq(actasIntegrantes.actaId, actaId),
+            eq(actasIntegrantes.usuarioId, session.user.id)
+          )
+        );
+      if (!participa) return null;
+    }
   }
 
   let aprobadoPorNombre: string | null = null;
