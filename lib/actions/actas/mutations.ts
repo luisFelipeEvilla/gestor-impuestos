@@ -32,6 +32,36 @@ import {
 } from "./auditoria";
 import { obtenerActaPorId } from "./queries";
 
+/**
+ * Normaliza contenido HTML de TipTap: convierte HTML vacío (<p></p>, <p><br></p>, etc.) a null.
+ * TipTap devuelve HTML mínimo cuando el editor está vacío, pero debemos guardarlo como null.
+ */
+function normalizarContenidoHtml(html: string | null | undefined): string | null {
+  if (!html) return null;
+  const trimmed = html.trim();
+  if (!trimmed) return null;
+  
+  // Remover espacios y tags vacíos comunes de TipTap cuando está vacío
+  const sinEspacios = trimmed.replace(/\s+/g, "");
+  
+  // Patrones comunes de TipTap vacío: <p></p>, <p><br></p>, <p><br/></p>, etc.
+  // También maneja múltiples párrafos vacíos: <p></p><p></p>
+  const patronesVacios = [
+    /^<p><\/p>$/,
+    /^<p><br\s*\/?><\/p>$/,
+    /^<p><br><\/br><\/p>$/,
+    /^(<p><\/p>)+$/,
+    /^(<p><br\s*\/?><\/p>)+$/,
+    /^(<p>(<br\s*\/?>)*<\/p>)+$/,
+  ];
+  
+  if (patronesVacios.some((patron) => patron.test(sinEspacios))) {
+    return null;
+  }
+  
+  return trimmed;
+}
+
 export async function crearActa(
   _prev: EstadoFormActa | null,
   formData: FormData
@@ -41,7 +71,8 @@ export async function crearActa(
 
   const fechaStr = (formData.get("fecha") as string)?.trim();
   const objetivo = (formData.get("objetivo") as string)?.trim() ?? "";
-  const contenido = (formData.get("contenido") as string)?.trim() || null;
+  const contenidoRaw = formData.get("contenido") as string | null;
+  const contenidoNormalizado = normalizarContenidoHtml(contenidoRaw);
   const compromisosRaw = formData.get("compromisos");
   const integrantesRaw = formData.get("integrantes");
   const clientesIdsRaw = formData.get("clientesIds");
@@ -50,7 +81,7 @@ export async function crearActa(
   const parsed = schemaCrear.safeParse({
     fecha: fechaStr,
     objetivo,
-    contenido: contenido ?? "",
+    contenido: contenidoNormalizado ?? "",
     compromisos: typeof compromisosRaw === "string" ? compromisosRaw : "",
   });
   if (!parsed.success) {
@@ -76,7 +107,7 @@ export async function crearActa(
       .values({
         fecha,
         objetivo: parsed.data.objetivo,
-        contenido: contenido || null,
+        contenido: contenidoNormalizado,
         compromisos: null,
         estado: "borrador",
         creadoPorId: session.user.id,
@@ -178,7 +209,8 @@ export async function actualizarActa(
   const id = typeof idRaw === "string" ? idRaw.trim() : "";
   const fechaStr = (formData.get("fecha") as string)?.trim();
   const objetivo = (formData.get("objetivo") as string)?.trim() ?? "";
-  const contenido = (formData.get("contenido") as string)?.trim() || null;
+  const contenidoRaw = formData.get("contenido") as string | null;
+  const contenidoNormalizado = normalizarContenidoHtml(contenidoRaw);
   const compromisosRaw = formData.get("compromisos");
   const integrantesRaw = formData.get("integrantes");
   const clientesIdsRaw = formData.get("clientesIds");
@@ -188,7 +220,7 @@ export async function actualizarActa(
     id: id || undefined,
     fecha: fechaStr,
     objetivo,
-    contenido: contenido ?? "",
+    contenido: contenidoNormalizado ?? "",
     compromisos: typeof compromisosRaw === "string" ? compromisosRaw : "",
   });
   if (!parsed.success) {
@@ -227,7 +259,7 @@ export async function actualizarActa(
     const despues = snapshotDespuesEdicion(
       parsed.data.fecha,
       parsed.data.objetivo,
-      contenido || null,
+      contenidoNormalizado,
       integrantes,
       clientesIds,
       actividadesIds,
@@ -239,7 +271,7 @@ export async function actualizarActa(
       .set({
         fecha,
         objetivo: parsed.data.objetivo,
-        contenido: contenido || null,
+        contenido: contenidoNormalizado,
         compromisos: null,
         actualizadoEn: new Date(),
       })

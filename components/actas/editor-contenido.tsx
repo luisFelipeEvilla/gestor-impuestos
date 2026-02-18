@@ -79,7 +79,8 @@ export function EditorContenido({
   useEffect(() => {
     if (!editor) return;
     const html = defaultValue?.trim() ?? "";
-    if (html && editor.isEmpty) {
+    if (html) {
+      // Siempre sincronizar si hay defaultValue, no solo si editor.isEmpty
       editor.commands.setContent(html, { emitUpdate: false });
       const el = hiddenInputRef.current;
       if (el) el.value = editor.getHTML();
@@ -91,6 +92,27 @@ export function EditorContenido({
     if (editor && hiddenInputRef.current) {
       hiddenInputRef.current.value = editor.getHTML();
     }
+  }, [editor]);
+
+  // Asegurar que el contenido se sincronice antes de enviar el formulario
+  useEffect(() => {
+    if (!hiddenInputRef.current) return;
+    
+    // Buscar el formulario padre
+    const form = hiddenInputRef.current.closest("form");
+    if (!form) return;
+    
+    const handleSubmit = () => {
+      if (editor && hiddenInputRef.current) {
+        hiddenInputRef.current.value = editor.getHTML();
+      }
+    };
+    
+    form.addEventListener("submit", handleSubmit, { capture: true });
+    
+    return () => {
+      form.removeEventListener("submit", handleSubmit, { capture: true });
+    };
   }, [editor]);
 
   const setFontSize = useCallback(
