@@ -40,7 +40,10 @@ export async function middleware(req: NextRequest) {
 
   const rol = (token as { rol?: "admin" | "empleado" }).rol;
   if (
-    (pathname.startsWith("/usuarios") || pathname.startsWith("/cargos")) &&
+    (pathname.startsWith("/usuarios") ||
+      pathname.startsWith("/cargos") ||
+      pathname.startsWith("/impuestos") ||
+      pathname.startsWith("/clientes")) &&
     rol !== "admin"
   ) {
     return NextResponse.redirect(new URL("/", req.nextUrl.origin));
