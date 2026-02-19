@@ -19,6 +19,15 @@ function isMetadataEdicion(m: unknown): m is MetadataEdicionActa {
   );
 }
 
+function isDevolucionBorrador(m: unknown): boolean {
+  return (
+    m != null &&
+    typeof m === "object" &&
+    "devolucionBorrador" in m &&
+    (m as { devolucionBorrador?: boolean }).devolucionBorrador === true
+  );
+}
+
 type HistorialActaProps = {
   items: HistorialActaItem[];
 };
@@ -45,8 +54,13 @@ export function HistorialActa({ items }: HistorialActaProps) {
       {items.map((item) => {
         const motivoRechazo =
           item.tipoEvento === "rechazo_participante" ? getMotivoRechazo(item.metadata) : null;
+        const esDevolucionBorrador =
+          item.tipoEvento === "edicion" && isDevolucionBorrador(item.metadata);
         const hayEvidenciaEdicion =
           item.tipoEvento === "edicion" && isMetadataEdicion(item.metadata);
+        const labelEvento = esDevolucionBorrador
+          ? "Devolución a borrador"
+          : (LABEL_TIPO_EVENTO[item.tipoEvento] ?? item.tipoEvento);
         return (
           <li
             key={item.id}
@@ -60,7 +74,7 @@ export function HistorialActa({ items }: HistorialActaProps) {
                 })}
               </span>
               <span className="font-medium">
-                {LABEL_TIPO_EVENTO[item.tipoEvento] ?? item.tipoEvento}
+                {labelEvento}
               </span>
               {item.usuarioNombre && (
                 <span className="text-muted-foreground">

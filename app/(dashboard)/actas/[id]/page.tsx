@@ -62,6 +62,8 @@ export default async function ActaDetallePage({ params }: Props) {
   const puedeEditar = acta.estado === "borrador" && (isCreador || isAdmin);
   const puedeEnviarAprobacion = acta.estado === "borrador" && (isCreador || isAdmin);
   const puedeAprobar = acta.estado === "pendiente_aprobacion" && isAdmin;
+  const puedeDevolverABorrador =
+    (acta.estado === "pendiente_aprobacion" || acta.estado === "aprobada") && isAdmin;
   const puedeEnviarCorreo = acta.estado === "aprobada" && isAdmin;
   const puedeEliminar = acta.estado === "borrador" && (isCreador || isAdmin);
 
@@ -95,6 +97,7 @@ export default async function ActaDetallePage({ params }: Props) {
           puedeEditar={puedeEditar}
           puedeEnviarAprobacion={puedeEnviarAprobacion}
           puedeAprobar={puedeAprobar}
+          puedeDevolverABorrador={puedeDevolverABorrador}
           puedeEnviarCorreo={puedeEnviarCorreo}
           puedeEliminar={puedeEliminar}
         />

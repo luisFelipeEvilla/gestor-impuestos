@@ -442,6 +442,50 @@ export async function aprobarActa(actaId: string): Promise<EstadoGestionActa> {
   }
 }
 
+export async function devolverActaABorrador(actaId: string): Promise<EstadoGestionActa> {
+  const session = await requireAdminSession();
+  if (!session) return { error: "Solo un administrador puede devolver un acta a borrador." };
+
+  if (!actaId || typeof actaId !== "string") return { error: "Acta inválida." };
+
+  try {
+    const [acta] = await db
+      .select({ estado: actasReunion.estado })
+      .from(actasReunion)
+      .where(eq(actasReunion.id, actaId));
+    if (!acta) return { error: "Acta no encontrada." };
+    if (acta.estado !== "pendiente_aprobacion" && acta.estado !== "aprobada") {
+      return {
+        error:
+          "Solo se puede devolver a borrador un acta en estado pendiente de aprobación o aprobada.",
+      };
+    }
+
+    await db
+      .update(actasReunion)
+      .set({
+        estado: "borrador",
+        aprobadoPorId: null,
+        actualizadoEn: new Date(),
+      })
+      .where(eq(actasReunion.id, actaId));
+
+    await db.insert(historialActa).values({
+      actaId,
+      usuarioId: session.user.id,
+      tipoEvento: "edicion",
+      metadata: { devolucionBorrador: true },
+    });
+
+    revalidatePath("/actas");
+    revalidatePath(`/actas/${actaId}`);
+    return {};
+  } catch (err) {
+    console.error(err);
+    return { error: "Error al devolver el acta a borrador." };
+  }
+}
+
 export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestionActa> {
   const session = await requireAdminSession();
   if (!session) return { error: "Solo un administrador puede enviar actas por correo." };
@@ -843,4 +887,12 @@ export async function eliminarActaAction(
 ): Promise<EstadoGestionActa> {
   const actaId = String(formData.get("actaId") ?? "").trim();
   return eliminarActa(actaId);
+}
+
+export async function devolverActaABorradorAction(
+  _prev: EstadoGestionActa | null,
+  formData: FormData
+): Promise<EstadoGestionActa> {
+  const actaId = String(formData.get("actaId") ?? "").trim();
+  return devolverActaABorrador(actaId);
 }

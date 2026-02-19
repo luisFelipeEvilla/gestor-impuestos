@@ -22,6 +22,7 @@ export {
   actualizarActa,
   enviarActaAprobacion,
   aprobarActa,
+  devolverActaABorrador,
   enviarActaPorCorreo,
   eliminarActa,
   aprobarParticipanteFromPreviewAction,
@@ -30,6 +31,7 @@ export {
   rechazarParticipanteFromPreviewAction,
   enviarActaAprobacionAction,
   aprobarActaAction,
+  devolverActaABorradorAction,
   enviarActaPorCorreoAction,
   eliminarActaAction,
 } from "./actas/mutations";
