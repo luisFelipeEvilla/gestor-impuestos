@@ -216,31 +216,6 @@ const styles = StyleSheet.create({
   estadoPendiente: { color: COLORS.slateLight },
   estadoCumplido: { color: "#0d9488", fontWeight: "bold" },
   estadoNoCumplido: { color: "#dc2626", fontWeight: "bold" },
-  // —— Firma ——
-  firmaBlock: {
-    marginTop: 36,
-    paddingTop: 24,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  firmaLabel: {
-    fontSize: 8,
-    color: COLORS.slateLight,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    marginBottom: 14,
-  },
-  firmaLine: {
-    width: 220,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.navy,
-    marginBottom: 6,
-  },
-  firmaCargo: {
-    fontSize: 10,
-    fontWeight: "bold",
-    color: COLORS.navy,
-  },
   // —— Pie de página ——
   footer: {
     position: "absolute",
@@ -306,7 +281,6 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
   const contenidoTexto = stripHtml(acta.contenido);
   const compromisosTexto = acta.compromisos ? stripHtml(acta.compromisos) : null;
   const tieneCompromisosLista = acta.compromisosLista?.length > 0;
-  const cargoFirmante = empresa?.cargoFirmanteActas?.trim() || "Representante legal";
   const nombreEmpresa = empresa?.nombre ?? "R&R Consultorías S.A.S";
   const internos = acta.integrantes.filter((i) => (i.tipo ?? "externo") === "interno");
   const externos = acta.integrantes.filter((i) => (i.tipo ?? "externo") === "externo");
@@ -475,12 +449,6 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
                 <Text style={styles.sectionEmpty}>No hay asistentes externos.</Text>
               </View>
             )}
-          </View>
-
-          <View style={styles.firmaBlock}>
-            <Text style={styles.firmaLabel}>Firma del representante legal</Text>
-            <View style={styles.firmaLine} />
-            <Text style={styles.firmaCargo}>{cargoFirmante}</Text>
           </View>
         </View>
 
