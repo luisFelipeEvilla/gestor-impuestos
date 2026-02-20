@@ -38,7 +38,6 @@ const COLORS = {
 
 const styles = StyleSheet.create({
   page: {
-    padding: 0,
     fontSize: 10,
     fontFamily: "Helvetica",
     color: COLORS.text,
@@ -75,7 +74,8 @@ const styles = StyleSheet.create({
   main: {
     paddingHorizontal: 48,
     paddingTop: 28,
-    paddingBottom: 120,
+    paddingBottom: 0,
+    flexGrow: 1,
   },
   docTitleBlock: {
     marginBottom: 24,
@@ -210,23 +210,20 @@ const styles = StyleSheet.create({
   colFechaLimite: { width: 76 },
   colResponsable: { width: 110 },
   colEstado: { width: 58 },
-  colNombre: { flex: 1, minWidth: 90 },
-  colEmail: { width: 140 },
-  colCargo: { width: 72 },
+  colNombre: { width: 130 },
+  colEmail: { flex: 1 },
+  colCargo: { width: 96 },
   estadoPendiente: { color: COLORS.slateLight },
   estadoCumplido: { color: "#0d9488", fontWeight: "bold" },
   estadoNoCumplido: { color: "#dc2626", fontWeight: "bold" },
   // —— Pie de página ——
   footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
     paddingVertical: 16,
     paddingHorizontal: 48,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     backgroundColor: COLORS.bgSection,
+    marginTop: 24,
   },
   footerRow: {
     flexDirection: "row",
@@ -321,25 +318,32 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>{numContenido}. Contenido</Text>
-            <View style={styles.sectionBody}>
-              <Text style={contenidoTexto ? styles.sectionText : styles.sectionEmpty}>
-                {contenidoTexto || "Sin contenido registrado."}
-              </Text>
-            </View>
+            <Text style={contenidoTexto ? styles.sectionText : styles.sectionEmpty}>
+              {contenidoTexto || "Sin contenido registrado."}
+            </Text>
           </View>
 
           {acta.actividades?.length > 0 ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{numActividades}. Actividades desarrolladas</Text>
               <View style={styles.table}>
-                <View style={styles.tableHeaderRow}>
-                  <Text style={[styles.tableHeaderCell, styles.colCodigo]}>Cód.</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colDescripcion]}>Descripción</Text>
+                <View wrap={false}>
+                  <View style={styles.tableHeaderRow}>
+                    <Text style={[styles.tableHeaderCell, styles.colCodigo]}>Cód.</Text>
+                    <Text style={[styles.tableHeaderCell, styles.colDescripcion]}>Descripción</Text>
+                  </View>
+                  {acta.actividades[0] && (
+                    <View style={styles.tableRow}>
+                      <Text style={[styles.tableCell, styles.colCodigo]}>{acta.actividades[0].codigo}</Text>
+                      <Text style={[styles.tableCell, styles.colDescripcion]}>{acta.actividades[0].descripcion}</Text>
+                    </View>
+                  )}
                 </View>
-                {acta.actividades.map((a, idx) => (
+                {acta.actividades.slice(1).map((a, idx) => (
                   <View
                     key={a.id}
-                    style={idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt}
+                    style={(idx + 1) % 2 === 0 ? styles.tableRowAlt : styles.tableRow}
+                    wrap={false}
                   >
                     <Text style={[styles.tableCell, styles.colCodigo]}>{a.codigo}</Text>
                     <Text style={[styles.tableCell, styles.colDescripcion]}>{a.descripcion}</Text>
@@ -353,19 +357,45 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
             <Text style={styles.sectionTitle}>{numCompromisos}. Compromisos</Text>
             {tieneCompromisosLista ? (
               <View style={styles.table}>
-                <View style={styles.tableHeaderRow}>
-                  <Text style={[styles.tableHeaderCell, styles.colNum]}>#</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colDescripcion]}>Descripción</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colFechaLimite]}>Fecha límite</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colResponsable]}>Responsable</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colEstado]}>Estado</Text>
+                <View wrap={false}>
+                  <View style={styles.tableHeaderRow}>
+                    <Text style={[styles.tableHeaderCell, styles.colNum]}>#</Text>
+                    <Text style={[styles.tableHeaderCell, styles.colDescripcion]}>Descripción</Text>
+                    <Text style={[styles.tableHeaderCell, styles.colFechaLimite]}>Fecha límite</Text>
+                    <Text style={[styles.tableHeaderCell, styles.colResponsable]}>Responsable</Text>
+                    <Text style={[styles.tableHeaderCell, styles.colEstado]}>Estado</Text>
+                  </View>
+                  {acta.compromisosLista[0] && (
+                    <View style={styles.tableRow}>
+                      <Text style={[styles.tableCell, styles.colNum]}>1</Text>
+                      <Text style={[styles.tableCell, styles.colDescripcion]}>{acta.compromisosLista[0].descripcion}</Text>
+                      <Text style={[styles.tableCell, styles.colFechaLimite]}>
+                        {formatFechaCorta(acta.compromisosLista[0].fechaLimite)}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.colResponsable]}>
+                        {formatAsignado(acta.compromisosLista[0].asignadoNombre ?? null, acta.compromisosLista[0].asignadoCargo ?? null)}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.tableCell,
+                          styles.colEstado,
+                          ...(acta.compromisosLista[0].estado === "cumplido" ? [styles.estadoCumplido] : []),
+                          ...(acta.compromisosLista[0].estado === "no_cumplido" ? [styles.estadoNoCumplido] : []),
+                          ...((acta.compromisosLista[0].estado === "pendiente" || !acta.compromisosLista[0].estado) ? [styles.estadoPendiente] : []),
+                        ]}
+                      >
+                        {estadoLabel(acta.compromisosLista[0].estado)}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-                {acta.compromisosLista.map((c, idx) => (
+                {acta.compromisosLista.slice(1).map((c, idx) => (
                   <View
                     key={c.id}
-                    style={idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt}
+                    style={(idx + 1) % 2 === 0 ? styles.tableRowAlt : styles.tableRow}
+                    wrap={false}
                   >
-                    <Text style={[styles.tableCell, styles.colNum]}>{idx + 1}</Text>
+                    <Text style={[styles.tableCell, styles.colNum]}>{idx + 2}</Text>
                     <Text style={[styles.tableCell, styles.colDescripcion]}>{c.descripcion}</Text>
                     <Text style={[styles.tableCell, styles.colFechaLimite]}>
                       {formatFechaCorta(c.fechaLimite)}
@@ -403,15 +433,25 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
             <Text style={styles.subsectionTitle}>Asistentes de {nombreEmpresa}</Text>
             {internos.length > 0 ? (
               <View style={styles.table}>
-                <View style={styles.tableHeaderRow}>
-                  <Text style={[styles.tableHeaderCell, styles.colNombre]}>Nombre</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colEmail]}>Correo electrónico</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colCargo]}>Cargo</Text>
+                <View wrap={false}>
+                  <View style={styles.tableHeaderRow}>
+                    <Text style={[styles.tableHeaderCell, styles.colNombre]}>Nombre</Text>
+                    <Text style={[styles.tableHeaderCell, styles.colEmail]}>Correo electrónico</Text>
+                    <Text style={[styles.tableHeaderCell, styles.colCargo]}>Cargo</Text>
+                  </View>
+                  {internos[0] && (
+                    <View style={styles.tableRow}>
+                      <Text style={[styles.tableCell, styles.colNombre]}>{internos[0].nombre}</Text>
+                      <Text style={[styles.tableCell, styles.colEmail]}>{internos[0].email}</Text>
+                      <Text style={[styles.tableCell, styles.colCargo]}>{internos[0].cargo ?? "—"}</Text>
+                    </View>
+                  )}
                 </View>
-                {internos.map((inv, idx) => (
+                {internos.slice(1).map((inv, idx) => (
                   <View
                     key={inv.id}
-                    style={idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt}
+                    style={(idx + 1) % 2 === 0 ? styles.tableRowAlt : styles.tableRow}
+                    wrap={false}
                   >
                     <Text style={[styles.tableCell, styles.colNombre]}>{inv.nombre}</Text>
                     <Text style={[styles.tableCell, styles.colEmail]}>{inv.email}</Text>
@@ -428,15 +468,25 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
             <Text style={styles.subsectionTitle}>Asistentes externos</Text>
             {externos.length > 0 ? (
               <View style={styles.table}>
-                <View style={styles.tableHeaderRow}>
-                  <Text style={[styles.tableHeaderCell, styles.colNombre]}>Nombre</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colEmail]}>Correo electrónico</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colCargo]}>Cargo</Text>
+                <View wrap={false}>
+                  <View style={styles.tableHeaderRow}>
+                    <Text style={[styles.tableHeaderCell, styles.colNombre]}>Nombre</Text>
+                    <Text style={[styles.tableHeaderCell, styles.colEmail]}>Correo electrónico</Text>
+                    <Text style={[styles.tableHeaderCell, styles.colCargo]}>Cargo</Text>
+                  </View>
+                  {externos[0] && (
+                    <View style={styles.tableRow}>
+                      <Text style={[styles.tableCell, styles.colNombre]}>{externos[0].nombre}</Text>
+                      <Text style={[styles.tableCell, styles.colEmail]}>{externos[0].email}</Text>
+                      <Text style={[styles.tableCell, styles.colCargo]}>{externos[0].cargo ?? "—"}</Text>
+                    </View>
+                  )}
                 </View>
-                {externos.map((inv, idx) => (
+                {externos.slice(1).map((inv, idx) => (
                   <View
                     key={inv.id}
-                    style={idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt}
+                    style={(idx + 1) % 2 === 0 ? styles.tableRowAlt : styles.tableRow}
+                    wrap={false}
                   >
                     <Text style={[styles.tableCell, styles.colNombre]}>{inv.nombre}</Text>
                     <Text style={[styles.tableCell, styles.colEmail]}>{inv.email}</Text>
@@ -452,7 +502,7 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
           </View>
         </View>
 
-        <View style={styles.footer} fixed>
+        <View style={styles.footer} wrap={false}>
           {empresa && (
             <View style={styles.footerRow}>
               <View>
