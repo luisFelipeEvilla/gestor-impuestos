@@ -39,7 +39,7 @@ const COLORS = {
 const styles = StyleSheet.create({
   page: {
     paddingTop: 36,
-    paddingBottom: 44,
+    paddingBottom: 32,
     fontSize: 10,
     fontFamily: "Helvetica",
     color: COLORS.text,
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   },
   pageNumber: {
     position: "absolute",
-    bottom: 16,
+    bottom: 12,
     left: 48,
     right: 48,
     textAlign: "center",
@@ -102,7 +102,6 @@ const styles = StyleSheet.create({
   main: {
     paddingHorizontal: 48,
     paddingTop: 28,
-    paddingBottom: 0,
     flexGrow: 1,
   },
   docTitleBlock: {
@@ -244,14 +243,13 @@ const styles = StyleSheet.create({
   estadoPendiente: { color: COLORS.slateLight },
   estadoCumplido: { color: "#0d9488", fontWeight: "bold" },
   estadoNoCumplido: { color: "#dc2626", fontWeight: "bold" },
-  // —— Pie de página ——
+  // —— Pie de página (solo última página, empujado al fondo por flexGrow del main) ——
   footer: {
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 48,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     backgroundColor: COLORS.bgSection,
-    marginTop: 24,
   },
   footerRow: {
     flexDirection: "row",
@@ -323,7 +321,7 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
           style={styles.pageRef}
           fixed
           render={({ pageNumber }) =>
-            pageNumber > 1 ? `Acta de reunión · No. ${acta.id}` : ""
+            pageNumber > 1 ? `Acta de reunión · No. ${acta.serial}` : ""
           }
         />
         <Text
@@ -346,7 +344,7 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
         <View style={styles.main}>
           <View style={styles.docTitleBlock}>
             <Text style={styles.docTitle}>Acta de reunión</Text>
-            <Text style={styles.docSubtitle}>No. {acta.id}</Text>
+            <Text style={styles.docSubtitle}>No. {acta.serial}</Text>
           </View>
 
           <View style={styles.metaBlock}>
