@@ -36,6 +36,7 @@ import {
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { DetalleConHistorial } from "./detalle-con-historial";
 import { unstable_noStore } from "next/cache";
+import type { EvidenciaEnvioEmail } from "@/lib/notificaciones/resend";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -169,7 +170,11 @@ export default async function DetalleProcesoPage({ params }: Props) {
   const notificacionEvent = historialRows.find((h) => h.tipoEvento === "notificacion");
   const yaNotificado = !!notificacionEvent;
   const fechaNotificacion = notificacionEvent?.fecha ?? null;
-  const notificacionMetadata = (notificacionEvent?.metadata as { tipo?: string; documentoIds?: number[] } | null) ?? null;
+  const notificacionMetadata = (notificacionEvent?.metadata as {
+    tipo?: string;
+    documentoIds?: number[];
+    envios?: EvidenciaEnvioEmail[];
+  } | null) ?? null;
   const notifDocIds = notificacionMetadata && notificacionMetadata.tipo === "fisica" && Array.isArray(notificacionMetadata.documentoIds)
     ? notificacionMetadata.documentoIds
     : [];

@@ -17,6 +17,7 @@ import {
   agregarNotaProceso,
   enviarNotificacion,
 } from "@/lib/actions/procesos";
+import type { EvidenciaEnvioEmail } from "@/lib/notificaciones/resend";
 import { cn } from "@/lib/utils";
 import {
   ListaDocumentos,
@@ -197,8 +198,12 @@ type BotonesNotificacionProps = {
   procesoId: number;
   yaNotificado: boolean;
   fechaNotificacion?: Date | string | null;
-  /** Metadata del evento de notificación (tipo "fisica" | email) y documentoIds si es física */
-  notificacionMetadata?: { tipo?: string; documentoIds?: number[] } | null;
+  /** Metadata del evento de notificación (tipo "fisica" | email), documentoIds si es física, envios si es email */
+  notificacionMetadata?: {
+    tipo?: string;
+    documentoIds?: number[];
+    envios?: EvidenciaEnvioEmail[];
+  } | null;
   /** Documentos de evidencia cuando la notificación fue física (para mostrar enlaces) */
   documentosEvidencia?: DocumentoEvidenciaItem[];
 };
@@ -230,10 +235,11 @@ export function BotonesNotificacion({
   if (yaNotificado) {
     const esFisica =
       notificacionMetadata &&
-      (notificacionMetadata as { tipo?: string }).tipo === "fisica" &&
-      Array.isArray((notificacionMetadata as { documentoIds?: number[] }).documentoIds) &&
-      (notificacionMetadata as { documentoIds?: number[] }).documentoIds!.length > 0;
+      notificacionMetadata.tipo === "fisica" &&
+      Array.isArray(notificacionMetadata.documentoIds) &&
+      notificacionMetadata.documentoIds.length > 0;
     const docs = documentosEvidencia ?? [];
+    const enviosEmail = notificacionMetadata?.envios ?? [];
 
     return (
       <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-200">
@@ -260,6 +266,24 @@ export function BotonesNotificacion({
               </li>
             ))}
           </ul>
+        )}
+        {!esFisica && enviosEmail.length > 0 && (
+          <div className="mt-2 text-xs">
+            <p className="font-medium text-foreground">Evidencia de envío</p>
+            <ul className="mt-1 space-y-0.5 text-muted-foreground">
+              {enviosEmail.map((envio, i) => (
+                <li key={i}>
+                  {envio.to}
+                  {" · "}
+                  {new Date(envio.sentAt).toLocaleString("es-CO", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                  })}
+                  {envio.resendId && ` · ID: ${envio.resendId}`}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         <p className="text-muted-foreground text-xs mt-0.5">
           Solo se puede notificar una vez por proceso.
