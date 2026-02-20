@@ -38,17 +38,45 @@ const COLORS = {
 
 const styles = StyleSheet.create({
   page: {
+    paddingTop: 36,
+    paddingBottom: 44,
     fontSize: 10,
     fontFamily: "Helvetica",
     color: COLORS.text,
   },
-  // —— Encabezado ——
+  // —— Elementos fijos (cada página) ——
+  topBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: COLORS.navy,
+  },
+  pageRef: {
+    position: "absolute",
+    top: 10,
+    right: 48,
+    fontSize: 7,
+    color: COLORS.slateLight,
+    letterSpacing: 0.3,
+  },
+  pageNumber: {
+    position: "absolute",
+    bottom: 16,
+    left: 48,
+    right: 48,
+    textAlign: "center",
+    fontSize: 8,
+    color: COLORS.slateLight,
+  },
+  // —— Encabezado (solo página 1) ——
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 48,
-    paddingTop: 32,
+    paddingTop: 12,
     paddingBottom: 24,
     borderBottomWidth: 2,
     borderBottomColor: COLORS.navy,
@@ -290,6 +318,22 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        <View style={styles.topBar} fixed />
+        <Text
+          style={styles.pageRef}
+          fixed
+          render={({ pageNumber }) =>
+            pageNumber > 1 ? `Acta de reunión · No. ${acta.id}` : ""
+          }
+        />
+        <Text
+          style={styles.pageNumber}
+          fixed
+          render={({ pageNumber, totalPages }) =>
+            `Página ${pageNumber} de ${totalPages}`
+          }
+        />
+
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Image src={logoPath} style={styles.logo} />
@@ -317,7 +361,7 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{numContenido}. Contenido</Text>
+            <Text style={styles.sectionTitle} minPresenceAhead={80}>{numContenido}. Contenido</Text>
             <Text style={contenidoTexto ? styles.sectionText : styles.sectionEmpty}>
               {contenidoTexto || "Sin contenido registrado."}
             </Text>
@@ -325,7 +369,7 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
 
           {acta.actividades?.length > 0 ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{numActividades}. Actividades desarrolladas</Text>
+              <Text style={styles.sectionTitle} minPresenceAhead={80}>{numActividades}. Actividades desarrolladas</Text>
               <View style={styles.table}>
                 <View wrap={false}>
                   <View style={styles.tableHeaderRow}>
@@ -354,7 +398,7 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
           ) : null}
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{numCompromisos}. Compromisos</Text>
+            <Text style={styles.sectionTitle} minPresenceAhead={80}>{numCompromisos}. Compromisos</Text>
             {tieneCompromisosLista ? (
               <View style={styles.table}>
                 <View wrap={false}>
@@ -429,8 +473,8 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{numAsistentes}. Asistentes</Text>
-            <Text style={styles.subsectionTitle}>Asistentes de {nombreEmpresa}</Text>
+            <Text style={styles.sectionTitle} minPresenceAhead={80}>{numAsistentes}. Asistentes</Text>
+            <Text style={styles.subsectionTitle} minPresenceAhead={60}>Asistentes de {nombreEmpresa}</Text>
             {internos.length > 0 ? (
               <View style={styles.table}>
                 <View wrap={false}>
@@ -465,7 +509,7 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
               </View>
             )}
 
-            <Text style={styles.subsectionTitle}>Asistentes externos</Text>
+            <Text style={styles.subsectionTitle} minPresenceAhead={60}>Asistentes externos</Text>
             {externos.length > 0 ? (
               <View style={styles.table}>
                 <View wrap={false}>
