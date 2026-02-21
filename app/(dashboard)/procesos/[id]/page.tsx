@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import {
   procesos,
-  impuestos,
   contribuyentes,
   usuarios,
   historialProceso,
@@ -112,18 +111,18 @@ export default async function DetalleProcesoPage({ params }: Props) {
       periodo: procesos.periodo,
       noComparendo: procesos.noComparendo,
       montoCop: procesos.montoCop,
+      montoMultaCop: procesos.montoMultaCop,
+      montoInteresesCop: procesos.montoInteresesCop,
       estadoActual: procesos.estadoActual,
       asignadoAId: procesos.asignadoAId,
       fechaLimite: procesos.fechaLimite,
       fechaAplicacionImpuesto: procesos.fechaAplicacionImpuesto,
       creadoEn: procesos.creadoEn,
-      impuestoNombre: impuestos.nombre,
       contribuyenteNit: contribuyentes.nit,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
       asignadoNombre: usuarios.nombre,
     })
     .from(procesos)
-    .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
     .where(eq(procesos.id, id));
@@ -148,8 +147,10 @@ export default async function DetalleProcesoPage({ params }: Props) {
         categoriaNota: historialProceso.categoriaNota,
         metadata: historialProceso.metadata,
         fecha: historialProceso.fecha,
+        autorNombre: usuarios.nombre,
       })
       .from(historialProceso)
+      .leftJoin(usuarios, eq(historialProceso.usuarioId, usuarios.id))
       .where(eq(historialProceso.procesoId, id))
       .orderBy(asc(historialProceso.fecha))
       .limit(50),
@@ -165,8 +166,10 @@ export default async function DetalleProcesoPage({ params }: Props) {
         mimeType: documentosProceso.mimeType,
         tamano: documentosProceso.tamano,
         creadoEn: documentosProceso.creadoEn,
+        subidoPorNombre: usuarios.nombre,
       })
       .from(documentosProceso)
+      .leftJoin(usuarios, eq(documentosProceso.subidoPorId, usuarios.id))
       .where(eq(documentosProceso.procesoId, id))
       .orderBy(desc(documentosProceso.creadoEn)),
     db.select().from(ordenesResolucion).where(eq(ordenesResolucion.procesoId, id)).then((r) => r[0] ?? null),
@@ -205,15 +208,20 @@ export default async function DetalleProcesoPage({ params }: Props) {
           mimeType: d.mimeType,
           tamano: d.tamano,
           creadoEn: d.creadoEn,
+          creadoPorNombre: d.subidoPorNombre ?? null,
         }));
       return acc;
     },
-    {} as Record<CategoriaKey, { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date }[]>
+    {} as Record<
+      CategoriaKey,
+      { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date; creadoPorNombre: string | null }[]
+    >
   );
 
+  type NotaConAutor = { id: number; comentario: string; fecha: Date; autorNombre: string | null };
   const notasPorCategoria = categorias.reduce(
     (acc, cat) => {
-      acc[cat] = historialRows
+      const list = historialRows
         .filter(
           (h) =>
             h.tipoEvento === "nota" && (h.categoriaNota ?? "general") === cat
@@ -222,10 +230,14 @@ export default async function DetalleProcesoPage({ params }: Props) {
           id: h.id,
           comentario: h.comentario ?? "",
           fecha: h.fecha,
+          autorNombre: h.autorNombre ?? null,
         }));
+      acc[cat] = [...list].sort(
+        (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
+      );
       return acc;
     },
-    {} as Record<CategoriaKey, { id: number; comentario: string; fecha: Date }[]>
+    {} as Record<CategoriaKey, NotaConAutor[]>
   );
 
   return (
@@ -247,7 +259,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
           <Card className="w-full">
             <CardHeader>
               <CardTitle>
-                Proceso #{row.id} · {row.impuestoNombre} –{" "}
+                Proceso #{row.id} –{" "}
                 <Link
                   href={`/contribuyentes/${row.contribuyenteId}`}
                   className="text-primary hover:underline"
@@ -264,12 +276,6 @@ export default async function DetalleProcesoPage({ params }: Props) {
             </CardHeader>
             <CardContent className="space-y-2">
               <dl className="grid gap-2 text-sm">
-                <div>
-                  <dt className="text-muted-foreground">Impuesto</dt>
-                  <dd className="font-medium">
-                    {row.impuestoNombre}
-                  </dd>
-                </div>
                 <div>
                   <dt className="text-muted-foreground">Contribuyente</dt>
                   <dd className="font-medium">
@@ -295,8 +301,19 @@ export default async function DetalleProcesoPage({ params }: Props) {
                   </div>
                 )}
                 <div>
-                  <dt className="text-muted-foreground">Monto (COP)</dt>
+                  <dt className="text-muted-foreground">Monto total (COP)</dt>
                   <dd className="font-medium">{Number(row.montoCop).toLocaleString("es-CO")}</dd>
+                  {(row.montoMultaCop != null || row.montoInteresesCop != null) && (
+                    <dd className="text-muted-foreground text-sm mt-1">
+                      {row.montoMultaCop != null && (
+                        <span>Multa: {Number(row.montoMultaCop).toLocaleString("es-CO")} COP</span>
+                      )}
+                      {row.montoMultaCop != null && row.montoInteresesCop != null && " · "}
+                      {row.montoInteresesCop != null && (
+                        <span>Intereses: {Number(row.montoInteresesCop).toLocaleString("es-CO")} COP</span>
+                      )}
+                    </dd>
+                  )}
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Estado</dt>
@@ -456,20 +473,27 @@ export default async function DetalleProcesoPage({ params }: Props) {
               procesoId={row.id}
               documentos={documentosPorCategoria.general}
               puedeEliminar
+              variant="table"
             />
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Comentarios generales del proceso</CardTitle>
+            <CardTitle>Bitácora del proceso</CardTitle>
             <CardDescription>
-              Notas y comentarios generales del proceso (no asociados a una etapa concreta).
+              Registra llamadas, acuerdos y seguimiento que no correspondan a una etapa concreta. Útil para dejar trazabilidad y que el equipo vea el historial de gestión.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <AgregarNotaForm procesoId={row.id} categoria="general" />
-            <ListaNotas notas={notasPorCategoria.general} />
+          <CardContent className="space-y-6">
+            <div>
+              <h4 className="text-sm font-medium text-foreground mb-2">Añadir nota</h4>
+              <AgregarNotaForm procesoId={row.id} categoria="general" />
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-foreground mb-2">Notas recientes</h4>
+              <ListaNotas notas={notasPorCategoria.general} />
+            </div>
           </CardContent>
         </Card>
 

@@ -10,14 +10,12 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import type { TipoDocumento } from "../lib/constants/tipo-documento";
 import { db } from "../lib/db";
-import { contribuyentes, impuestos, procesos, ordenesResolucion } from "../lib/db/schema";
+import { contribuyentes, procesos } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
 
 const CSV_PATH =
   process.env.CARTERA_CSV_PATH ||
   (process.argv[2] ? resolve(process.cwd(), process.argv[2]) : resolve(process.cwd(), "ReporteCarteraActual.csv"));
-
-const IMPUESTO_NOMBRE_TRANSITO = "Comparendos de tránsito";
 
 function normalizarTipoDocCsv(val: string): string {
   return val
@@ -153,25 +151,6 @@ function contribuyenteKey(tipoDoc: TipoDocumento, nit: string): string {
   return `${tipoDoc}:${nit}`;
 }
 
-async function getOrCreateImpuestoTransito(): Promise<string> {
-  const [existente] = await db
-    .select({ id: impuestos.id })
-    .from(impuestos)
-    .where(eq(impuestos.nombre, IMPUESTO_NOMBRE_TRANSITO));
-  if (existente) return existente.id;
-  const [inserted] = await db
-    .insert(impuestos)
-    .values({
-      nombre: IMPUESTO_NOMBRE_TRANSITO,
-      naturaleza: "no_tributario",
-      descripcion: "Comparendos y sanciones de tránsito",
-      activo: true,
-    })
-    .returning({ id: impuestos.id });
-  if (!inserted) throw new Error("No se pudo crear el impuesto Tránsito");
-  return inserted.id;
-}
-
 async function main(): Promise<void> {
   if (!process.env.DATABASE_URL) {
     console.error("DATABASE_URL no está definida en .env");
@@ -190,8 +169,6 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const impuestoId = await getOrCreateImpuestoTransito();
-
   const contribuyentesByKey = new Map<string, { id: number }>();
   const contribuyentesExistentes = await db
     .select({
@@ -204,21 +181,36 @@ async function main(): Promise<void> {
     contribuyentesByKey.set(contribuyenteKey(c.tipoDocumento, c.nit), { id: c.id });
   }
 
+  function buildIdempotenciaKey(
+    noComparendo: string | null,
+    fechaAplicacion: string | null,
+    montoCop: string,
+    noDocumentoInfractor: string
+  ): string {
+    const noComp = (noComparendo ?? "").trim();
+    const fecha = fechaAplicacion ?? "";
+    const doc = (noDocumentoInfractor ?? "").trim();
+    return `${noComp}|${fecha}|${montoCop}|${doc}`;
+  }
+
   const procesosExistentes = await db
     .select({
-      contribuyenteId: procesos.contribuyenteId,
+      noComparendo: procesos.noComparendo,
+      fechaAplicacionImpuesto: procesos.fechaAplicacionImpuesto,
       montoCop: procesos.montoCop,
-      numeroResolucion: ordenesResolucion.numeroResolucion,
+      nit: contribuyentes.nit,
     })
     .from(procesos)
-    .leftJoin(ordenesResolucion, eq(procesos.id, ordenesResolucion.procesoId))
-    .where(eq(procesos.impuestoId, impuestoId));
+    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id));
 
   const clavesYaEnBd = new Set<string>();
   for (const row of procesosExistentes) {
-    const montoStr = String(row.montoCop ?? "0");
-    const numeroResolucion = row.numeroResolucion ?? "";
-    const key = `${impuestoId}-${row.contribuyenteId}-${numeroResolucion}-${montoStr}`;
+    const key = buildIdempotenciaKey(
+      row.noComparendo,
+      row.fechaAplicacionImpuesto,
+      String(row.montoCop ?? "0"),
+      row.nit ?? ""
+    );
     clavesYaEnBd.add(key);
   }
 
@@ -230,8 +222,7 @@ async function main(): Promise<void> {
   for (const fila of filas) {
     const nit = fila.identificacion || "SIN-DOC";
     const key = contribuyenteKey(fila.tipoDocumento, nit);
-    const contrib = contribuyentesByKey.get(key);
-    const contribId = contrib ? contrib.id : -1;
+    contribuyentesByKey.get(key);
 
     const fechaAplicacion = fila.fechaComparendo ?? fila.fechaResolucion ?? null;
     const vigencia = fechaAplicacion
@@ -245,28 +236,24 @@ async function main(): Promise<void> {
     const montoStr = fila.valorDeuda || fila.valorMulta || "0";
     const montoNum = parseFloat(montoStr.replace(/,/g, "."));
     const montoCop = Number.isNaN(montoNum) || montoNum < 0 ? "0" : montoNum.toFixed(2);
-    const numeroResolucion = fila.nroResolucion?.trim() || fila.nroComparendo?.trim() || null;
-    const idempotenciaKey = numeroResolucion
-      ? `${impuestoId}-${contribId}-${numeroResolucion}-${montoCop}`
-      : null;
+    const noComparendo = fila.nroComparendo?.trim() ? limpia(fila.nroComparendo) : null;
+    const idempotenciaKey = buildIdempotenciaKey(noComparendo, fechaAplicacion, montoCop, nit);
 
-    if (idempotenciaKey && clavesYaEnBd.has(idempotenciaKey)) {
+    if (clavesYaEnBd.has(idempotenciaKey)) {
       yaExisten++;
       continue;
     }
-    if (idempotenciaKey && vistosEnCsv.has(idempotenciaKey)) {
+    if (vistosEnCsv.has(idempotenciaKey)) {
       conErrores++;
       continue;
     }
-    if (idempotenciaKey) {
-      vistosEnCsv.add(idempotenciaKey);
-    }
+    vistosEnCsv.add(idempotenciaKey);
     porImportar++;
   }
 
   const total = yaExisten + porImportar + conErrores;
   console.log("--- Resumen de importación de cartera (preview) ---");
-  console.log(`Procesos ya existentes en BD (impuesto Tránsito): ${yaExisten}`);
+  console.log(`Procesos ya existentes en BD: ${yaExisten}`);
   console.log(`Filas que quedarían por importar: ${porImportar}`);
   console.log(`Filas con errores u omitidas (vigencia inválida, duplicados en CSV): ${conErrores}`);
   console.log(`Total filas en CSV: ${filas.length}`);

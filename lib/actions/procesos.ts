@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { procesos, historialProceso, impuestos, contribuyentes, usuarios, documentosProceso, cobrosCoactivos } from "@/lib/db/schema";
+import { procesos, historialProceso, contribuyentes, usuarios, documentosProceso, cobrosCoactivos } from "@/lib/db/schema";
 import type { NewHistorialProceso } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import {
@@ -25,8 +25,8 @@ function puedeAccederProceso(
   return asignadoAId === usuarioId;
 }
 
-/** Años para prescripción: fecha límite = base (aplicación o ingreso a cobro coactivo) + este valor */
-const AÑOS_PRESCRIPCION = 5;
+/** Años para prescripción: fecha límite = base (aplicación o ingreso a cobro coactivo) + este valor (3 años / 36 meses) */
+const AÑOS_PRESCRIPCION = 3;
 
 /** Suma años a una fecha ISO (YYYY-MM-DD) y devuelve YYYY-MM-DD */
 function addYears(isoDate: string, years: number): string {
@@ -36,7 +36,7 @@ function addYears(isoDate: string, years: number): string {
 }
 
 /**
- * Calcula la fecha límite por prescripción: 5 años desde la base.
+ * Calcula la fecha límite por prescripción: 3 años (36 meses) desde la base.
  * Base = fecha de ingreso a cobro coactivo si existe, si no fecha de aplicación del impuesto.
  */
 function computeFechaLimitePrescripcion(
@@ -57,7 +57,6 @@ const estadoProcesoValues = [
 ] as const;
 
 const schemaCrear = z.object({
-  impuestoId: z.string().uuid("Selecciona un impuesto"),
   contribuyenteId: z.coerce.number().int().positive("Selecciona un contribuyente"),
   vigencia: z.coerce.number().int().min(2000, "Vigencia inválida").max(2100),
   periodo: z.string().max(50).optional().or(z.literal("")),
@@ -66,6 +65,24 @@ const schemaCrear = z.object({
     (v) => /^\d+(\.\d{1,2})?$/.test(v) && Number(v) >= 0,
     "Monto debe ser un número positivo (ej. 1500000.50)"
   ),
+  montoMultaCop: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v))
+    .refine(
+      (v) => v === undefined || (/^\d+(\.\d{1,2})?$/.test(v) && Number(v) >= 0),
+      "Multa debe ser un número positivo"
+    ),
+  montoInteresesCop: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v))
+    .refine(
+      (v) => v === undefined || (/^\d+(\.\d{1,2})?$/.test(v) && Number(v) >= 0),
+      "Intereses debe ser un número positivo"
+    ),
   estadoActual: z.enum(estadoProcesoValues).default("pendiente"),
   asignadoAId: z
     .string()
@@ -97,12 +114,13 @@ export async function crearProceso(
   formData: FormData
 ): Promise<EstadoFormProceso> {
   const raw = {
-    impuestoId: formData.get("impuestoId"),
     contribuyenteId: formData.get("contribuyenteId"),
     vigencia: formData.get("vigencia"),
     periodo: formData.get("periodo") || undefined,
     noComparendo: formData.get("noComparendo") || undefined,
     montoCop: formData.get("montoCop"),
+    montoMultaCop: formData.get("montoMultaCop") || undefined,
+    montoInteresesCop: formData.get("montoInteresesCop") || undefined,
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
@@ -120,12 +138,13 @@ export async function crearProceso(
   }
 
   const {
-    impuestoId,
     contribuyenteId,
     vigencia,
     periodo,
     noComparendo,
     montoCop,
+    montoMultaCop,
+    montoInteresesCop,
     estadoActual: estadoForm,
     asignadoAId,
     fechaLimite,
@@ -144,12 +163,13 @@ export async function crearProceso(
     const [inserted] = await db
       .insert(procesos)
       .values({
-        impuestoId,
         contribuyenteId,
         vigencia,
         periodo: periodo?.trim() || null,
         noComparendo: noComparendo?.trim() || null,
         montoCop,
+        montoMultaCop: montoMultaCop ?? null,
+        montoInteresesCop: montoInteresesCop ?? null,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
         fechaLimite: fechaLimiteCalculada,
@@ -181,7 +201,7 @@ export async function crearProceso(
     }
     if (err instanceof Error && "code" in err && (err as { code?: string }).code === "23503") {
       return {
-        error: "El impuesto o el contribuyente no existe. Verifica que estén activos.",
+        error: "El contribuyente no existe. Verifica que esté activo.",
       };
     }
     console.error(err);
@@ -197,12 +217,13 @@ export async function actualizarProceso(
   const id = typeof idRaw === "string" ? parseInt(idRaw, 10) : Number(idRaw);
   const raw = {
     id: Number.isNaN(id) ? undefined : id,
-    impuestoId: formData.get("impuestoId"),
     contribuyenteId: formData.get("contribuyenteId"),
     vigencia: formData.get("vigencia"),
     periodo: formData.get("periodo") || undefined,
     noComparendo: formData.get("noComparendo") || undefined,
     montoCop: formData.get("montoCop"),
+    montoMultaCop: formData.get("montoMultaCop") || undefined,
+    montoInteresesCop: formData.get("montoInteresesCop") || undefined,
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
@@ -220,12 +241,13 @@ export async function actualizarProceso(
   }
 
   const {
-    impuestoId,
     contribuyenteId,
     vigencia,
     periodo,
     noComparendo,
     montoCop,
+    montoMultaCop,
+    montoInteresesCop,
     estadoActual,
     asignadoAId,
     fechaLimite,
@@ -257,12 +279,13 @@ export async function actualizarProceso(
     const [updated] = await db
       .update(procesos)
       .set({
-        impuestoId,
         contribuyenteId,
         vigencia,
         periodo: periodo?.trim() || null,
         noComparendo: noComparendo?.trim() || null,
         montoCop,
+        montoMultaCop: montoMultaCop ?? null,
+        montoInteresesCop: montoInteresesCop ?? null,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
         fechaLimite: fechaLimiteFinal,
@@ -313,7 +336,7 @@ export async function actualizarProceso(
     }
     if (err instanceof Error && "code" in err && (err as { code?: string }).code === "23503") {
       return {
-        error: "El impuesto o el contribuyente no existe. Verifica que estén activos.",
+        error: "El contribuyente no existe. Verifica que esté activo.",
       };
     }
     console.error(err);
@@ -587,6 +610,7 @@ export async function agregarNotaProceso(
 
     await db.insert(historialProceso).values({
       procesoId,
+      usuarioId: session?.user?.id ?? null,
       tipoEvento: "nota",
       comentario,
       categoriaNota,
@@ -627,7 +651,6 @@ type RowProcesoNotificacion = {
   periodo: string | null;
   contribuyenteNombre: string;
   contribuyenteEmail: string | null;
-  impuestoNombre: string;
 };
 
 async function validarProcesoParaNotificacion(
@@ -643,11 +666,9 @@ async function validarProcesoParaNotificacion(
       periodo: procesos.periodo,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
       contribuyenteEmail: contribuyentes.email,
-      impuestoNombre: impuestos.nombre,
     })
     .from(procesos)
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
-    .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .where(eq(procesos.id, procesoId));
 
   if (!row) return { error: "Proceso no encontrado." };
@@ -689,8 +710,8 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
 
     const resultado = await enviarNotificacionCobroPorEmail(email, {
       nombreContribuyente: row.contribuyenteNombre,
-      impuestoNombre: row.impuestoNombre,
-      impuestoCodigo: row.impuestoNombre,
+      impuestoNombre: "Proceso de cobro",
+      impuestoCodigo: "Proceso de cobro",
       montoCop: montoCopFormatted,
       vigencia: row.vigencia,
       periodo: row.periodo,

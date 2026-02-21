@@ -54,6 +54,8 @@ export function CardAcuerdosPagoList({
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
+  const parseNum = (v: FormDataEntryValue | null) => (v != null && v !== "" ? Number(String(v)) : null);
+
   const [createState, createAction] = useActionState(
     async (_: { error?: string } | null, formData: FormData) => {
       const r = await crearAcuerdoPago(
@@ -61,7 +63,9 @@ export function CardAcuerdosPagoList({
         (formData.get("numeroAcuerdo") as string)?.trim() ?? "",
         (formData.get("fechaAcuerdo") as string)?.trim() || null,
         (formData.get("fechaInicio") as string)?.trim() || null,
-        formData.get("cuotas") ? parseInt(String(formData.get("cuotas")), 10) : null
+        parseNum(formData.get("cuotas")),
+        parseNum(formData.get("porcentajeCuotaInicial")),
+        parseNum(formData.get("diaCobroMes"))
       );
       if (r?.error) return r;
       setAdding(false);
@@ -80,7 +84,9 @@ export function CardAcuerdosPagoList({
         (formData.get("numeroAcuerdo") as string)?.trim() ?? "",
         (formData.get("fechaAcuerdo") as string)?.trim() || null,
         (formData.get("fechaInicio") as string)?.trim() || null,
-        formData.get("cuotas") ? parseInt(String(formData.get("cuotas")), 10) : null
+        parseNum(formData.get("cuotas")),
+        parseNum(formData.get("porcentajeCuotaInicial")),
+        parseNum(formData.get("diaCobroMes"))
       );
       if (r?.error) return r;
       setEditingId(null);
@@ -101,7 +107,7 @@ export function CardAcuerdosPagoList({
   );
 
   const descripcion =
-    "Registro de acuerdos del proceso (número, fechas, cuotas). Acuerdo de pago y cobro coactivo son etapas independientes: el cobro coactivo puede iniciarse desde Cobro persuasivo sin acuerdo. Si hay acuerdo y el contribuyente incumple, desde aquí se puede pasar a cobro coactivo. Documentos y notas asociados al acuerdo.";
+    "Registro de acuerdos del proceso: número, fechas, porcentaje de cuota inicial, número de cuotas y día del mes de cobro. Acuerdo de pago y cobro coactivo son etapas independientes. Documentos y notas asociados al acuerdo.";
 
   return (
     <CardSectionAccordion title="Acuerdos de pago" description={descripcion}>
@@ -146,8 +152,34 @@ export function CardAcuerdosPagoList({
                       <Input
                         name="cuotas"
                         type="number"
-                        min={0}
+                        min={1}
+                        required
                         defaultValue={a.cuotas ?? ""}
+                        className="h-8 w-20"
+                      />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label className="text-xs">% cuota inicial</Label>
+                      <Input
+                        name="porcentajeCuotaInicial"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.01}
+                        required
+                        defaultValue={a.porcentajeCuotaInicial ?? ""}
+                        className="h-8 w-24"
+                      />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Día cobro (mes)</Label>
+                      <Input
+                        name="diaCobroMes"
+                        type="number"
+                        min={1}
+                        max={31}
+                        required
+                        defaultValue={a.diaCobroMes ?? ""}
                         className="h-8 w-20"
                       />
                     </div>
@@ -164,7 +196,8 @@ export function CardAcuerdosPagoList({
                       <span className="font-medium">{a.numeroAcuerdo}</span>
                       <span className="text-muted-foreground ml-2">
                         Fecha: {formatDate(a.fechaAcuerdo)} · Inicio: {formatDate(a.fechaInicio)}
-                        {a.cuotas != null ? ` · ${a.cuotas} cuotas` : ""}
+                        {" · "}
+                        {Number(a.porcentajeCuotaInicial)}% inicial · {a.cuotas} cuotas · cobro día {a.diaCobroMes}
                       </span>
                     </div>
                     <div className="flex gap-1">
@@ -207,8 +240,33 @@ export function CardAcuerdosPagoList({
                 <Input id="fechaInicio-new" name="fechaInicio" type="date" />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="cuotas-new">Cuotas</Label>
-                <Input id="cuotas-new" name="cuotas" type="number" min={0} placeholder="Opcional" />
+                <Label htmlFor="cuotas-new">Número de cuotas</Label>
+                <Input id="cuotas-new" name="cuotas" type="number" min={1} required placeholder="Ej. 6" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="porcentajeCuotaInicial-new">Porcentaje cuota inicial (%)</Label>
+                <Input
+                  id="porcentajeCuotaInicial-new"
+                  name="porcentajeCuotaInicial"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  required
+                  placeholder="Ej. 20"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="diaCobroMes-new">Día del mes de cobro (1-31)</Label>
+                <Input
+                  id="diaCobroMes-new"
+                  name="diaCobroMes"
+                  type="number"
+                  min={1}
+                  max={31}
+                  required
+                  placeholder="Ej. 15"
+                />
               </div>
             </div>
             <div className="flex gap-2">

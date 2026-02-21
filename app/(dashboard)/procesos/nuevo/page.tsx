@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { impuestos, contribuyentes, usuarios } from "@/lib/db/schema";
+import { contribuyentes, usuarios } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { crearProceso } from "@/lib/actions/procesos";
 import { ProcesoForm } from "@/components/procesos/proceso-form";
@@ -12,8 +12,7 @@ export const runtime = 'nodejs';
 
 export default async function NuevoProcesoPage() {
   unstable_noStore();
-  const [impuestosList, contribuyentesList, usuariosList] = await Promise.all([
-    db.select({ id: impuestos.id, nombre: impuestos.nombre }).from(impuestos).where(eq(impuestos.activo, true)),
+  const [contribuyentesList, usuariosList] = await Promise.all([
     db.select({ id: contribuyentes.id, nit: contribuyentes.nit, nombreRazonSocial: contribuyentes.nombreRazonSocial }).from(contribuyentes),
     db.select({ id: usuarios.id, nombre: usuarios.nombre }).from(usuarios).where(eq(usuarios.activo, true)),
   ]);
@@ -29,7 +28,6 @@ export default async function NuevoProcesoPage() {
         <ProcesoForm
           action={crearProceso}
           submitLabel="Crear proceso"
-          impuestos={impuestosList}
           contribuyentes={contribuyentesList}
           usuarios={usuariosList}
         />

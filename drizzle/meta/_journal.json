@@ -260,6 +260,34 @@
       "when": 1771679273016,
       "tag": "0036_mean_valkyrie",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1771680000000,
+      "tag": "0037_procesos_impuesto_id_nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1771680100000,
+      "tag": "0038_procesos_drop_impuesto_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1771680200000,
+      "tag": "0039_procesos_multa_intereses",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1771714468293,
+      "tag": "0040_green_gorilla_man",
+      "breakpoints": true
     }
   ]
 }

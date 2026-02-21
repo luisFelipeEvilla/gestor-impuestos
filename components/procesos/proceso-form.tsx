@@ -25,7 +25,6 @@ const ESTADOS = [
   { value: "cobrado", label: "Cobrado" },
 ] as const;
 
-type ImpuestoOption = { id: string; nombre: string };
 type ContribuyenteOption = { id: number; nit: string; nombreRazonSocial: string };
 type UsuarioOption = { id: number; nombre: string };
 
@@ -33,7 +32,6 @@ type ProcesoFormProps = {
   action: (prev: EstadoFormProceso | null, formData: FormData) => Promise<EstadoFormProceso>;
   initialData?: Proceso | null;
   submitLabel: string;
-  impuestos: ImpuestoOption[];
   contribuyentes: ContribuyenteOption[];
   usuarios: UsuarioOption[];
 };
@@ -48,7 +46,6 @@ export function ProcesoForm({
   action,
   initialData,
   submitLabel,
-  impuestos: impuestosList,
   contribuyentes: contribuyentesList,
   usuarios: usuariosList,
 }: ProcesoFormProps) {
@@ -66,7 +63,7 @@ export function ProcesoForm({
           <CardDescription>
             {isEdit
               ? "Modifica los datos del proceso de cobro."
-              : "Registra un nuevo proceso de cobro (impuesto + contribuyente)."}
+              : "Registra un nuevo proceso de cobro."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -75,29 +72,6 @@ export function ProcesoForm({
               {state.error}
             </p>
           )}
-          <div className="grid gap-2">
-            <Label htmlFor="impuestoId">Impuesto</Label>
-            <select
-              id="impuestoId"
-              name="impuestoId"
-              defaultValue={initialData?.impuestoId ?? ""}
-              className={cn(
-                "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-              )}
-              aria-invalid={!!state?.errores?.impuestoId}
-              aria-required="true"
-            >
-              <option value="">Selecciona un impuesto</option>
-              {impuestosList.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.nombre}
-                </option>
-              ))}
-            </select>
-            {state?.errores?.impuestoId && (
-              <p className="text-destructive text-xs">{state.errores.impuestoId[0]}</p>
-            )}
-          </div>
           <div className="grid gap-2">
             <Label htmlFor="contribuyenteId">Contribuyente</Label>
             <select
@@ -165,7 +139,7 @@ export function ProcesoForm({
             )}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="montoCop">Monto (COP)</Label>
+            <Label htmlFor="montoCop">Monto total (COP)</Label>
             <Input
               id="montoCop"
               name="montoCop"
@@ -178,6 +152,38 @@ export function ProcesoForm({
             {state?.errores?.montoCop && (
               <p className="text-destructive text-xs">{state.errores.montoCop[0]}</p>
             )}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="montoMultaCop">Multa (COP, opcional)</Label>
+              <Input
+                id="montoMultaCop"
+                name="montoMultaCop"
+                type="text"
+                inputMode="decimal"
+                defaultValue={initialData?.montoMultaCop ?? ""}
+                placeholder="Ej. 1000000"
+                aria-invalid={!!state?.errores?.montoMultaCop}
+              />
+              {state?.errores?.montoMultaCop && (
+                <p className="text-destructive text-xs">{state.errores.montoMultaCop[0]}</p>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="montoInteresesCop">Intereses (COP, opcional)</Label>
+              <Input
+                id="montoInteresesCop"
+                name="montoInteresesCop"
+                type="text"
+                inputMode="decimal"
+                defaultValue={initialData?.montoInteresesCop ?? ""}
+                placeholder="Ej. 500000"
+                aria-invalid={!!state?.errores?.montoInteresesCop}
+              />
+              {state?.errores?.montoInteresesCop && (
+                <p className="text-destructive text-xs">{state.errores.montoInteresesCop[0]}</p>
+              )}
+            </div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="estadoActual">Estado</Label>
@@ -230,7 +236,7 @@ export function ProcesoForm({
               aria-describedby="fechaLimite-hint"
             />
             <p id="fechaLimite-hint" className="text-muted-foreground text-xs">
-              Se calcula en 5 años desde la fecha de aplicación del impuesto. Si el proceso pasa a cobro coactivo, se recalcula desde esa fecha.
+              Se calcula en 3 años desde la fecha de aplicación del impuesto. Si el proceso pasa a cobro coactivo, se recalcula desde esa fecha.
             </p>
           </div>
           <div className="grid gap-2">
@@ -244,7 +250,7 @@ export function ProcesoForm({
                 aria-describedby="fechaAplicacion-hint"
               />
               <p id="fechaAplicacion-hint" className="text-muted-foreground text-xs">
-                Si se indica, la fecha límite se calcula automáticamente (5 años desde esta fecha).
+                Si se indica, la fecha límite se calcula automáticamente (3 años desde esta fecha).
               </p>
           </div>
           <div className="flex gap-2 pt-2">

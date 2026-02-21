@@ -97,6 +97,7 @@ export async function registrarDocumentoProceso(
 
     await db.insert(documentosProceso).values({
       procesoId,
+      subidoPorId: session?.user?.id ?? null,
       categoria,
       nombreOriginal,
       rutaArchivo,
@@ -174,6 +175,7 @@ export async function subirDocumentoProceso(
 
     await db.insert(documentosProceso).values({
       procesoId,
+      subidoPorId: session?.user?.id ?? null,
       categoria,
       nombreOriginal: file.name,
       rutaArchivo,

@@ -23,18 +23,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FiltroBusquedaContribuyentes } from "./filtro-busqueda";
+import { SelectorPorPagina } from "@/components/selector-por-pagina";
+import { parsePerPage } from "@/lib/pagination";
 import { unstable_noStore } from "next/cache";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const PAGE_SIZE = 15;
+type Props = { searchParams: Promise<{ q?: string; page?: string; perPage?: string }> };
 
-type Props = { searchParams: Promise<{ q?: string; page?: string }> };
-
-function buildQueryString(params: { q?: string; page?: number }): string {
+function buildQueryString(params: { q?: string; page?: number; perPage?: number }): string {
   const sp = new URLSearchParams();
   if (params.q?.trim()) sp.set("q", params.q.trim());
+  if (params.perPage != null) sp.set("perPage", String(params.perPage));
   if (params.page != null && params.page > 1) sp.set("page", String(params.page));
   const s = sp.toString();
   return s ? `?${s}` : "";
@@ -44,6 +45,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
   unstable_noStore();
   const params = await searchParams;
   const busqueda = (params.q ?? "").trim();
+  const pageSize = parsePerPage(params.perPage);
   const pageRaw = params.page ? parseInt(params.page, 10) : 1;
   const page = Number.isNaN(pageRaw) || pageRaw < 1 ? 1 : pageRaw;
 
@@ -60,16 +62,16 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
     ? await countQuery.where(whereCond)
     : await countQuery;
   const total = Number(countResult?.count ?? 0);
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const offset = (currentPage - 1) * PAGE_SIZE;
+  const offset = (currentPage - 1) * pageSize;
 
   const baseQuery = db.select().from(contribuyentes);
   const lista = await (whereCond
     ? baseQuery.where(whereCond)
     : baseQuery)
     .orderBy(desc(contribuyentes.createdAt))
-    .limit(PAGE_SIZE)
+    .limit(pageSize)
     .offset(offset);
 
   return (
@@ -133,16 +135,25 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                   ))}
                 </TableBody>
               </Table>
-              {totalPages > 1 && (
+              {(totalPages > 1 || total > 0) && (
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-border/80 pt-4 mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Página {currentPage} de {totalPages}
-                    {total > 0 && (
-                      <span className="ml-1">
-                        · {total} resultado{total !== 1 ? "s" : ""}
-                      </span>
-                    )}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <p className="text-sm text-muted-foreground">
+                      Página {currentPage} de {totalPages}
+                      {total > 0 && (
+                        <span className="ml-1">
+                          · {total} resultado{total !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </p>
+                    <SelectorPorPagina
+                      searchParams={{
+                        ...(busqueda ? { q: busqueda } : {}),
+                        perPage: String(pageSize),
+                      }}
+                      perPage={pageSize}
+                    />
+                  </div>
                   <nav className="flex flex-wrap items-center gap-2" aria-label="Paginación">
                     {currentPage <= 1 ? (
                       <Button variant="outline" size="sm" className="gap-1" disabled>
@@ -151,7 +162,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: 1 })}`} scroll={false}>
+                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, perPage: pageSize, page: 1 })}`} scroll={false}>
                           <ChevronsLeft className="size-4" aria-hidden />
                           Primera
                         </Link>
@@ -164,7 +175,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: currentPage - 1 })}`} scroll={false}>
+                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, perPage: pageSize, page: currentPage - 1 })}`} scroll={false}>
                           <ChevronLeft className="size-4" aria-hidden />
                           Anterior
                         </Link>
@@ -180,7 +191,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: currentPage + 1 })}`} scroll={false}>
+                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, perPage: pageSize, page: currentPage + 1 })}`} scroll={false}>
                           Siguiente
                           <ChevronRight className="size-4" aria-hidden />
                         </Link>
@@ -193,7 +204,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: totalPages })}`} scroll={false}>
+                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, perPage: pageSize, page: totalPages })}`} scroll={false}>
                           Última
                           <ChevronsRight className="size-4" aria-hidden />
                         </Link>
@@ -203,6 +214,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                       {busqueda ? (
                         <input type="hidden" name="q" value={busqueda} />
                       ) : null}
+                      <input type="hidden" name="perPage" value={String(pageSize)} />
                       <label htmlFor="contribuyentes-page-go" className="sr-only">
                         Ir a página
                       </label>

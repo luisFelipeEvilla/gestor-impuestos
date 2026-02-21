@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,32 +31,38 @@ const OPCIONES_VIGENCIA = Array.from(
   (_, i) => AÑO_MIN + i
 ).reverse();
 
-type ImpuestoOption = { id: string; nombre: string };
+/** Opciones de antigüedad según fecha límite de prescripción (igual que columna Antigüedad) */
+const OPCIONES_ANTIGUEDAD = [
+  { value: "todos", label: "Todas" },
+  { value: "en_plazo", label: "En plazo" },
+  { value: "prescripcion_cercana", label: "Prescripción cercana" },
+  { value: "prescripcion_muy_cercana", label: "Prescripción muy cercana" },
+  { value: "prescrito", label: "Prescrito" },
+  { value: "sin_fecha", label: "Sin fecha límite" },
+] as const;
 
 type UsuarioOption = { id: number; nombre: string };
 
 type FiltrosProcesosProps = {
   estadoActual: string | null;
   vigenciaActual: number | null;
+  antiguedadActual: string | null;
   contribuyenteActual: string;
   comparendoActual: string;
   usuarios: UsuarioOption[];
   asignadoIdActual: number | null;
   fechaAsignacionActual: string | null;
-  impuestos: ImpuestoOption[];
-  impuestoIdActual: string | null;
 };
 
 export function FiltrosProcesos({
   estadoActual,
   vigenciaActual,
+  antiguedadActual,
   contribuyenteActual,
   comparendoActual,
   usuarios: usuariosList,
   asignadoIdActual,
   fechaAsignacionActual,
-  impuestos: impuestosList,
-  impuestoIdActual,
 }: FiltrosProcesosProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -74,17 +80,19 @@ export function FiltrosProcesos({
     (updates: {
       estado?: string | null;
       vigencia?: string | number | null;
+      antiguedad?: string | null;
       contribuyente?: string;
       comparendo?: string;
       asignadoId?: number | null;
       fechaAsignacion?: string | null;
-      impuestoId?: string | null;
     }) => {
       const params = new URLSearchParams(searchParams.toString());
       const estado =
         updates.estado !== undefined ? updates.estado : estadoActual;
       const vigencia =
         updates.vigencia !== undefined ? updates.vigencia : vigenciaActual;
+      const antig =
+        updates.antiguedad !== undefined ? updates.antiguedad : antiguedadActual;
       const contrib =
         updates.contribuyente !== undefined
           ? updates.contribuyente
@@ -99,38 +107,33 @@ export function FiltrosProcesos({
         updates.fechaAsignacion !== undefined
           ? updates.fechaAsignacion
           : fechaAsignacionActual;
-      const impId =
-        updates.impuestoId !== undefined
-          ? updates.impuestoId
-          : impuestoIdActual;
 
       params.delete("estado");
       params.delete("vigencia");
+      params.delete("antiguedad");
       params.delete("contribuyente");
       params.delete("comparendo");
       params.delete("asignado");
       params.delete("fechaAsignacion");
-      params.delete("impuesto");
       if (estado != null && estado !== "todos") params.set("estado", estado);
       if (vigencia != null) params.set("vigencia", String(vigencia));
+      if (antig != null && antig !== "todos") params.set("antiguedad", antig);
       if (contrib.trim()) params.set("contribuyente", contrib.trim());
       if (comp.trim()) params.set("comparendo", comp.trim());
       if (asigId != null && asigId > 0) params.set("asignado", String(asigId));
       if (fechaAsig != null && fechaAsig !== "")
         params.set("fechaAsignacion", fechaAsig);
-      if (impId != null && impId !== "")
-        params.set("impuesto", impId);
       return params;
     },
     [
       searchParams,
       estadoActual,
       vigenciaActual,
+      antiguedadActual,
       contribuyente,
       comparendo,
       fechaAsignacionActual,
       asignadoIdActual,
-      impuestoIdActual,
     ]
   );
 
@@ -154,10 +157,10 @@ export function FiltrosProcesos({
     [router, buildParams]
   );
 
-  const handleImpuestoChange = useCallback(
+  const handleAntiguedadChange = useCallback(
     (value: string) => {
       const params = buildParams({
-        impuestoId: value === "todos" ? null : value,
+        antiguedad: value === "todos" ? null : value,
       });
       router.push(`/procesos?${params.toString()}`);
     },
@@ -202,38 +205,18 @@ export function FiltrosProcesos({
   const tieneFiltros =
     estadoActual != null ||
     vigenciaActual != null ||
+    (antiguedadActual != null && antiguedadActual !== "todos") ||
     contribuyenteActual.length > 0 ||
     comparendoActual.length > 0 ||
     asignadoIdActual != null ||
-    fechaAsignacionActual != null ||
-    impuestoIdActual != null;
+    fechaAsignacionActual != null;
 
   const fieldClass = "min-w-0 w-full h-10";
 
   return (
     <Card className="border-border/80 py-4">
       <CardContent className="p-4 pt-0">
-        <form
-          onSubmit={handleSubmitBusqueda}
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-x-4 gap-y-4 items-end"
-        >
-      <div className="flex flex-col gap-1.5">
-        <Label
-          htmlFor="filtro-contribuyente"
-          className="text-xs text-muted-foreground"
-        >
-          Contribuyente
-        </Label>
-        <Input
-          id="filtro-contribuyente"
-          type="search"
-          placeholder="NIT o nombre..."
-          value={contribuyente}
-          onChange={(e) => setContribuyente(e.target.value)}
-          className={fieldClass}
-          aria-label="Buscar por NIT o nombre del contribuyente"
-        />
-      </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-4 items-end">
       <div className="flex flex-col gap-1.5">
         <Label
           htmlFor="filtro-comparendo"
@@ -292,30 +275,6 @@ export function FiltrosProcesos({
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label
-          htmlFor="filtro-impuesto"
-          className="text-xs text-muted-foreground"
-        >
-          Impuesto
-        </Label>
-        <Select
-          value={impuestoIdActual != null ? impuestoIdActual : "todos"}
-          onValueChange={handleImpuestoChange}
-        >
-          <SelectTrigger id="filtro-impuesto" className={fieldClass}>
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
-            {impuestosList.map((i) => (
-              <SelectItem key={i.id} value={String(i.id)}>
-                {i.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-col gap-1.5">
         <Label htmlFor="filtro-estado" className="text-xs text-muted-foreground">
           Estado
         </Label>
@@ -360,11 +319,30 @@ export function FiltrosProcesos({
           </SelectContent>
         </Select>
       </div>
+      <div className="flex flex-col gap-1.5">
+        <Label
+          htmlFor="filtro-antiguedad"
+          className="text-xs text-muted-foreground"
+        >
+          Antigüedad
+        </Label>
+        <Select
+          value={antiguedadActual ?? "todos"}
+          onValueChange={handleAntiguedadChange}
+        >
+          <SelectTrigger id="filtro-antiguedad" className={fieldClass}>
+            <SelectValue placeholder="Todas" />
+          </SelectTrigger>
+          <SelectContent>
+            {OPCIONES_ANTIGUEDAD.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div className="flex items-end gap-2 flex-wrap">
-        <Button type="submit" variant="secondary" size="sm" className="gap-1.5 h-10">
-          <Search className="size-4" aria-hidden />
-          Buscar
-        </Button>
         {tieneFiltros && (
           <Button
             type="button"
@@ -379,7 +357,7 @@ export function FiltrosProcesos({
           </Button>
         )}
       </div>
-        </form>
+        </div>
       </CardContent>
     </Card>
   );
