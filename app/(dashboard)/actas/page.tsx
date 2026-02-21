@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FiltrosActasForm } from "./filtros-actas-form";
+import { SelectorPorPagina } from "@/components/selector-por-pagina";
+import { parsePerPage } from "@/lib/pagination";
 import { unstable_noStore } from "next/cache";
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +39,7 @@ const ESTADOS: { value: string; label: string }[] = [
 interface ActasUrlParams {
   estado?: string;
   page?: number;
+  perPage?: number;
   cliente?: string;
   creador?: string;
   fechaDesde?: string;
@@ -48,6 +51,7 @@ interface ActasUrlParams {
 function buildActasUrl(params: ActasUrlParams) {
   const search = new URLSearchParams();
   if (params.estado) search.set("estado", params.estado);
+  if (params.perPage != null) search.set("perPage", String(params.perPage));
   if (params.page != null && params.page > 1) search.set("page", String(params.page));
   if (params.cliente) search.set("cliente", params.cliente);
   if (params.creador) search.set("creador", params.creador);
@@ -74,6 +78,7 @@ type Props = {
   searchParams: Promise<{
     estado?: string;
     page?: string;
+    perPage?: string;
     cliente?: string;
     creador?: string;
     fechaDesde?: string;
@@ -91,6 +96,7 @@ export default async function ActasPage({ searchParams }: Props) {
       ? params.estado
       : undefined;
   const pageParamRaw = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
+  const perPage = parsePerPage(params.perPage);
   const clienteParam = params.cliente?.trim() ? parseInt(params.cliente, 10) : undefined;
   const creadorParam = params.creador?.trim() ? parseInt(params.creador, 10) : undefined;
   const fechaDesdeParam = params.fechaDesde?.trim() || undefined;
@@ -109,6 +115,7 @@ export default async function ActasPage({ searchParams }: Props) {
     obtenerActas({
       ...(estadoParam ? { estado: estadoParam as "borrador" | "pendiente_aprobacion" | "aprobada" | "enviada" } : {}),
       page: pageParamRaw,
+      pageSize: perPage,
       ...(clienteParam != null && Number.isInteger(clienteParam) && clienteParam > 0 ? { clienteId: clienteParam } : {}),
       ...(creadorParam != null && Number.isInteger(creadorParam) && creadorParam > 0 ? { creadoPorId: creadorParam } : {}),
       ...(fechaDesdeParam ? { fechaDesde: fechaDesdeParam } : {}),
@@ -123,6 +130,7 @@ export default async function ActasPage({ searchParams }: Props) {
   const urlParams: ActasUrlParams = {
     estado: estadoParam,
     page,
+    perPage,
     cliente: params.cliente,
     creador: params.creador,
     fechaDesde: fechaDesdeParam,
@@ -269,9 +277,24 @@ export default async function ActasPage({ searchParams }: Props) {
                 </TableBody>
               </Table>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t pt-4 mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} de {total}
-                </p>
+                <div className="flex flex-wrap items-center gap-4">
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} de {total}
+                  </p>
+                  <SelectorPorPagina
+                    searchParams={{
+                      ...(urlParams.estado ? { estado: urlParams.estado } : {}),
+                      ...(urlParams.cliente ? { cliente: urlParams.cliente } : {}),
+                      ...(urlParams.creador ? { creador: urlParams.creador } : {}),
+                      ...(urlParams.fechaDesde ? { fechaDesde: urlParams.fechaDesde } : {}),
+                      ...(urlParams.fechaHasta ? { fechaHasta: urlParams.fechaHasta } : {}),
+                      ...(urlParams.asistenteInterno ? { asistenteInterno: urlParams.asistenteInterno } : {}),
+                      ...(urlParams.asistenteExterno ? { asistenteExterno: urlParams.asistenteExterno } : {}),
+                      perPage: String(pageSize),
+                    }}
+                    perPage={pageSize}
+                  />
+                </div>
                 {totalPages > 1 ? (
                   <nav className="flex flex-wrap items-center gap-2" aria-label="Paginación">
                     {page <= 1 ? (
@@ -337,6 +360,7 @@ export default async function ActasPage({ searchParams }: Props) {
                       {urlParams.fechaHasta ? <input type="hidden" name="fechaHasta" value={urlParams.fechaHasta} /> : null}
                       {urlParams.asistenteInterno ? <input type="hidden" name="asistenteInterno" value={urlParams.asistenteInterno} /> : null}
                       {urlParams.asistenteExterno ? <input type="hidden" name="asistenteExterno" value={urlParams.asistenteExterno} /> : null}
+                      <input type="hidden" name="perPage" value={String(pageSize)} />
                       <label htmlFor="actas-page-go" className="sr-only">
                         Ir a página
                       </label>

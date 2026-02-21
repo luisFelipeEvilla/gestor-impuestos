@@ -33,6 +33,9 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TablaProcesosConAsignacion } from "@/components/procesos/tabla-procesos-con-asignacion";
 import { FiltrosProcesos } from "./filtros-procesos";
+import { FiltroBusquedaListadoProcesos } from "./filtro-busqueda-listado";
+import { SelectorPorPagina } from "@/components/selector-por-pagina";
+import { parsePerPage } from "@/lib/pagination";
 import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafico-estados";
 import { GraficoProcesosPorVigencia } from "@/components/procesos/grafico-procesos-por-vigencia";
 import { unstable_noStore } from "next/cache";
@@ -58,9 +61,14 @@ const ESTADOS_VALIDOS = [
   "cobrado",
 ] as const;
 
-const PROCESOS_PAGE_SIZE = 15;
-
-const ANTIGUEDAD_VALIDOS = ["menos_30", "30_90", "90_180", "mas_180"] as const;
+/** Misma lógica que lib/fechas-limite (semáforo fecha límite prescripción) */
+const ANTIGUEDAD_VALIDOS = [
+  "en_plazo",
+  "prescripcion_cercana",
+  "prescripcion_muy_cercana",
+  "prescrito",
+  "sin_fecha",
+] as const;
 
 function buildProcesosUrl(filtros: {
   estado?: string | null;
@@ -71,6 +79,7 @@ function buildProcesosUrl(filtros: {
   fechaAsignacion?: string | null;
   comparendo?: string | null;
   page?: number;
+  perPage?: number;
 }) {
   const search = new URLSearchParams();
   if (filtros.estado) search.set("estado", filtros.estado);
@@ -81,6 +90,7 @@ function buildProcesosUrl(filtros: {
   if (filtros.asignadoId != null && filtros.asignadoId > 0) search.set("asignado", String(filtros.asignadoId));
   if (filtros.fechaAsignacion) search.set("fechaAsignacion", filtros.fechaAsignacion);
   if (filtros.comparendo?.trim()) search.set("comparendo", filtros.comparendo.trim());
+  if (filtros.perPage != null) search.set("perPage", String(filtros.perPage));
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
   const q = search.toString();
   return q ? `/procesos?${q}` : "/procesos";
@@ -96,6 +106,7 @@ type Props = {
     fechaAsignacion?: string;
     comparendo?: string;
     page?: string;
+    perPage?: string;
   }>;
 };
 
@@ -114,6 +125,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const fechaAsignacionParam = params.fechaAsignacion;
   const comparendoQ = (params.comparendo ?? "").trim();
   const pageParam = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
+  const pageSize = parsePerPage(params.perPage);
 
   const estadoActual: (typeof ESTADOS_VALIDOS)[number] | null =
     estadoParam != null && ESTADOS_VALIDOS.includes(estadoParam as (typeof ESTADOS_VALIDOS)[number])
@@ -188,20 +200,24 @@ export default async function ProcesosPage({ searchParams }: Props) {
     condiciones.push(inArray(procesos.id, idsConFechaAsignacion));
   }
   if (antiguedadActual != null) {
+    // Misma lógica que getSemáforoFechaLimite: 6 meses = 182 días, 12 meses = 365 días
     switch (antiguedadActual) {
-      case "menos_30":
-        condiciones.push(sql`${procesos.creadoEn} >= (now() - interval '30 days')`);
+      case "en_plazo":
+        condiciones.push(sql`${procesos.fechaLimite} > (current_date + interval '365 days')`);
         break;
-      case "30_90":
-        condiciones.push(sql`${procesos.creadoEn} < (now() - interval '30 days')`);
-        condiciones.push(sql`${procesos.creadoEn} >= (now() - interval '90 days')`);
+      case "prescripcion_cercana":
+        condiciones.push(sql`${procesos.fechaLimite} > (current_date + interval '182 days')`);
+        condiciones.push(sql`${procesos.fechaLimite} <= (current_date + interval '365 days')`);
         break;
-      case "90_180":
-        condiciones.push(sql`${procesos.creadoEn} < (now() - interval '90 days')`);
-        condiciones.push(sql`${procesos.creadoEn} >= (now() - interval '180 days')`);
+      case "prescripcion_muy_cercana":
+        condiciones.push(sql`${procesos.fechaLimite} > current_date`);
+        condiciones.push(sql`${procesos.fechaLimite} <= (current_date + interval '182 days')`);
         break;
-      case "mas_180":
-        condiciones.push(sql`${procesos.creadoEn} < (now() - interval '180 days')`);
+      case "prescrito":
+        condiciones.push(sql`${procesos.fechaLimite} < current_date`);
+        break;
+      case "sin_fecha":
+        condiciones.push(sql`${procesos.fechaLimite} IS NULL`);
         break;
     }
   }
@@ -215,7 +231,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const whereCond =
     condiciones.length > 0 ? and(...condiciones) : undefined;
 
-  const pageSize = PROCESOS_PAGE_SIZE;
   const offset = (pageParam - 1) * pageSize;
 
   const baseQuery = db
@@ -443,6 +458,18 @@ export default async function ProcesosPage({ searchParams }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <FiltroBusquedaListadoProcesos
+            contribuyenteActual={contribuyenteQ}
+            comparendoActual={comparendoQ}
+            baseParams={{
+              ...(estadoActual ? { estado: estadoActual } : {}),
+              ...(vigenciaNum != null ? { vigencia: String(vigenciaNum) } : {}),
+              ...(antiguedadActual ? { antiguedad: antiguedadActual } : {}),
+              ...(asignadoIdNum != null && asignadoIdNum > 0 ? { asignado: String(asignadoIdNum) } : {}),
+              ...(fechaAsignacion ? { fechaAsignacion } : {}),
+              perPage: String(pageSize),
+            }}
+          />
           {lista.length === 0 ? (
             <EmptyState
               icon={FolderOpen}
@@ -456,11 +483,26 @@ export default async function ProcesosPage({ searchParams }: Props) {
                 usuarios={usuariosList}
                 isAdmin={session?.user?.rol === "admin"}
               />
-              {totalPages > 1 && (
+              {(totalPages > 1 || total > 0) && (
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t pt-4 mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} de {total}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <p className="text-sm text-muted-foreground">
+                      Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} de {total}
+                    </p>
+                    <SelectorPorPagina
+                      searchParams={{
+                        ...(estadoActual ? { estado: estadoActual } : {}),
+                        ...(vigenciaNum != null ? { vigencia: String(vigenciaNum) } : {}),
+                        ...(antiguedadActual ? { antiguedad: antiguedadActual } : {}),
+                        ...(contribuyenteQ ? { contribuyente: contribuyenteQ } : {}),
+                        ...(comparendoQ ? { comparendo: comparendoQ } : {}),
+                        ...(asignadoIdNum != null && asignadoIdNum > 0 ? { asignado: String(asignadoIdNum) } : {}),
+                        ...(fechaAsignacion ? { fechaAsignacion } : {}),
+                        perPage: String(pageSize),
+                      }}
+                      perPage={pageSize}
+                    />
+                  </div>
                   <nav className="flex flex-wrap items-center gap-2" aria-label="Paginación">
                     {page <= 1 ? (
                       <Button variant="outline" size="sm" className="gap-1" disabled>
@@ -478,6 +520,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
+                            perPage: pageSize,
                             page: 1,
                           })}
                           scroll={false}
@@ -503,6 +546,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
+                            perPage: pageSize,
                             page: page - 1,
                           })}
                           scroll={false}
@@ -531,6 +575,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
+                            perPage: pageSize,
                             page: page + 1,
                           })}
                           scroll={false}
@@ -556,6 +601,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
+                            perPage: pageSize,
                             page: totalPages,
                           })}
                           scroll={false}
@@ -568,10 +614,12 @@ export default async function ProcesosPage({ searchParams }: Props) {
                     <form method="GET" action="/procesos" className="flex items-center gap-1.5">
                       {estadoActual ? <input type="hidden" name="estado" value={estadoActual} /> : null}
                       {vigenciaNum != null ? <input type="hidden" name="vigencia" value={String(vigenciaNum)} /> : null}
+                      {antiguedadActual ? <input type="hidden" name="antiguedad" value={antiguedadActual} /> : null}
                       {contribuyenteQ ? <input type="hidden" name="contribuyente" value={contribuyenteQ} /> : null}
                       {comparendoQ ? <input type="hidden" name="comparendo" value={comparendoQ} /> : null}
                       {asignadoIdNum != null && asignadoIdNum > 0 ? <input type="hidden" name="asignado" value={String(asignadoIdNum)} /> : null}
                       {fechaAsignacion ? <input type="hidden" name="fechaAsignacion" value={fechaAsignacion} /> : null}
+                      <input type="hidden" name="perPage" value={String(pageSize)} />
                       <label htmlFor="procesos-page-go" className="sr-only">
                         Ir a página
                       </label>

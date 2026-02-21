@@ -61,7 +61,7 @@ export default async function DetalleContribuyentePage({ params }: Props) {
     })
     .from(procesos)
     .where(whereCond)
-    .orderBy(desc(procesos.creadoEn));
+    .orderBy(desc(procesos.vigencia));
 
   return (
     <div className="p-6 space-y-6">

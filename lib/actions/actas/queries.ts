@@ -149,7 +149,7 @@ export async function obtenerActas(filtros?: {
 
   const whereCond = conditions.length > 0 ? and(...conditions) : undefined;
   const page = Math.max(1, filtros?.page ?? 1);
-  const pageSize = Math.min(50, Math.max(1, filtros?.pageSize ?? ACTAS_PAGE_SIZE));
+  const pageSize = Math.min(100, Math.max(1, filtros?.pageSize ?? ACTAS_PAGE_SIZE));
   const offset = (page - 1) * pageSize;
 
   const [countResult, list] = await Promise.all([

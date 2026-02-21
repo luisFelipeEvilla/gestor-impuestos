@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { Search, X } from "lucide-react";
+import { useCallback } from "react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,12 +31,14 @@ const OPCIONES_VIGENCIA = Array.from(
   (_, i) => AÑO_MIN + i
 ).reverse();
 
+/** Opciones de antigüedad según fecha límite de prescripción (igual que columna Antigüedad) */
 const OPCIONES_ANTIGUEDAD = [
   { value: "todos", label: "Todas" },
-  { value: "menos_30", label: "Menos de 30 días" },
-  { value: "30_90", label: "30 a 90 días" },
-  { value: "90_180", label: "90 a 180 días" },
-  { value: "mas_180", label: "Más de 180 días" },
+  { value: "en_plazo", label: "En plazo" },
+  { value: "prescripcion_cercana", label: "Prescripción cercana" },
+  { value: "prescripcion_muy_cercana", label: "Prescripción muy cercana" },
+  { value: "prescrito", label: "Prescrito" },
+  { value: "sin_fecha", label: "Sin fecha límite" },
 ] as const;
 
 type UsuarioOption = { id: number; nombre: string };
@@ -64,15 +66,6 @@ export function FiltrosProcesos({
 }: FiltrosProcesosProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [contribuyente, setContribuyente] = useState(contribuyenteActual);
-  const [comparendo, setComparendo] = useState(comparendoActual);
-
-  useEffect(() => {
-    setContribuyente(contribuyenteActual);
-  }, [contribuyenteActual]);
-  useEffect(() => {
-    setComparendo(comparendoActual);
-  }, [comparendoActual]);
 
   const buildParams = useCallback(
     (updates: {
@@ -94,9 +87,11 @@ export function FiltrosProcesos({
       const contrib =
         updates.contribuyente !== undefined
           ? updates.contribuyente
-          : contribuyente;
+          : contribuyenteActual;
       const comp =
-        updates.comparendo !== undefined ? updates.comparendo : comparendo;
+        updates.comparendo !== undefined
+          ? updates.comparendo
+          : comparendoActual;
       const asigId =
         updates.asignadoId !== undefined
           ? updates.asignadoId
@@ -128,8 +123,8 @@ export function FiltrosProcesos({
       estadoActual,
       vigenciaActual,
       antiguedadActual,
-      contribuyente,
-      comparendo,
+      contribuyenteActual,
+      comparendoActual,
       fechaAsignacionActual,
       asignadoIdActual,
     ]
@@ -184,18 +179,6 @@ export function FiltrosProcesos({
     [router, buildParams]
   );
 
-  const handleSubmitBusqueda = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      const params = buildParams({
-        contribuyente: contribuyente.trim(),
-        comparendo: comparendo.trim(),
-      });
-      router.push(`/procesos?${params.toString()}`, { scroll: false });
-    },
-    [router, buildParams, contribuyente, comparendo]
-  );
-
   const handleLimpiar = useCallback(() => {
     router.push("/procesos");
   }, [router]);
@@ -214,44 +197,7 @@ export function FiltrosProcesos({
   return (
     <Card className="border-border/80 py-4">
       <CardContent className="p-4 pt-0">
-        <form
-          onSubmit={handleSubmitBusqueda}
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-x-4 gap-y-4 items-end"
-        >
-      <div className="flex flex-col gap-1.5">
-        <Label
-          htmlFor="filtro-contribuyente"
-          className="text-xs text-muted-foreground"
-        >
-          Contribuyente
-        </Label>
-        <Input
-          id="filtro-contribuyente"
-          type="search"
-          placeholder="NIT o nombre..."
-          value={contribuyente}
-          onChange={(e) => setContribuyente(e.target.value)}
-          className={fieldClass}
-          aria-label="Buscar por NIT o nombre del contribuyente"
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label
-          htmlFor="filtro-comparendo"
-          className="text-xs text-muted-foreground"
-        >
-          Nº comparendo
-        </Label>
-        <Input
-          id="filtro-comparendo"
-          type="search"
-          placeholder="Número..."
-          value={comparendo}
-          onChange={(e) => setComparendo(e.target.value)}
-          className={fieldClass}
-          aria-label="Filtrar por número de comparendo"
-        />
-      </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-4 items-end">
       <div className="flex flex-col gap-1.5">
         <Label
           htmlFor="filtro-asignado"
@@ -361,10 +307,6 @@ export function FiltrosProcesos({
         </Select>
       </div>
       <div className="flex items-end gap-2 flex-wrap">
-        <Button type="submit" variant="secondary" size="sm" className="gap-1.5 h-10">
-          <Search className="size-4" aria-hidden />
-          Buscar
-        </Button>
         {tieneFiltros && (
           <Button
             type="button"
@@ -379,7 +321,7 @@ export function FiltrosProcesos({
           </Button>
         )}
       </div>
-        </form>
+        </div>
       </CardContent>
     </Card>
   );
