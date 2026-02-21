@@ -1,6 +1,16 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { FolderOpen, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight } from "lucide-react";
+import {
+  FolderOpen,
+  ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
+  ClipboardList,
+  Wallet,
+  CheckCircle,
+  Loader2,
+} from "lucide-react";
 import { db } from "@/lib/db";
 import {
   procesos,
@@ -10,7 +20,7 @@ import {
   historialProceso,
   ordenesResolucion,
 } from "@/lib/db/schema";
-import { asc, desc, eq, and, or, ilike, inArray, sql, count } from "drizzle-orm";
+import { asc, desc, eq, and, or, ilike, inArray, sql, count, notInArray } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import {
   Card,
@@ -24,7 +34,18 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TablaProcesosConAsignacion } from "@/components/procesos/tabla-procesos-con-asignacion";
 import { FiltrosProcesos } from "./filtros-procesos";
+import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafico-estados";
+import { GraficoProcesosPorVigencia } from "@/components/procesos/grafico-procesos-por-vigencia";
 import { unstable_noStore } from "next/cache";
+
+function formatMonto(value: string | number): string {
+  const n = typeof value === "string" ? Number(value) : value;
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -138,6 +159,17 @@ export default async function ProcesosPage({ searchParams }: Props) {
     .where(eq(usuarios.activo, true))
     .orderBy(usuarios.nombre);
 
+  const condicionesSoloPermisos: ReturnType<typeof eq>[] = [];
+  if (session?.user?.rol !== "admin") {
+    if (!session?.user?.id) {
+      condicionesSoloPermisos.push(eq(procesos.id, -1));
+    } else {
+      condicionesSoloPermisos.push(eq(procesos.asignadoAId, session.user.id));
+    }
+  }
+  const whereSoloPermisos =
+    condicionesSoloPermisos.length > 0 ? and(...condicionesSoloPermisos) : undefined;
+
   const condiciones = [];
   if (estadoActual != null) condiciones.push(eq(procesos.estadoActual, estadoActual));
   if (vigenciaNum != null) condiciones.push(eq(procesos.vigencia, vigenciaNum));
@@ -197,17 +229,74 @@ export default async function ProcesosPage({ searchParams }: Props) {
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id));
 
-  const [countResult, lista] = await Promise.all([
+  const totalScopeQuery = db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(procesos)
+    .where(whereSoloPermisos);
+  const porEstadoScopeQuery = db
+    .select({ estado: procesos.estadoActual, count: sql<number>`count(*)::int` })
+    .from(procesos)
+    .where(whereSoloPermisos)
+    .groupBy(procesos.estadoActual);
+  const porVigenciaScopeQuery = db
+    .select({ vigencia: procesos.vigencia, count: sql<number>`count(*)::int` })
+    .from(procesos)
+    .where(whereSoloPermisos)
+    .groupBy(procesos.vigencia)
+    .orderBy(desc(procesos.vigencia))
+    .limit(8);
+  const montoEnGestionScopeQuery = db
+    .select({ total: sql<string>`coalesce(sum(${procesos.montoCop}), 0)::text` })
+    .from(procesos)
+    .where(
+      whereSoloPermisos
+        ? and(whereSoloPermisos, notInArray(procesos.estadoActual, ["cobrado"]))
+        : notInArray(procesos.estadoActual, ["cobrado"])
+    );
+
+  const [
+    countResult,
+    lista,
+    totalScopeResult,
+    procesosPorEstadoScope,
+    procesosPorVigenciaScope,
+    montoEnGestionResult,
+  ] = await Promise.all([
     whereCond ? countQuery.where(whereCond) : countQuery,
     (whereCond ? baseQuery.where(whereCond) : baseQuery)
       .orderBy(asc(procesos.fechaLimite), desc(procesos.creadoEn))
       .limit(pageSize)
       .offset(offset),
+    totalScopeQuery,
+    porEstadoScopeQuery,
+    porVigenciaScopeQuery,
+    montoEnGestionScopeQuery,
   ]);
 
   const total = Number(countResult[0]?.total ?? 0);
   const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
   const page = pageParam;
+
+  const totalProcesosScope = totalScopeResult[0]?.count ?? 0;
+  const montoEnGestionScope = montoEnGestionResult[0]?.total ?? "0";
+  const cobradosScope =
+    procesosPorEstadoScope.find((r) => r.estado === "cobrado")?.count ?? 0;
+  const enGestionScope = totalProcesosScope - cobradosScope;
+
+  const ordenEstados = [
+    "pendiente",
+    "asignado",
+    "notificado",
+    "en_contacto",
+    "en_cobro_coactivo",
+    "cobrado",
+  ];
+  const procesosPorEstadoOrdenado: { estado: string; count: number }[] = [];
+  for (const e of ordenEstados) {
+    const row = procesosPorEstadoScope.find((r) => r.estado === e);
+    if (row) procesosPorEstadoOrdenado.push({ estado: row.estado, count: row.count });
+  }
+  const procesosPorVigenciaOrdenado = [...procesosPorVigenciaScope].reverse();
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -238,6 +327,93 @@ export default async function ProcesosPage({ searchParams }: Props) {
           </Button>
         </div>
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-l-4 border-l-primary/80 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total procesos
+            </CardTitle>
+            <ClipboardList className="size-5 text-primary/70" aria-hidden />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">{totalProcesosScope}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              En tu ámbito de visibilidad
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-primary/80 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              En gestión
+            </CardTitle>
+            <Loader2 className="size-5 text-primary/70" aria-hidden />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">{enGestionScope}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Pendientes de cobro
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-primary/80 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Cobrados
+            </CardTitle>
+            <CheckCircle className="size-5 text-primary/70" aria-hidden />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">{cobradosScope}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Procesos cerrados
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-primary/80 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Monto en gestión
+            </CardTitle>
+            <Wallet className="size-5 text-primary/70" aria-hidden />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-primary">
+              {formatMonto(montoEnGestionScope)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Suma de procesos no cobrados (COP)
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Procesos por estado</CardTitle>
+            <CardDescription>
+              Distribución por etapa del flujo de cobro
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DashboardGraficoEstados data={procesosPorEstadoOrdenado} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Procesos por vigencia</CardTitle>
+            <CardDescription>
+              Cantidad por año (últimas 8 vigencias)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GraficoProcesosPorVigencia data={procesosPorVigenciaOrdenado} />
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Listado</CardTitle>
