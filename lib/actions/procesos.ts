@@ -610,6 +610,7 @@ export async function agregarNotaProceso(
 
     await db.insert(historialProceso).values({
       procesoId,
+      usuarioId: session?.user?.id ?? null,
       tipoEvento: "nota",
       comentario,
       categoriaNota,

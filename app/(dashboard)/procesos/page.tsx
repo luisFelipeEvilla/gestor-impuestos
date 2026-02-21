@@ -259,45 +259,47 @@ export default async function ProcesosPage({ searchParams }: Props) {
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id));
 
-  const totalScopeQuery = db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(procesos)
-    .where(whereSoloPermisos);
+  // Mismo ámbito que el listado: filtros + permisos (así las tarjetas y gráficos responden a los filtros)
+  const scopeWhere = whereCond ?? whereSoloPermisos;
   const porEstadoScopeQuery = db
-    .select({ estado: procesos.estadoActual, count: sql<number>`count(*)::int` })
+    .select({ estado: procesos.estadoActual, count: sql<number>`count(${procesos.id})::int` })
     .from(procesos)
-    .where(whereSoloPermisos)
+    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
+    .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
+    .where(scopeWhere)
     .groupBy(procesos.estadoActual);
   const porVigenciaScopeQuery = db
-    .select({ vigencia: procesos.vigencia, count: sql<number>`count(*)::int` })
+    .select({ vigencia: procesos.vigencia, count: sql<number>`count(${procesos.id})::int` })
     .from(procesos)
-    .where(whereSoloPermisos)
+    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
+    .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
+    .where(scopeWhere)
     .groupBy(procesos.vigencia)
     .orderBy(desc(procesos.vigencia))
     .limit(8);
   const montoEnGestionScopeQuery = db
     .select({ total: sql<string>`coalesce(sum(${procesos.montoCop}), 0)::text` })
     .from(procesos)
+    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
+    .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
     .where(
-      whereSoloPermisos
-        ? and(whereSoloPermisos, notInArray(procesos.estadoActual, ["cobrado"]))
+      scopeWhere
+        ? and(scopeWhere, notInArray(procesos.estadoActual, ["cobrado"]))
         : notInArray(procesos.estadoActual, ["cobrado"])
     );
 
   const [
     countResult,
     lista,
-    totalScopeResult,
     procesosPorEstadoScope,
     procesosPorVigenciaScope,
     montoEnGestionResult,
   ] = await Promise.all([
-    whereCond ? countQuery.where(whereCond) : countQuery,
+    scopeWhere ? countQuery.where(scopeWhere) : countQuery,
     (whereCond ? baseQuery.where(whereCond) : baseQuery)
       .orderBy(asc(procesos.fechaLimite), desc(procesos.creadoEn))
       .limit(pageSize)
       .offset(offset),
-    totalScopeQuery,
     porEstadoScopeQuery,
     porVigenciaScopeQuery,
     montoEnGestionScopeQuery,
@@ -307,7 +309,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
   const page = pageParam;
 
-  const totalProcesosScope = totalScopeResult[0]?.count ?? 0;
+  const totalProcesosScope = total;
   const montoEnGestionScope = montoEnGestionResult[0]?.total ?? "0";
   const cobradosScope =
     procesosPorEstadoScope.find((r) => r.estado === "cobrado")?.count ?? 0;

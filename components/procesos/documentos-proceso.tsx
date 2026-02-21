@@ -7,6 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   subirDocumentoProceso,
   eliminarDocumentoProceso,
   obtenerPresignedUrlDocumentoProceso,
@@ -24,7 +32,19 @@ export type DocumentoItem = {
   tamano: number;
   creadoEn: Date;
   categoria?: string;
+  /** Nombre del usuario que subió el documento (opcional; si no existe en BD se muestra "—") */
+  creadoPorNombre?: string | null;
 };
+
+function labelTipoDocumento(mimeType: string): string {
+  const t = (mimeType || "").toLowerCase();
+  if (t.includes("pdf")) return "PDF";
+  if (t.includes("word") || t.includes("msword") || t.includes("document")) return "Word";
+  if (t.includes("sheet") || t.includes("excel") || t.includes("spreadsheet")) return "Excel";
+  if (t.includes("image") || t.includes("jpeg") || t.includes("jpg") || t.includes("png") || t.includes("gif") || t.includes("webp")) return "Imagen";
+  if (t.includes("text/plain") || t.includes("csv")) return "Texto / CSV";
+  return "Documento";
+}
 
 type SubirDocumentoFormProps = {
   procesoId: number;
@@ -147,6 +167,8 @@ type ListaDocumentosProps = {
   procesoId: number;
   documentos: DocumentoItem[];
   puedeEliminar?: boolean;
+  /** "list" = lista compacta; "table" = tabla con nombre, tipo, subido por, fecha, acciones */
+  variant?: "list" | "table";
 };
 
 function formatTamano(bytes: number): string {
@@ -155,16 +177,74 @@ function formatTamano(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatFechaSubida(value: Date | string): string {
+  const d = typeof value === "string" ? new Date(value) : value;
+  return Number.isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+}
+
 export function ListaDocumentos({
   procesoId,
   documentos,
   puedeEliminar = false,
+  variant = "list",
 }: ListaDocumentosProps) {
   if (documentos.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
         No hay documentos adjuntos.
       </p>
+    );
+  }
+
+  if (variant === "table") {
+    return (
+      <div className="relative w-full overflow-x-auto rounded-xl border border-border/80 shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-border/60">
+              <TableHead className="font-medium">Nombre</TableHead>
+              <TableHead className="font-medium">Tipo</TableHead>
+              <TableHead className="font-medium">Subido por</TableHead>
+              <TableHead className="font-medium">Fecha</TableHead>
+              {puedeEliminar && (
+                <TableHead className="w-[100px] text-right font-medium">Acciones</TableHead>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {documentos.map((doc) => (
+              <TableRow key={doc.id} className="border-border/60">
+                <TableCell className="font-medium">
+                  <a
+                    href={`/api/procesos/${procesoId}/documentos/${doc.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    {doc.nombreOriginal}
+                  </a>
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {labelTipoDocumento(doc.mimeType)}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {doc.creadoPorNombre ?? "—"}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                  {formatFechaSubida(doc.creadoEn)}
+                </TableCell>
+                {puedeEliminar && (
+                  <TableCell className="text-right">
+                    <EliminarDocumentoButton documentoId={doc.id} />
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     );
   }
 

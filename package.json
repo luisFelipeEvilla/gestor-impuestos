@@ -9,7 +9,7 @@
     "lint": "eslint",
     "db:generate": "drizzle-kit generate",
     "db:make-idempotent": "node scripts/make-migrations-idempotent.mjs",
-    "db:migrate": "node scripts/make-migrations-idempotent.mjs && drizzle-kit migrate",
+    "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:push": "drizzle-kit push",
     "db:seed-actividades": "tsx scripts/seed-actividades.ts",

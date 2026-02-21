@@ -1,9 +1,18 @@
 import {
+  getDíasRestantesFechaLimite,
   getSemáforoFechaLimite,
   getTextoEstadoFechaLimite,
   type SemáforoFechaLimite,
 } from "@/lib/fechas-limite";
 import { cn } from "@/lib/utils";
+
+function getTextoDíasParaPrescribir(fechaLimite: string | Date | null | undefined): string {
+  const días = getDíasRestantesFechaLimite(fechaLimite);
+  if (días === null) return "Sin fecha límite";
+  if (días < 0) return "Prescrito";
+  if (días > 30) return "+30";
+  return días === 1 ? "1 día" : `${días} días`;
+}
 
 const SEMÁFORO_CONFIG: Record<
   SemáforoFechaLimite,
@@ -59,11 +68,13 @@ export function SemaforoFechaLimite({
   className,
 }: SemaforoFechaLimiteProps) {
   const semáforo = getSemáforoFechaLimite(fechaLimite);
-  const texto = getTextoEstadoFechaLimite(fechaLimite);
+  const textoEstado = getTextoEstadoFechaLimite(fechaLimite);
+  const textoDías = getTextoDíasParaPrescribir(fechaLimite);
   const config = SEMÁFORO_CONFIG[semáforo];
   const fechaFormateada = formatFechaLimiteParaTitle(fechaLimite);
   const titleCompleto =
-    fechaFormateada != null ? `Fecha límite: ${fechaFormateada}` : texto;
+    fechaFormateada != null ? `Fecha límite: ${fechaFormateada}` : textoEstado;
+  const showDíasBadge = getDíasRestantesFechaLimite(fechaLimite) !== null;
 
   if (soloIndicador) {
     return (
@@ -75,33 +86,50 @@ export function SemaforoFechaLimite({
     );
   }
 
+  const badgeEstado = (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
+        config.bgClass,
+        config.textClass
+      )}
+      title={titleCompleto}
+    >
+      <span className={cn("size-2 shrink-0 rounded-full", config.dotClass)} aria-hidden />
+      {textoEstado}
+    </span>
+  );
+
+  const badgeDías = showDíasBadge ? (
+    <span
+      className="inline-flex items-center rounded-full bg-muted/60 px-2 py-0.5 text-xs font-medium text-muted-foreground"
+      title={titleCompleto}
+    >
+      {textoDías}
+    </span>
+  ) : null;
+
   if (variant === "pill") {
     return (
-      <span
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
-          config.bgClass,
-          config.textClass,
-          className
-        )}
-        title={titleCompleto}
-      >
-        <span className={cn("size-2 shrink-0 rounded-full", config.dotClass)} aria-hidden />
-        {texto}
+      <span className={cn("inline-flex items-center gap-1.5", className)}>
+        {badgeEstado}
+        {badgeDías}
       </span>
     );
   }
 
   return (
-    <span
-      className={cn("inline-flex items-center gap-1.5 text-sm", className)}
-      title={titleCompleto}
-    >
+    <span className={cn("inline-flex items-center gap-1.5 text-sm", className)} title={titleCompleto}>
       <span
-        className={cn("inline-block size-2.5 shrink-0 rounded-full", config.dotClass)}
-        aria-hidden
-      />
-      <span className={config.textClass}>{texto}</span>
+        className={cn("inline-flex items-center gap-1.5", config.textClass)}
+      >
+        <span
+          className={cn("inline-block size-2.5 shrink-0 rounded-full", config.dotClass)}
+          aria-hidden
+        />
+        <span>{textoEstado}</span>
+      </span>
+      {badgeDías}
     </span>
   );
 }

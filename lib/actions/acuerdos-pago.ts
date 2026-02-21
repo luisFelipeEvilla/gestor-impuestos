@@ -26,16 +26,50 @@ export async function listarAcuerdosPagoPorProceso(procesoId: number) {
     .orderBy(desc(acuerdosPago.creadoEn));
 }
 
+function validarCuotas(cuotas: number | null): { error?: string; value?: number } {
+  if (cuotas == null || !Number.isInteger(cuotas) || cuotas < 1) {
+    return { error: "El número de cuotas es obligatorio y debe ser al menos 1." };
+  }
+  return { value: cuotas };
+}
+
+function validarPorcentajeCuotaInicial(porcentaje: number | null): { error?: string; value?: string } {
+  if (porcentaje == null || Number.isNaN(porcentaje)) {
+    return { error: "El porcentaje de la cuota inicial es obligatorio." };
+  }
+  const n = Number(porcentaje);
+  if (n < 0 || n > 100) {
+    return { error: "El porcentaje de la cuota inicial debe estar entre 0 y 100." };
+  }
+  return { value: n.toFixed(2) };
+}
+
+function validarDiaCobroMes(dia: number | null): { error?: string; value?: number } {
+  if (dia == null || !Number.isInteger(dia) || dia < 1 || dia > 31) {
+    return { error: "El día del mes de cobro es obligatorio y debe estar entre 1 y 31." };
+  }
+  return { value: dia };
+}
+
 export async function crearAcuerdoPago(
   procesoId: number,
   numeroAcuerdo: string,
   fechaAcuerdo: string | null,
   fechaInicio: string | null,
-  cuotas: number | null
+  cuotas: number | null,
+  porcentajeCuotaInicial: number | null,
+  diaCobroMes: number | null
 ): Promise<EstadoAcuerdoPago> {
   if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
   const numero = numeroAcuerdo?.trim();
   if (!numero) return { error: "El número del acuerdo es obligatorio." };
+
+  const rCuotas = validarCuotas(cuotas);
+  if (rCuotas.error) return { error: rCuotas.error };
+  const rPorcentaje = validarPorcentajeCuotaInicial(porcentajeCuotaInicial);
+  if (rPorcentaje.error) return { error: rPorcentaje.error };
+  const rDia = validarDiaCobroMes(diaCobroMes);
+  if (rDia.error) return { error: rDia.error };
 
   try {
     const session = await getSession();
@@ -53,7 +87,9 @@ export async function crearAcuerdoPago(
       numeroAcuerdo: numero,
       fechaAcuerdo: fechaAcuerdo?.trim() ? fechaAcuerdo.trim().slice(0, 10) : null,
       fechaInicio: fechaInicio?.trim() ? fechaInicio.trim().slice(0, 10) : null,
-      cuotas: cuotas != null && Number.isInteger(cuotas) && cuotas >= 0 ? cuotas : null,
+      cuotas: rCuotas.value!,
+      porcentajeCuotaInicial: rPorcentaje.value!,
+      diaCobroMes: rDia.value!,
     });
 
     revalidatePath(`/procesos/${procesoId}`);
@@ -72,12 +108,21 @@ export async function actualizarAcuerdoPago(
   numeroAcuerdo: string,
   fechaAcuerdo: string | null,
   fechaInicio: string | null,
-  cuotas: number | null
+  cuotas: number | null,
+  porcentajeCuotaInicial: number | null,
+  diaCobroMes: number | null
 ): Promise<EstadoAcuerdoPago> {
   if (!Number.isInteger(id) || id < 1) return { error: "Acuerdo inválido." };
   if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
   const numero = numeroAcuerdo?.trim();
   if (!numero) return { error: "El número del acuerdo es obligatorio." };
+
+  const rCuotas = validarCuotas(cuotas);
+  if (rCuotas.error) return { error: rCuotas.error };
+  const rPorcentaje = validarPorcentajeCuotaInicial(porcentajeCuotaInicial);
+  if (rPorcentaje.error) return { error: rPorcentaje.error };
+  const rDia = validarDiaCobroMes(diaCobroMes);
+  if (rDia.error) return { error: rDia.error };
 
   try {
     const session = await getSession();
@@ -99,7 +144,9 @@ export async function actualizarAcuerdoPago(
         numeroAcuerdo: numero,
         fechaAcuerdo: fechaAcuerdo?.trim() ? fechaAcuerdo.trim().slice(0, 10) : null,
         fechaInicio: fechaInicio?.trim() ? fechaInicio.trim().slice(0, 10) : null,
-        cuotas: cuotas != null && Number.isInteger(cuotas) && cuotas >= 0 ? cuotas : null,
+        cuotas: rCuotas.value!,
+        porcentajeCuotaInicial: rPorcentaje.value!,
+        diaCobroMes: rDia.value!,
         actualizadoEn: new Date(),
       })
       .where(eq(acuerdosPago.id, id));

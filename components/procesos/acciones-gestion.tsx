@@ -12,6 +12,7 @@ import {
 import { CardSectionAccordion } from "@/components/ui/card-accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   cambiarEstadoProceso,
   asignarProceso,
@@ -154,24 +155,24 @@ export function AgregarNotaForm({ procesoId, categoria }: AgregarNotaFormProps) 
   const [state, formAction] = useActionState(agregarNotaProceso, null);
 
   return (
-    <form action={formAction} className="space-y-2">
+    <form action={formAction} className="space-y-3">
       <input type="hidden" name="procesoId" value={procesoId} />
       <input type="hidden" name="categoria" value={categoria} />
       <div className="grid gap-1.5">
-        <Label htmlFor="comentario-nota" className="text-xs">
+        <Label htmlFor="comentario-nota" className="text-xs font-medium">
           Nueva nota
         </Label>
-        <Input
+        <Textarea
           id="comentario-nota"
           name="comentario"
-          type="text"
-          placeholder="Ej. El contribuyente solicita plan de pagos"
-          className="w-full max-w-md"
+          placeholder="Ej. Llamada al contribuyente: solicita plan de pagos en 3 cuotas. Quedó en enviar documentación por correo."
+          className="min-h-[88px] w-full"
           required
           aria-invalid={!!state?.error}
+          rows={3}
         />
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" size="sm">
           Agregar nota
         </Button>
@@ -376,30 +377,58 @@ export type NotaItem = {
   id: number;
   comentario: string;
   fecha: Date;
+  autorNombre?: string | null;
 };
+
+function formatTiempoRelativo(fecha: Date | string): string {
+  const d = typeof fecha === "string" ? new Date(fecha) : fecha;
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMs / 3_600_000);
+  const diffDays = Math.floor(diffMs / 86_400_000);
+  if (diffMins < 1) return "Ahora";
+  if (diffMins < 60) return `Hace ${diffMins} min`;
+  if (diffHours < 24) return `Hace ${diffHours} h`;
+  if (diffDays < 7) return `Hace ${diffDays} días`;
+  return d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+}
 
 export function ListaNotas({ notas }: { notas: NotaItem[] }): React.ReactNode {
   if (notas.length === 0) {
     return (
-      <p className="text-muted-foreground text-sm">
-        No hay notas en esta sección.
-      </p>
+      <div
+        className="rounded-xl border border-dashed border-border/80 bg-muted/20 py-8 px-4 text-center"
+        role="status"
+        aria-label="No hay notas"
+      >
+        <p className="text-muted-foreground text-sm font-medium">
+          Aún no hay notas
+        </p>
+        <p className="text-muted-foreground/80 text-xs mt-1 max-w-[280px] mx-auto">
+          Añade la primera nota para dejar registro de llamadas, acuerdos o seguimiento de este proceso.
+        </p>
+      </div>
     );
   }
   return (
-    <ul className="space-y-2" role="list">
+    <ul className="space-y-3" role="list">
       {notas.map((n) => (
         <li
           key={n.id}
-          className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
+          className="group rounded-xl border border-border/80 bg-card px-4 py-3 text-sm shadow-sm transition-shadow hover:shadow-md"
         >
-          <p className="text-foreground">{n.comentario}</p>
-          <span className="text-muted-foreground text-xs">
-            {new Date(n.fecha).toLocaleString("es-CO", {
-              dateStyle: "short",
-              timeStyle: "short",
-            })}
-          </span>
+          <p className="text-foreground whitespace-pre-wrap">{n.comentario}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-2 text-xs text-muted-foreground">
+            {n.autorNombre && (
+              <span className="font-medium text-muted-foreground">
+                {n.autorNombre}
+              </span>
+            )}
+            <span title={new Date(n.fecha).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}>
+              {formatTiempoRelativo(n.fecha)}
+            </span>
+          </div>
         </li>
       ))}
     </ul>

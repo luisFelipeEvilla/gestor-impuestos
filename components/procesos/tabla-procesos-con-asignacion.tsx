@@ -37,14 +37,14 @@ const COLUMNS_STORAGE_KEY = "procesos-tabla-columnas-visible";
 
 const COLUMNS: { id: string; label: string }[] = [
   { id: "seleccion", label: "Selección" },
+  { id: "asignado", label: "Asignado" },
+  { id: "noComparendo", label: "No. comparendo" },
+  { id: "antiguedad", label: "Antigüedad" },
   { id: "contribuyente", label: "Contribuyente" },
   { id: "vigencia", label: "Vigencia" },
-  { id: "noComparendo", label: "No. comparendo" },
   { id: "numeroResolucion", label: "Nº resolución" },
   { id: "monto", label: "Monto (COP)" },
   { id: "estado", label: "Estado" },
-  { id: "antiguedad", label: "Antigüedad" },
-  { id: "asignado", label: "Asignado" },
   { id: "accion", label: "Acción" },
 ];
 
@@ -269,18 +269,18 @@ export function TablaProcesosConAsignacion({
                 />
               </TableHead>
             )}
+            {isColumnVisible("asignado") && <TableHead>Asignado</TableHead>}
+            {isColumnVisible("noComparendo") && <TableHead>No. comparendo</TableHead>}
+            {isColumnVisible("antiguedad") && (
+              <TableHead className="text-center">Antigüedad</TableHead>
+            )}
             {isColumnVisible("contribuyente") && (
               <TableHead className="max-w-[200px] w-[200px]">Contribuyente</TableHead>
             )}
             {isColumnVisible("vigencia") && <TableHead>Vigencia</TableHead>}
-            {isColumnVisible("noComparendo") && <TableHead>No. comparendo</TableHead>}
             {isColumnVisible("numeroResolucion") && <TableHead>Nº resolución</TableHead>}
             {isColumnVisible("monto") && <TableHead>Monto (COP)</TableHead>}
             {isColumnVisible("estado") && <TableHead>Estado</TableHead>}
-            {isColumnVisible("antiguedad") && (
-              <TableHead className="text-center">Antigüedad</TableHead>
-            )}
-            {isColumnVisible("asignado") && <TableHead>Asignado</TableHead>}
             {isColumnVisible("accion") && (
               <TableHead className="w-[80px]">Acción</TableHead>
             )}
@@ -301,6 +301,25 @@ export function TablaProcesosConAsignacion({
                   />
                 </TableCell>
               )}
+              {isColumnVisible("asignado") && (
+                <TableCell className="text-muted-foreground">
+                  {p.asignadoNombre ?? "—"}
+                </TableCell>
+              )}
+              {isColumnVisible("noComparendo") && (
+                <TableCell className="text-sm text-muted-foreground">
+                  {p.noComparendo ?? "—"}
+                </TableCell>
+              )}
+              {isColumnVisible("antiguedad") && (
+                <TableCell className="text-center">
+                  <SemaforoFechaLimite
+                    fechaLimite={p.fechaLimite}
+                    variant="pill"
+                    className="justify-center"
+                  />
+                </TableCell>
+              )}
               {isColumnVisible("contribuyente") && (
                 <TableCell className="max-w-[200px] w-[200px]">
                   <Link
@@ -316,11 +335,6 @@ export function TablaProcesosConAsignacion({
                 </TableCell>
               )}
               {isColumnVisible("vigencia") && <TableCell>{p.vigencia}</TableCell>}
-              {isColumnVisible("noComparendo") && (
-                <TableCell className="text-sm text-muted-foreground">
-                  {p.noComparendo ?? "—"}
-                </TableCell>
-              )}
               {isColumnVisible("numeroResolucion") && (
                 <TableCell className="text-sm text-muted-foreground">
                   {p.numeroResolucion ?? "—"}
@@ -333,20 +347,6 @@ export function TablaProcesosConAsignacion({
               )}
               {isColumnVisible("estado") && (
                 <TableCell>{labelEstado(p.estadoActual)}</TableCell>
-              )}
-              {isColumnVisible("antiguedad") && (
-                <TableCell className="text-center">
-                  <SemaforoFechaLimite
-                    fechaLimite={p.fechaLimite}
-                    variant="pill"
-                    className="justify-center"
-                  />
-                </TableCell>
-              )}
-              {isColumnVisible("asignado") && (
-                <TableCell className="text-muted-foreground">
-                  {p.asignadoNombre ?? "—"}
-                </TableCell>
               )}
               {isColumnVisible("accion") && (
                 <TableCell>
