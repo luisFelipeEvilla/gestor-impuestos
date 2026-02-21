@@ -114,8 +114,10 @@ export function TablaProcesosConAsignacion({
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
-        const visibleCount = [...next].filter((c) => (c === "seleccion" ? isAdmin : true)).length;
-        if (visibleCount === 0) return prev;
+        const displayedCount = [...next].filter(
+          (c) => c !== "seleccion" || isAdmin
+        ).length;
+        if (displayedCount === 0) return prev;
       } else {
         next.add(id);
       }
