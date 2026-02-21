@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { procesos, historialProceso, impuestos, contribuyentes, usuarios, documentosProceso } from "@/lib/db/schema";
+import { procesos, historialProceso, impuestos, contribuyentes, usuarios, documentosProceso, cobrosCoactivos } from "@/lib/db/schema";
 import type { NewHistorialProceso } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
@@ -81,8 +81,6 @@ const schemaCrear = z.object({
     .transform((v) => (v === "" || v === undefined ? undefined : parseInt(v, 10)))
     .refine((v) => v === undefined || (Number.isInteger(v) && v! > 0), "Usuario inválido"),
   fechaLimite: z.string().optional().or(z.literal("")),
-  numeroResolucion: z.string().max(100).optional().or(z.literal("")),
-  fechaResolucion: z.string().optional().or(z.literal("")),
   fechaAplicacionImpuesto: z.string().optional().or(z.literal("")),
 });
 
@@ -115,8 +113,6 @@ export async function crearProceso(
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
-    numeroResolucion: formData.get("numeroResolucion") || undefined,
-    fechaResolucion: formData.get("fechaResolucion") || undefined,
     fechaAplicacionImpuesto: formData.get("fechaAplicacionImpuesto") || undefined,
   };
 
@@ -139,8 +135,6 @@ export async function crearProceso(
     estadoActual: estadoForm,
     asignadoAId,
     fechaLimite,
-    numeroResolucion,
-    fechaResolucion,
     fechaAplicacionImpuesto,
   } = parsed.data;
 
@@ -164,10 +158,7 @@ export async function crearProceso(
         estadoActual,
         asignadoAId: asignadoAId ?? null,
         fechaLimite: fechaLimiteCalculada,
-        numeroResolucion: numeroResolucion?.trim() || null,
-        fechaResolucion: parseFecha(fechaResolucion),
         fechaAplicacionImpuesto: fechaAplicacion,
-        fechaInicioCobroCoactivo: null,
       })
       .returning({ id: procesos.id });
 
@@ -219,8 +210,6 @@ export async function actualizarProceso(
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
-    numeroResolucion: formData.get("numeroResolucion") || undefined,
-    fechaResolucion: formData.get("fechaResolucion") || undefined,
     fechaAplicacionImpuesto: formData.get("fechaAplicacionImpuesto") || undefined,
   };
 
@@ -243,8 +232,6 @@ export async function actualizarProceso(
     estadoActual,
     asignadoAId,
     fechaLimite,
-    numeroResolucion,
-    fechaResolucion,
     fechaAplicacionImpuesto,
   } = parsed.data;
 
@@ -281,20 +268,29 @@ export async function actualizarProceso(
         estadoActual,
         asignadoAId: asignadoAId ?? null,
         fechaLimite: fechaLimiteFinal,
-        numeroResolucion: numeroResolucion?.trim() || null,
-        fechaResolucion: parseFecha(fechaResolucion),
         fechaAplicacionImpuesto: fechaAplicacion,
-        ...(entraCobroCoactivo
-          ? {
-              fechaInicioCobroCoactivo: hoyStr,
-            }
-          : {}),
         actualizadoEn: new Date(),
       })
       .where(eq(procesos.id, parsed.data.id))
       .returning({ id: procesos.id });
 
     if (!updated) return { error: "Proceso no encontrado." };
+
+    if (entraCobroCoactivo) {
+      await db
+        .insert(cobrosCoactivos)
+        .values({
+          procesoId: parsed.data.id,
+          fechaInicio: hoyStr,
+        })
+        .onConflictDoUpdate({
+          target: cobrosCoactivos.procesoId,
+          set: {
+            fechaInicio: hoyStr,
+            actualizadoEn: new Date(),
+          },
+        });
+    }
 
     const cambiaEstado = existing.estadoActual !== estadoActual;
     const cambiaAsignacion = (existing.asignadoAId ?? null) !== (asignadoAId ?? null);
@@ -400,12 +396,27 @@ export async function cambiarEstadoProceso(
         actualizadoEn: new Date(),
         ...(entraCobroCoactivo
           ? {
-              fechaInicioCobroCoactivo: hoyStr,
               fechaLimite: addYears(hoyStr, AÑOS_PRESCRIPCION),
             }
           : {}),
       })
       .where(eq(procesos.id, procesoId));
+
+    if (entraCobroCoactivo) {
+      await db
+        .insert(cobrosCoactivos)
+        .values({
+          procesoId,
+          fechaInicio: hoyStr,
+        })
+        .onConflictDoUpdate({
+          target: cobrosCoactivos.procesoId,
+          set: {
+            fechaInicio: hoyStr,
+            actualizadoEn: new Date(),
+          },
+        });
+    }
 
     await db.insert(historialProceso).values({
       procesoId,

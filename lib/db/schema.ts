@@ -205,14 +205,8 @@ export const procesos = pgTable("procesos", {
     onUpdate: "cascade",
   }),
   fechaLimite: date("fecha_limite"),
-  /** Número de resolución que origina el proceso de cobro */
-  numeroResolucion: text("numero_resolucion"),
-  /** Fecha de la resolución */
-  fechaResolucion: date("fecha_resolucion"),
   /** Fecha de creación o aplicación del impuesto (origen del proceso) */
   fechaAplicacionImpuesto: date("fecha_aplicacion_impuesto"),
-  /** Fecha de ingreso a cobro coactivo; si está definida, la prescripción de 5 años se cuenta desde aquí */
-  fechaInicioCobroCoactivo: date("fecha_inicio_cobro_coactivo"),
   /** Fecha de creación del registro en el sistema */
   creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
@@ -252,6 +246,55 @@ export const documentosProceso = pgTable("documentos_proceso", {
   tamano: integer("tamano").notNull(),
   creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// Tabla: ordenes_resolucion (1:1 con proceso; número + documento adjunto)
+export const ordenesResolucion = pgTable(
+  "ordenes_resolucion",
+  {
+    id: serial("id").primaryKey(),
+    procesoId: integer("proceso_id")
+      .notNull()
+      .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    numeroResolucion: text("numero_resolucion").notNull(),
+    fechaResolucion: date("fecha_resolucion"),
+    rutaArchivo: text("ruta_archivo"),
+    nombreOriginal: text("nombre_original"),
+    mimeType: text("mime_type"),
+    tamano: integer("tamano"),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+    actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.procesoId)]
+);
+
+// Tabla: acuerdos_pago (N:1 con proceso; un proceso puede tener varios acuerdos)
+export const acuerdosPago = pgTable("acuerdos_pago", {
+  id: serial("id").primaryKey(),
+  procesoId: integer("proceso_id")
+    .notNull()
+    .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  numeroAcuerdo: text("numero_acuerdo").notNull(),
+  fechaAcuerdo: date("fecha_acuerdo"),
+  fechaInicio: date("fecha_inicio"),
+  cuotas: integer("cuotas"),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Tabla: cobros_coactivos (1:1 con proceso)
+export const cobrosCoactivos = pgTable(
+  "cobros_coactivos",
+  {
+    id: serial("id").primaryKey(),
+    procesoId: integer("proceso_id")
+      .notNull()
+      .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    fechaInicio: date("fecha_inicio").notNull(),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+    actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.procesoId)]
+);
 
 // Tabla: actas_reunion
 export const actasReunion = pgTable("actas_reunion", {
@@ -505,6 +548,9 @@ export const procesosRelations = relations(procesos, ({ one, many }) => ({
   asignadoA: one(usuarios),
   historial: many(historialProceso),
   documentos: many(documentosProceso),
+  ordenResolucion: one(ordenesResolucion),
+  acuerdosPago: many(acuerdosPago),
+  cobroCoactivo: one(cobrosCoactivos),
 }));
 
 export const historialProcesoRelations = relations(historialProceso, ({ one }) => ({
@@ -513,6 +559,18 @@ export const historialProcesoRelations = relations(historialProceso, ({ one }) =
 }));
 
 export const documentosProcesoRelations = relations(documentosProceso, ({ one }) => ({
+  proceso: one(procesos),
+}));
+
+export const ordenesResolucionRelations = relations(ordenesResolucion, ({ one }) => ({
+  proceso: one(procesos),
+}));
+
+export const acuerdosPagoRelations = relations(acuerdosPago, ({ one }) => ({
+  proceso: one(procesos),
+}));
+
+export const cobrosCoactivosRelations = relations(cobrosCoactivos, ({ one }) => ({
   proceso: one(procesos),
 }));
 
@@ -610,6 +668,12 @@ export type HistorialProceso = typeof historialProceso.$inferSelect;
 export type NewHistorialProceso = typeof historialProceso.$inferInsert;
 export type DocumentoProceso = typeof documentosProceso.$inferSelect;
 export type NewDocumentoProceso = typeof documentosProceso.$inferInsert;
+export type OrdenResolucion = typeof ordenesResolucion.$inferSelect;
+export type NewOrdenResolucion = typeof ordenesResolucion.$inferInsert;
+export type AcuerdoPago = typeof acuerdosPago.$inferSelect;
+export type NewAcuerdoPago = typeof acuerdosPago.$inferInsert;
+export type CobroCoactivo = typeof cobrosCoactivos.$inferSelect;
+export type NewCobroCoactivo = typeof cobrosCoactivos.$inferInsert;
 export type ActaReunion = typeof actasReunion.$inferSelect;
 export type NewActaReunion = typeof actasReunion.$inferInsert;
 export type ActaIntegrante = typeof actasIntegrantes.$inferSelect;

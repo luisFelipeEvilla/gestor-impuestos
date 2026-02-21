@@ -14,6 +14,8 @@ import {
   impuestos,
   procesos,
   historialProceso,
+  ordenesResolucion,
+  cobrosCoactivos,
 } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -291,10 +293,7 @@ async function main(): Promise<void> {
           estadoActual: "pendiente",
           asignadoAId: null,
           fechaLimite,
-          numeroResolucion,
-          fechaResolucion: fila.fechaResolucion,
           fechaAplicacionImpuesto: fechaAplicacion,
-          fechaInicioCobroCoactivo: fila.polca === "S" ? fila.fechaCoactivo : null,
         })
         .returning({ id: procesos.id });
       if (inserted) {
@@ -305,6 +304,19 @@ async function main(): Promise<void> {
           estadoNuevo: "pendiente",
           comentario: "Proceso creado desde importación cartera tránsito",
         });
+        if (numeroResolucion) {
+          await db.insert(ordenesResolucion).values({
+            procesoId: inserted.id,
+            numeroResolucion,
+            fechaResolucion: fila.fechaResolucion ?? null,
+          });
+        }
+        if (fila.polca === "S" && fila.fechaCoactivo) {
+          await db.insert(cobrosCoactivos).values({
+            procesoId: inserted.id,
+            fechaInicio: fila.fechaCoactivo,
+          });
+        }
         procesosCreados++;
         if (idempotenciaKey) numeroResolucionUsados.add(idempotenciaKey);
       }

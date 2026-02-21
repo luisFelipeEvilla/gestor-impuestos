@@ -204,6 +204,27 @@
       "when": 1771283300000,
       "tag": "0029_restore_aprobaciones_uniq",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1771608507788,
+      "tag": "0029_aspiring_christian_walker",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1771608600000,
+      "tag": "0030_migrate_orden_cobro_from_procesos",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1771608771044,
+      "tag": "0031_dapper_sage",
+      "breakpoints": true
     }
   ]
 }

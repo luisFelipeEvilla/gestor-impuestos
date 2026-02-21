@@ -8,6 +8,7 @@ import {
   contribuyentes,
   usuarios,
   historialProceso,
+  ordenesResolucion,
 } from "@/lib/db/schema";
 import { desc, eq, and, or, ilike, inArray, sql, count } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
@@ -173,7 +174,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
       periodo: procesos.periodo,
       montoCop: procesos.montoCop,
       estadoActual: procesos.estadoActual,
-      numeroResolucion: procesos.numeroResolucion,
+      numeroResolucion: ordenesResolucion.numeroResolucion,
       fechaLimite: procesos.fechaLimite,
       impuestoNombre: impuestos.nombre,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
@@ -183,7 +184,8 @@ export default async function ProcesosPage({ searchParams }: Props) {
     .from(procesos)
     .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
-    .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id));
+    .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
+    .leftJoin(ordenesResolucion, eq(procesos.id, ordenesResolucion.procesoId));
 
   const countQuery = db
     .select({ total: count(procesos.id) })

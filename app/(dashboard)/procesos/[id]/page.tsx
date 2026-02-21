@@ -8,6 +8,9 @@ import {
   usuarios,
   historialProceso,
   documentosProceso,
+  ordenesResolucion,
+  acuerdosPago,
+  cobrosCoactivos,
 } from "@/lib/db/schema";
 import { eq, desc, asc } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
@@ -25,7 +28,6 @@ import {
   AsignarProcesoForm,
   BotonesNotificacion,
   CardEnContacto,
-  CardAcuerdoDePago,
   CardCobroCoactivo,
   ListaNotas,
 } from "@/components/procesos/acciones-gestion";
@@ -33,6 +35,8 @@ import {
   ListaDocumentos,
   SubirDocumentoForm,
 } from "@/components/procesos/documentos-proceso";
+import { CardOrdenResolucion } from "@/components/procesos/card-orden-resolucion";
+import { CardAcuerdosPagoList } from "@/components/procesos/card-acuerdos-pago-list";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { DetalleConHistorial } from "./detalle-con-historial";
 import { unstable_noStore } from "next/cache";
@@ -108,10 +112,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
       estadoActual: procesos.estadoActual,
       asignadoAId: procesos.asignadoAId,
       fechaLimite: procesos.fechaLimite,
-      numeroResolucion: procesos.numeroResolucion,
-      fechaResolucion: procesos.fechaResolucion,
       fechaAplicacionImpuesto: procesos.fechaAplicacionImpuesto,
-      fechaInicioCobroCoactivo: procesos.fechaInicioCobroCoactivo,
       creadoEn: procesos.creadoEn,
       impuestoNombre: impuestos.nombre,
       contribuyenteNit: contribuyentes.nit,
@@ -133,7 +134,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
     }
   }
 
-  const [historialRows, usuariosList, documentosRows] = await Promise.all([
+  const [historialRows, usuariosList, documentosRows, ordenResolucion, acuerdosPagoList, cobroCoactivo] = await Promise.all([
     db
       .select({
         id: historialProceso.id,
@@ -165,6 +166,9 @@ export default async function DetalleProcesoPage({ params }: Props) {
       .from(documentosProceso)
       .where(eq(documentosProceso.procesoId, id))
       .orderBy(desc(documentosProceso.creadoEn)),
+    db.select().from(ordenesResolucion).where(eq(ordenesResolucion.procesoId, id)).then((r) => r[0] ?? null),
+    db.select().from(acuerdosPago).where(eq(acuerdosPago.procesoId, id)).orderBy(desc(acuerdosPago.creadoEn)),
+    db.select().from(cobrosCoactivos).where(eq(cobrosCoactivos.procesoId, id)).then((r) => r[0] ?? null),
   ]);
 
   const notificacionEvent = historialRows.find((h) => h.tipoEvento === "notificacion");
@@ -292,23 +296,9 @@ export default async function DetalleProcesoPage({ params }: Props) {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Nº de resolución</dt>
-                  <dd>{row.numeroResolucion ?? "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Fecha de resolución</dt>
-                  <dd>{formatDate(row.fechaResolucion)}</dd>
-                </div>
-                <div>
                   <dt className="text-muted-foreground">Fecha creación/aplicación del impuesto</dt>
                   <dd>{formatDate(row.fechaAplicacionImpuesto)}</dd>
                 </div>
-                {row.fechaInicioCobroCoactivo != null && (
-                  <div>
-                    <dt className="text-muted-foreground">Fecha inicio cobro coactivo</dt>
-                    <dd>{formatDate(row.fechaInicioCobroCoactivo)}</dd>
-                  </div>
-                )}
                 <div>
                   <dt className="text-muted-foreground">Creado en el sistema</dt>
                   <dd>{formatDate(row.creadoEn)}</dd>
@@ -489,25 +479,23 @@ export default async function DetalleProcesoPage({ params }: Props) {
           documentos={documentosPorCategoria.en_contacto}
           notas={notasPorCategoria.en_contacto}
         />
-        {(row.estadoActual === "en_negociacion" ||
-          documentosPorCategoria.acuerdo_pago.length > 0 ||
-          notasPorCategoria.acuerdo_pago.length > 0) && (
-          <CardAcuerdoDePago
-            procesoId={row.id}
-            estadoActual={row.estadoActual ?? ""}
-            documentos={documentosPorCategoria.acuerdo_pago}
-            notas={notasPorCategoria.acuerdo_pago}
-          />
-        )}
-        {(row.estadoActual === "en_cobro_coactivo" ||
-          row.fechaInicioCobroCoactivo != null) && (
-          <CardCobroCoactivo
-            procesoId={row.id}
-            estadoActual={row.estadoActual ?? ""}
-            documentos={documentosPorCategoria.cobro_coactivo}
-            notas={notasPorCategoria.cobro_coactivo}
-          />
-        )}
+
+        <CardOrdenResolucion procesoId={row.id} orden={ordenResolucion} />
+
+        <CardAcuerdosPagoList
+          procesoId={row.id}
+          acuerdos={acuerdosPagoList}
+          estadoActual={row.estadoActual ?? ""}
+          documentos={documentosPorCategoria.acuerdo_pago}
+          notas={notasPorCategoria.acuerdo_pago}
+        />
+        <CardCobroCoactivo
+          procesoId={row.id}
+          estadoActual={row.estadoActual ?? ""}
+          documentos={documentosPorCategoria.cobro_coactivo}
+          notas={notasPorCategoria.cobro_coactivo}
+          cobroCoactivo={cobroCoactivo}
+        />
       </div>
     </div>
   );

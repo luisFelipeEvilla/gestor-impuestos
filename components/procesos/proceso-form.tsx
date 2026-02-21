@@ -224,30 +224,7 @@ export function ProcesoForm({
             </p>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="numeroResolucion">Nº de resolución (opcional)</Label>
-            <Input
-              id="numeroResolucion"
-              name="numeroResolucion"
-              type="text"
-              maxLength={100}
-              defaultValue={initialData?.numeroResolucion ?? ""}
-              placeholder="Ej. 001 de 2026"
-              aria-invalid={!!state?.errores?.numeroResolucion}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="fechaResolucion">Fecha de resolución (opcional)</Label>
-              <Input
-                id="fechaResolucion"
-                name="fechaResolucion"
-                type="date"
-                defaultValue={formatDateForInput(initialData?.fechaResolucion)}
-                aria-invalid={!!state?.errores?.fechaResolucion}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="fechaAplicacionImpuesto">Fecha creación/aplicación del impuesto (opcional)</Label>
+            <Label htmlFor="fechaAplicacionImpuesto">Fecha creación/aplicación del impuesto (opcional)</Label>
               <Input
                 id="fechaAplicacionImpuesto"
                 name="fechaAplicacionImpuesto"
@@ -259,7 +236,6 @@ export function ProcesoForm({
               <p id="fechaAplicacion-hint" className="text-muted-foreground text-xs">
                 Si se indica, la fecha límite se calcula automáticamente (5 años desde esta fecha).
               </p>
-            </div>
           </div>
           <div className="flex gap-2 pt-2">
             <Button type="submit">{submitLabel}</Button>
