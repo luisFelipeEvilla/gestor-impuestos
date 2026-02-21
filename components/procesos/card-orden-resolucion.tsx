@@ -3,13 +3,7 @@
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { CardSectionAccordion } from "@/components/ui/card-accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -99,14 +93,10 @@ export function CardOrdenResolucion({ procesoId, orden }: CardOrdenResolucionPro
   const showForm = creating || (editing && orden);
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Orden de resolución</CardTitle>
-        <CardDescription>
-          Número de resolución y documento adjunto que originan el proceso de cobro.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <CardSectionAccordion
+      title="Orden de resolución"
+      description="Número de resolución y documento adjunto que originan el proceso de cobro."
+    >
         {orden && !showForm ? (
           <div className="space-y-2">
             <dl className="grid gap-2 text-sm">
@@ -239,7 +229,6 @@ export function CardOrdenResolucion({ procesoId, orden }: CardOrdenResolucionPro
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </CardSectionAccordion>
   );
 }

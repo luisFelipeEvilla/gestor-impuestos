@@ -2,13 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { CardSectionAccordion } from "@/components/ui/card-accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -106,15 +100,11 @@ export function CardAcuerdosPagoList({
     null
   );
 
+  const descripcion =
+    "Registro de acuerdos del proceso (número, fechas, cuotas). Acuerdo de pago y cobro coactivo son etapas independientes: el cobro coactivo puede iniciarse desde Cobro persuasivo sin acuerdo. Si hay acuerdo y el contribuyente incumple, desde aquí se puede pasar a cobro coactivo. Documentos y notas asociados al acuerdo.";
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Acuerdos de pago</CardTitle>
-        <CardDescription>
-          Registro de acuerdos del proceso (número, fechas, cuotas). Acuerdo de pago y cobro coactivo son etapas independientes: el cobro coactivo puede iniciarse desde Cobro persuasivo sin acuerdo. Si hay acuerdo y el contribuyente incumple, desde aquí se puede pasar a cobro coactivo. Documentos y notas asociados al acuerdo.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <CardSectionAccordion title="Acuerdos de pago" description={descripcion}>
         {initialAcuerdos.length > 0 && (
           <ul className="space-y-2 text-sm">
             {initialAcuerdos.map((a) => (
@@ -264,7 +254,6 @@ export function CardAcuerdosPagoList({
             </div>
           </>
         )}
-      </CardContent>
-    </Card>
+    </CardSectionAccordion>
   );
 }

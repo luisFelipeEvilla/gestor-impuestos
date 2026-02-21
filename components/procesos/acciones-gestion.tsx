@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { CardSectionAccordion } from "@/components/ui/card-accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -521,6 +522,9 @@ function fechaToInputValue(fecha: Date | string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
 }
 
+const DESCRIPCION_EN_CONTACTO =
+  "Gestión del pago con el contribuyente tras la notificación. Agrega comentarios y documentos de esta etapa. Puedes pasar a acuerdo de pago, a cobro coactivo (sin necesidad de acuerdo previo) o registrar pago. Cuando haya resultado, usa una de las acciones.";
+
 export function CardEnContacto({
   procesoId,
   estadoActual,
@@ -530,14 +534,10 @@ export function CardEnContacto({
   const activo = estadoActual === "notificado" || estadoActual === "en_contacto";
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Cobro persuasivo</CardTitle>
-        <CardDescription>
-          Gestión del pago con el contribuyente tras la notificación. Agrega comentarios y documentos de esta etapa. Puedes pasar a acuerdo de pago, a cobro coactivo (sin necesidad de acuerdo previo) o registrar pago. Cuando haya resultado, usa una de las acciones.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <CardSectionAccordion
+      title="Cobro persuasivo"
+      description={DESCRIPCION_EN_CONTACTO}
+    >
         {activo ? (
           <>
             <div className="space-y-3">
@@ -600,13 +600,15 @@ export function CardEnContacto({
             </div>
           </>
         )}
-      </CardContent>
-    </Card>
+    </CardSectionAccordion>
   );
 }
 
 /** Estados desde los que se puede pasar a cobro coactivo desde esta card */
 const ESTADOS_PUEDEN_INICIAR_COBRO_COACTIVO = ["notificado", "en_contacto"] as const;
+
+const DESCRIPCION_COBRO_COACTIVO_INACTIVO =
+  "Etapa independiente del acuerdo de pago. Puede iniciarse desde Cobro persuasivo (sin acuerdo) o desde Acuerdos de pago (por incumplimiento). Inicia el cobro coactivo cuando corresponda.";
 
 export function CardCobroCoactivo({
   procesoId,
@@ -621,18 +623,12 @@ export function CardCobroCoactivo({
   const fechaInicio = cobroCoactivo?.fechaInicio
     ? new Date(cobroCoactivo.fechaInicio).toLocaleDateString("es-CO")
     : null;
+  const descripcion = fechaInicio
+    ? `Cobro activo desde ${fechaInicio}. Documentos y notas de esta etapa. Cuando se efectúe el cobro, regístralo con la acción correspondiente.`
+    : DESCRIPCION_COBRO_COACTIVO_INACTIVO;
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Cobro coactivo</CardTitle>
-        <CardDescription>
-          {fechaInicio
-            ? `Cobro activo desde ${fechaInicio}. Documentos y notas de esta etapa. Cuando se efectúe el cobro, regístralo con la acción correspondiente.`
-            : "Etapa independiente del acuerdo de pago. Puede iniciarse desde Cobro persuasivo (sin acuerdo) o desde Acuerdos de pago (por incumplimiento). Inicia el cobro coactivo cuando corresponda."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <CardSectionAccordion title="Cobro coactivo" description={descripcion}>
         {activo ? (
           <>
             {cobroCoactivo && (
@@ -691,7 +687,6 @@ export function CardCobroCoactivo({
             </div>
           </>
         )}
-      </CardContent>
-    </Card>
+    </CardSectionAccordion>
   );
 }
