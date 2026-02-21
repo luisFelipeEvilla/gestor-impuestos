@@ -68,6 +68,7 @@ function buildProcesosUrl(filtros: {
   asignadoId?: number | null;
   fechaAsignacion?: string | null;
   impuestoId?: string | null;
+  comparendo?: string | null;
   page?: number;
 }) {
   const search = new URLSearchParams();
@@ -77,6 +78,7 @@ function buildProcesosUrl(filtros: {
   if (filtros.asignadoId != null && filtros.asignadoId > 0) search.set("asignado", String(filtros.asignadoId));
   if (filtros.fechaAsignacion) search.set("fechaAsignacion", filtros.fechaAsignacion);
   if (filtros.impuestoId) search.set("impuesto", filtros.impuestoId);
+  if (filtros.comparendo?.trim()) search.set("comparendo", filtros.comparendo.trim());
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
   const q = search.toString();
   return q ? `/procesos?${q}` : "/procesos";
@@ -90,6 +92,7 @@ type Props = {
     asignado?: string;
     fechaAsignacion?: string;
     impuesto?: string;
+    comparendo?: string;
     page?: string;
   }>;
 };
@@ -108,6 +111,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
       : null;
   const fechaAsignacionParam = params.fechaAsignacion;
   const impuestoParam = params.impuesto?.trim();
+  const comparendoQ = (params.comparendo ?? "").trim();
   const pageParam = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
 
   const estadoActual: (typeof ESTADOS_VALIDOS)[number] | null =
@@ -184,6 +188,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
   }
   if (asignadoIdNum != null) {
     condiciones.push(eq(procesos.asignadoAId, asignadoIdNum));
+  }
+  if (comparendoQ.length > 0) {
+    condiciones.push(ilike(procesos.noComparendo, `%${comparendoQ}%`));
   }
   if (idsConFechaAsignacion != null) {
     condiciones.push(inArray(procesos.id, idsConFechaAsignacion));
@@ -314,6 +321,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
               estadoActual={estadoActual}
               vigenciaActual={vigenciaNum}
               contribuyenteActual={contribuyenteQ}
+              comparendoActual={comparendoQ}
               usuarios={usuariosList}
               asignadoIdActual={asignadoIdNum}
               fechaAsignacionActual={fechaAsignacion}
@@ -423,6 +431,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
             {(estadoActual != null ||
               vigenciaNum != null ||
               contribuyenteQ.length > 0 ||
+              comparendoQ.length > 0 ||
               asignadoIdNum != null ||
               fechaAsignacion != null ||
               impuestoIdStr != null) && " · Filtros aplicados"}
@@ -460,11 +469,13 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             contribuyente: contribuyenteQ || undefined,
+                            comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
                             impuestoId: impuestoIdStr ?? undefined,
                             page: 1,
                           })}
+                          scroll={false}
                         >
                           <ChevronsLeft className="size-4" aria-hidden />
                           Primera
@@ -483,11 +494,13 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             contribuyente: contribuyenteQ || undefined,
+                            comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
                             impuestoId: impuestoIdStr ?? undefined,
                             page: page - 1,
                           })}
+                          scroll={false}
                         >
                           <ChevronLeft className="size-4" aria-hidden />
                           Anterior
@@ -509,11 +522,13 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             contribuyente: contribuyenteQ || undefined,
+                            comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
                             impuestoId: impuestoIdStr ?? undefined,
                             page: page + 1,
                           })}
+                          scroll={false}
                         >
                           Siguiente
                           <ChevronRight className="size-4" aria-hidden />
@@ -532,11 +547,13 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             contribuyente: contribuyenteQ || undefined,
+                            comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
                             impuestoId: impuestoIdStr ?? undefined,
                             page: totalPages,
                           })}
+                          scroll={false}
                         >
                           Última
                           <ChevronsRight className="size-4" aria-hidden />
@@ -547,6 +564,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                       {estadoActual ? <input type="hidden" name="estado" value={estadoActual} /> : null}
                       {vigenciaNum != null ? <input type="hidden" name="vigencia" value={String(vigenciaNum)} /> : null}
                       {contribuyenteQ ? <input type="hidden" name="contribuyente" value={contribuyenteQ} /> : null}
+                      {comparendoQ ? <input type="hidden" name="comparendo" value={comparendoQ} /> : null}
                       {asignadoIdNum != null && asignadoIdNum > 0 ? <input type="hidden" name="asignado" value={String(asignadoIdNum)} /> : null}
                       {fechaAsignacion ? <input type="hidden" name="fechaAsignacion" value={fechaAsignacion} /> : null}
                       {impuestoIdStr ? <input type="hidden" name="impuesto" value={impuestoIdStr} /> : null}

@@ -39,6 +39,7 @@ type FiltrosProcesosProps = {
   estadoActual: string | null;
   vigenciaActual: number | null;
   contribuyenteActual: string;
+  comparendoActual: string;
   usuarios: UsuarioOption[];
   asignadoIdActual: number | null;
   fechaAsignacionActual: string | null;
@@ -50,6 +51,7 @@ export function FiltrosProcesos({
   estadoActual,
   vigenciaActual,
   contribuyenteActual,
+  comparendoActual,
   usuarios: usuariosList,
   asignadoIdActual,
   fechaAsignacionActual,
@@ -59,16 +61,21 @@ export function FiltrosProcesos({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [contribuyente, setContribuyente] = useState(contribuyenteActual);
+  const [comparendo, setComparendo] = useState(comparendoActual);
 
   useEffect(() => {
     setContribuyente(contribuyenteActual);
   }, [contribuyenteActual]);
+  useEffect(() => {
+    setComparendo(comparendoActual);
+  }, [comparendoActual]);
 
   const buildParams = useCallback(
     (updates: {
       estado?: string | null;
       vigencia?: string | number | null;
       contribuyente?: string;
+      comparendo?: string;
       asignadoId?: number | null;
       fechaAsignacion?: string | null;
       impuestoId?: string | null;
@@ -82,6 +89,8 @@ export function FiltrosProcesos({
         updates.contribuyente !== undefined
           ? updates.contribuyente
           : contribuyente;
+      const comp =
+        updates.comparendo !== undefined ? updates.comparendo : comparendo;
       const asigId =
         updates.asignadoId !== undefined
           ? updates.asignadoId
@@ -98,12 +107,14 @@ export function FiltrosProcesos({
       params.delete("estado");
       params.delete("vigencia");
       params.delete("contribuyente");
+      params.delete("comparendo");
       params.delete("asignado");
       params.delete("fechaAsignacion");
       params.delete("impuesto");
       if (estado != null && estado !== "todos") params.set("estado", estado);
       if (vigencia != null) params.set("vigencia", String(vigencia));
       if (contrib.trim()) params.set("contribuyente", contrib.trim());
+      if (comp.trim()) params.set("comparendo", comp.trim());
       if (asigId != null && asigId > 0) params.set("asignado", String(asigId));
       if (fechaAsig != null && fechaAsig !== "")
         params.set("fechaAsignacion", fechaAsig);
@@ -116,6 +127,7 @@ export function FiltrosProcesos({
       estadoActual,
       vigenciaActual,
       contribuyente,
+      comparendo,
       fechaAsignacionActual,
       asignadoIdActual,
       impuestoIdActual,
@@ -176,10 +188,11 @@ export function FiltrosProcesos({
       e.preventDefault();
       const params = buildParams({
         contribuyente: contribuyente.trim(),
+        comparendo: comparendo.trim(),
       });
-      router.push(`/procesos?${params.toString()}`);
+      router.push(`/procesos?${params.toString()}`, { scroll: false });
     },
-    [router, buildParams, contribuyente]
+    [router, buildParams, contribuyente, comparendo]
   );
 
   const handleLimpiar = useCallback(() => {
@@ -190,6 +203,7 @@ export function FiltrosProcesos({
     estadoActual != null ||
     vigenciaActual != null ||
     contribuyenteActual.length > 0 ||
+    comparendoActual.length > 0 ||
     asignadoIdActual != null ||
     fechaAsignacionActual != null ||
     impuestoIdActual != null;
@@ -218,6 +232,23 @@ export function FiltrosProcesos({
           onChange={(e) => setContribuyente(e.target.value)}
           className={fieldClass}
           aria-label="Buscar por NIT o nombre del contribuyente"
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label
+          htmlFor="filtro-comparendo"
+          className="text-xs text-muted-foreground"
+        >
+          Nº comparendo
+        </Label>
+        <Input
+          id="filtro-comparendo"
+          type="search"
+          placeholder="Número..."
+          value={comparendo}
+          onChange={(e) => setComparendo(e.target.value)}
+          className={fieldClass}
+          aria-label="Filtrar por número de comparendo"
         />
       </div>
       <div className="flex flex-col gap-1.5">
