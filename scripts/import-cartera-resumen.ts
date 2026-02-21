@@ -10,7 +10,7 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import type { TipoDocumento } from "../lib/constants/tipo-documento";
 import { db } from "../lib/db";
-import { contribuyentes, impuestos, procesos, ordenesResolucion } from "../lib/db/schema";
+import { contribuyentes, impuestos, procesos } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
 
 const CSV_PATH =
@@ -204,21 +204,37 @@ async function main(): Promise<void> {
     contribuyentesByKey.set(contribuyenteKey(c.tipoDocumento, c.nit), { id: c.id });
   }
 
+  function buildIdempotenciaKey(
+    noComparendo: string | null,
+    fechaAplicacion: string | null,
+    montoCop: string,
+    noDocumentoInfractor: string
+  ): string {
+    const noComp = (noComparendo ?? "").trim();
+    const fecha = fechaAplicacion ?? "";
+    const doc = (noDocumentoInfractor ?? "").trim();
+    return `${noComp}|${fecha}|${montoCop}|${doc}`;
+  }
+
   const procesosExistentes = await db
     .select({
-      contribuyenteId: procesos.contribuyenteId,
+      noComparendo: procesos.noComparendo,
+      fechaAplicacionImpuesto: procesos.fechaAplicacionImpuesto,
       montoCop: procesos.montoCop,
-      numeroResolucion: ordenesResolucion.numeroResolucion,
+      nit: contribuyentes.nit,
     })
     .from(procesos)
-    .leftJoin(ordenesResolucion, eq(procesos.id, ordenesResolucion.procesoId))
+    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .where(eq(procesos.impuestoId, impuestoId));
 
   const clavesYaEnBd = new Set<string>();
   for (const row of procesosExistentes) {
-    const montoStr = String(row.montoCop ?? "0");
-    const numeroResolucion = row.numeroResolucion ?? "";
-    const key = `${impuestoId}-${row.contribuyenteId}-${numeroResolucion}-${montoStr}`;
+    const key = buildIdempotenciaKey(
+      row.noComparendo,
+      row.fechaAplicacionImpuesto,
+      String(row.montoCop ?? "0"),
+      row.nit ?? ""
+    );
     clavesYaEnBd.add(key);
   }
 
@@ -230,8 +246,7 @@ async function main(): Promise<void> {
   for (const fila of filas) {
     const nit = fila.identificacion || "SIN-DOC";
     const key = contribuyenteKey(fila.tipoDocumento, nit);
-    const contrib = contribuyentesByKey.get(key);
-    const contribId = contrib ? contrib.id : -1;
+    contribuyentesByKey.get(key);
 
     const fechaAplicacion = fila.fechaComparendo ?? fila.fechaResolucion ?? null;
     const vigencia = fechaAplicacion
@@ -245,22 +260,18 @@ async function main(): Promise<void> {
     const montoStr = fila.valorDeuda || fila.valorMulta || "0";
     const montoNum = parseFloat(montoStr.replace(/,/g, "."));
     const montoCop = Number.isNaN(montoNum) || montoNum < 0 ? "0" : montoNum.toFixed(2);
-    const numeroResolucion = fila.nroResolucion?.trim() || fila.nroComparendo?.trim() || null;
-    const idempotenciaKey = numeroResolucion
-      ? `${impuestoId}-${contribId}-${numeroResolucion}-${montoCop}`
-      : null;
+    const noComparendo = fila.nroComparendo?.trim() ? limpia(fila.nroComparendo) : null;
+    const idempotenciaKey = buildIdempotenciaKey(noComparendo, fechaAplicacion, montoCop, nit);
 
-    if (idempotenciaKey && clavesYaEnBd.has(idempotenciaKey)) {
+    if (clavesYaEnBd.has(idempotenciaKey)) {
       yaExisten++;
       continue;
     }
-    if (idempotenciaKey && vistosEnCsv.has(idempotenciaKey)) {
+    if (vistosEnCsv.has(idempotenciaKey)) {
       conErrores++;
       continue;
     }
-    if (idempotenciaKey) {
-      vistosEnCsv.add(idempotenciaKey);
-    }
+    vistosEnCsv.add(idempotenciaKey);
     porImportar++;
   }
 

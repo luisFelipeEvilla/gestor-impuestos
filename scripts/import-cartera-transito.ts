@@ -7,7 +7,7 @@
  * Requiere: DATABASE_URL en .env.
  */
 import "dotenv/config";
-import { appendFileSync, readFileSync, writeFileSync } from "fs";
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 import type { TipoDocumento } from "../lib/constants/tipo-documento";
 import { db } from "../lib/db";
@@ -27,6 +27,8 @@ const CSV_PATH =
 
 const BATCH_SIZE = 1000;
 const IMPUESTO_NOMBRE_TRANSITO = "Comparendos de tránsito";
+/** Carpeta donde se escriben CSV de errores, omitidos y vigencia inválida (está en .gitignore). */
+const IMPORT_CARTERA_OUTPUT_DIR = "import-cartera-output";
 
 /** Elemento del lote para insert masivo: proceso + metadatos para historial, orden y cobro. */
 interface BatchItem {
@@ -237,22 +239,42 @@ async function getOrCreateImpuestoTransito(): Promise<string> {
   return inserted.id;
 }
 
+/** Clave de unicidad: no_comparendo, fecha, valor_multa, no_documento_infractor (mismo orden que en BD). */
+function buildIdempotenciaKey(
+  noComparendo: string | null,
+  fechaAplicacion: string | null,
+  montoCop: string,
+  noDocumentoInfractor: string
+): string {
+  const noComp = (noComparendo ?? "").trim();
+  const fecha = fechaAplicacion ?? "";
+  const doc = (noDocumentoInfractor ?? "").trim();
+  return `${noComp}|${fecha}|${montoCop}|${doc}`;
+}
+
 /** Carga las claves de idempotencia de procesos ya importados para el impuesto (evitar duplicados al re-ejecutar). */
 async function loadExistingProcessKeys(impuestoId: string): Promise<Set<string>> {
   const rows = await db
     .select({
-      contribuyenteId: procesos.contribuyenteId,
+      noComparendo: procesos.noComparendo,
+      fechaAplicacionImpuesto: procesos.fechaAplicacionImpuesto,
       montoCop: procesos.montoCop,
-      numeroResolucion: ordenesResolucion.numeroResolucion,
+      nit: contribuyentes.nit,
     })
     .from(procesos)
-    .leftJoin(ordenesResolucion, eq(procesos.id, ordenesResolucion.procesoId))
+    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .where(eq(procesos.impuestoId, impuestoId));
   const set = new Set<string>();
   for (const r of rows) {
     const montoStr = String(r.montoCop ?? "0");
-    const numeroResolucion = r.numeroResolucion ?? "";
-    set.add(`${impuestoId}-${r.contribuyenteId}-${numeroResolucion}-${montoStr}`);
+    const montoNormalized = (parseFloat(montoStr) || 0).toFixed(2);
+    const key = buildIdempotenciaKey(
+      r.noComparendo,
+      r.fechaAplicacionImpuesto,
+      montoNormalized,
+      r.nit ?? ""
+    );
+    set.add(key);
   }
   return set;
 }
@@ -324,6 +346,7 @@ async function flushBatch(
   impuestoId: string,
   numeroResolucionUsados: Set<string>,
   csvLines: string[],
+  outputDir: string,
   errorFilePathRef: { current: string | null },
   stats: { procesosCreados: number }
 ): Promise<void> {
@@ -396,7 +419,7 @@ async function flushBatch(
     const msg = `Batch insert failed: ${errMsg}`;
     if (!errorFilePathRef.current) {
       errorFilePathRef.current = join(
-        process.cwd(),
+        outputDir,
         `import-cartera-errores-${timestampForFilename()}.csv`
       );
       const header = csvLines[0] ?? "";
@@ -456,11 +479,47 @@ async function main(): Promise<void> {
   console.log(`📌 Procesos ya existentes en BD (impuesto Tránsito): ${numeroResolucionUsados.size}`);
 
   const csvLines = csvContent.split(/\r?\n/).filter((l) => l.trim());
+  const outputDir = join(process.cwd(), IMPORT_CARTERA_OUTPUT_DIR);
+  mkdirSync(outputDir, { recursive: true });
+
   let creados = 0;
-  let procesosOmitidos = 0;
+  let omitidosYaEnBd = 0;
+  let omitidosDuplicadoCsv = 0;
+  let omitidosVigencia = 0;
+  let omitidosContribuyente = 0;
+  const clavesVistasEnCsv = new Set<string>();
   const stats = { procesosCreados: 0 };
   const errorFilePathRef: { current: string | null } = { current: null };
+  const omitidosFilePathRef: { current: string | null } = { current: null };
+  const vigenciaInvalidaFilePathRef: { current: string | null } = { current: null };
   const batch: BatchItem[] = [];
+
+  function appendVigenciaInvalida(lineIndex: number): void {
+    if (!vigenciaInvalidaFilePathRef.current) {
+      vigenciaInvalidaFilePathRef.current = join(
+        outputDir,
+        `import-cartera-vigencia-invalida-${timestampForFilename()}.csv`
+      );
+      const header = csvLines[0] ?? "";
+      writeFileSync(vigenciaInvalidaFilePathRef.current, `${header};"motivo"\n`, "utf-8");
+    }
+    const rawLine = csvLines[lineIndex + 1] ?? "";
+    appendFileSync(vigenciaInvalidaFilePathRef.current!, `${rawLine};"vigencia_invalida"\n`, "utf-8");
+  }
+
+  function appendOmitido(lineIndex: number, motivo: string): void {
+    if (!omitidosFilePathRef.current) {
+      omitidosFilePathRef.current = join(
+        outputDir,
+        `import-cartera-omitidos-${timestampForFilename()}.csv`
+      );
+      const header = csvLines[0] ?? "";
+      writeFileSync(omitidosFilePathRef.current, `${header};"motivo"\n`, "utf-8");
+    }
+    const rawLine = csvLines[lineIndex + 1] ?? "";
+    const escaped = motivo.replace(/"/g, '""');
+    appendFileSync(omitidosFilePathRef.current!, `${rawLine};"${escaped}"\n`, "utf-8");
+  }
 
   const totalFilas = filas.length;
   const spinner = createProgressSpinner(totalFilas);
@@ -490,7 +549,8 @@ async function main(): Promise<void> {
         .returning({ id: contribuyentes.id });
       if (!inserted) {
         console.warn(`⚠ No se pudo crear contribuyente: ${nit}`);
-        procesosOmitidos++;
+        omitidosContribuyente++;
+        appendOmitido(i, "error_contribuyente");
         continue;
       }
       contribId = inserted.id;
@@ -515,20 +575,32 @@ async function main(): Promise<void> {
       ? parseInt(fechaAplicacion.slice(0, 4), 10)
       : new Date().getFullYear();
     if (vigencia < 2000 || vigencia > 2100) {
-      procesosOmitidos++;
+      omitidosVigencia++;
+      appendOmitido(i, "vigencia_invalida");
+      appendVigenciaInvalida(i);
       continue;
     }
     const numeroResolucion =
       fila.nroResolucion?.trim() || fila.nroComparendo?.trim() || null;
-    const idempotenciaKey = numeroResolucion
-      ? `${impuestoId}-${contribId}-${numeroResolucion}-${montoCop}`
-      : null;
-    if (idempotenciaKey && numeroResolucionUsados.has(idempotenciaKey)) {
-      procesosOmitidos++;
+    const noComparendo = fila.nroComparendo?.trim() ? limpia(fila.nroComparendo) : null;
+    const idempotenciaKey = buildIdempotenciaKey(
+      noComparendo,
+      fechaAplicacion,
+      montoCop,
+      nit
+    );
+    if (numeroResolucionUsados.has(idempotenciaKey)) {
+      omitidosYaEnBd++;
+      appendOmitido(i, "ya_en_bd");
       continue;
     }
+    if (clavesVistasEnCsv.has(idempotenciaKey)) {
+      omitidosDuplicadoCsv++;
+      appendOmitido(i, "duplicado_en_csv");
+      continue;
+    }
+    clavesVistasEnCsv.add(idempotenciaKey);
     const estadoActual = estadoActualDesdeCartera(fila.estadoCartera);
-    const noComparendo = fila.nroComparendo?.trim() ? limpia(fila.nroComparendo) : null;
     const tieneCobroCoactivo = fila.polca === "S" && !!fila.fechaCoactivo;
     batch.push({
       contribuyenteId: contribId,
@@ -555,6 +627,7 @@ async function main(): Promise<void> {
         impuestoId,
         numeroResolucionUsados,
         csvLines,
+        outputDir,
         errorFilePathRef,
         stats
       );
@@ -567,6 +640,7 @@ async function main(): Promise<void> {
       impuestoId,
       numeroResolucionUsados,
       csvLines,
+      outputDir,
       errorFilePathRef,
       stats
     );
@@ -574,11 +648,26 @@ async function main(): Promise<void> {
   spinner.stop();
   console.log(`✅ Contribuyentes nuevos: ${creados}`);
   console.log(`✅ Procesos creados: ${stats.procesosCreados}`);
-  if (procesosOmitidos > 0) {
-    console.log(`⏭ Procesos omitidos/duplicados/error: ${procesosOmitidos}`);
+  if (
+    omitidosYaEnBd > 0 ||
+    omitidosDuplicadoCsv > 0 ||
+    omitidosVigencia > 0 ||
+    omitidosContribuyente > 0
+  ) {
+    console.log(`⏭ Omitidos (clave ya en BD): ${omitidosYaEnBd}`);
+    console.log(`⏭ Omitidos (duplicado en CSV): ${omitidosDuplicadoCsv}`);
+    if (omitidosVigencia > 0) console.log(`⏭ Omitidos (vigencia inválida): ${omitidosVigencia}`);
+    if (omitidosContribuyente > 0)
+      console.log(`⏭ Omitidos (error creando contribuyente): ${omitidosContribuyente}`);
   }
   if (errorFilePathRef.current) {
     console.log(`📁 Errores registrados en: ${errorFilePathRef.current}`);
+  }
+  if (omitidosFilePathRef.current) {
+    console.log(`📁 Omitidos registrados en: ${omitidosFilePathRef.current}`);
+  }
+  if (vigenciaInvalidaFilePathRef.current) {
+    console.log(`📁 Vigencia inválida registrados en: ${vigenciaInvalidaFilePathRef.current}`);
   }
 }
 

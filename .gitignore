@@ -39,6 +39,9 @@ yarn-error.log*
 # uploads (documentos adjuntos de procesos)
 /uploads
 
+# salida de importación cartera (errores, omitidos, vigencia inválida)
+/import-cartera-output
+
 # vercel
 .vercel
 
