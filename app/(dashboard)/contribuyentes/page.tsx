@@ -151,7 +151,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: 1 })}`}>
+                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: 1 })}`} scroll={false}>
                           <ChevronsLeft className="size-4" aria-hidden />
                           Primera
                         </Link>
@@ -164,7 +164,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: currentPage - 1 })}`}>
+                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: currentPage - 1 })}`} scroll={false}>
                           <ChevronLeft className="size-4" aria-hidden />
                           Anterior
                         </Link>
@@ -180,7 +180,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: currentPage + 1 })}`}>
+                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: currentPage + 1 })}`} scroll={false}>
                           Siguiente
                           <ChevronRight className="size-4" aria-hidden />
                         </Link>
@@ -193,7 +193,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: totalPages })}`}>
+                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: totalPages })}`} scroll={false}>
                           Última
                           <ChevronsRight className="size-4" aria-hidden />
                         </Link>

@@ -7,8 +7,8 @@
  * Requiere: DATABASE_URL en .env.
  */
 import "dotenv/config";
-import { readFileSync } from "fs";
-import { resolve } from "path";
+import { appendFileSync, readFileSync, writeFileSync } from "fs";
+import { join, resolve } from "path";
 import type { TipoDocumento } from "../lib/constants/tipo-documento";
 import { db } from "../lib/db";
 import {
@@ -25,7 +25,30 @@ const CSV_PATH =
   process.env.CARTERA_CSV_PATH ||
   (process.argv[2] ? resolve(process.cwd(), process.argv[2]) : resolve(process.cwd(), "ReporteCarteraActual.csv"));
 
+const BATCH_SIZE = 1000;
 const IMPUESTO_NOMBRE_TRANSITO = "Comparendos de tránsito";
+
+/** Elemento del lote para insert masivo: proceso + metadatos para historial, orden y cobro. */
+interface BatchItem {
+  contribuyenteId: number;
+  vigencia: number;
+  periodo: null;
+  noComparendo: string | null;
+  montoCop: string;
+  estadoActual: "pendiente" | "en_cobro_coactivo";
+  fechaLimite: string | null;
+  fechaAplicacionImpuesto: string | null;
+  numeroResolucion: string | null;
+  fechaResolucion: string | null;
+  codigoInfraccion: string | null;
+  tipoResolucion: "sancion" | "resumen_ap" | null;
+  tieneCobroCoactivo: boolean;
+  noCoactivo: string | null;
+  fechaCoactivo: string | null;
+  idempotenciaKey: string | null;
+  /** Índice de la fila en el CSV (0-based, datos; línea real = csvLineIndex + 1 por cabecera). */
+  csvLineIndex: number;
+}
 
 /** Normaliza texto del CSV para comparación (quitar tildes, minúsculas). */
 function normalizarTipoDocCsv(val: string): string {
@@ -214,9 +237,178 @@ async function getOrCreateImpuestoTransito(): Promise<string> {
   return inserted.id;
 }
 
+/** Carga las claves de idempotencia de procesos ya importados para el impuesto (evitar duplicados al re-ejecutar). */
+async function loadExistingProcessKeys(impuestoId: string): Promise<Set<string>> {
+  const rows = await db
+    .select({
+      contribuyenteId: procesos.contribuyenteId,
+      montoCop: procesos.montoCop,
+      numeroResolucion: ordenesResolucion.numeroResolucion,
+    })
+    .from(procesos)
+    .leftJoin(ordenesResolucion, eq(procesos.id, ordenesResolucion.procesoId))
+    .where(eq(procesos.impuestoId, impuestoId));
+  const set = new Set<string>();
+  for (const r of rows) {
+    const montoStr = String(r.montoCop ?? "0");
+    const numeroResolucion = r.numeroResolucion ?? "";
+    set.add(`${impuestoId}-${r.contribuyenteId}-${numeroResolucion}-${montoStr}`);
+  }
+  return set;
+}
+
 /** Clave única del contribuyente para deduplicar */
 function contribuyenteKey(tipoDoc: TipoDocumento, nit: string): string {
   return `${tipoDoc}:${nit}`;
+}
+
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
+function formatElapsed(ms: number): string {
+  const sec = Math.floor(ms / 1000);
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  if (h > 0) return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  return `${String(min).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/** Spinner que actualiza una línea con progreso y tiempo transcurrido. */
+function createProgressSpinner(total: number) {
+  const start = Date.now();
+  const state = { current: 0, done: false };
+  let frameIndex = 0;
+  const interval = setInterval(() => {
+    if (state.done) {
+      clearInterval(interval);
+      return;
+    }
+    const elapsed = formatElapsed(Date.now() - start);
+    const pct = total > 0 ? Math.round((state.current / total) * 100) : 0;
+    const frame = SPINNER_FRAMES[frameIndex % SPINNER_FRAMES.length];
+    frameIndex++;
+    const line = ` ${frame} Procesando ${state.current.toLocaleString()} / ${total.toLocaleString()} (${pct}%) — ${elapsed}`;
+    process.stdout.write(`\r${line}`);
+  }, 80);
+  return {
+    update: (current: number) => {
+      state.current = current;
+    },
+    stop: () => {
+      state.done = true;
+      clearInterval(interval);
+      process.stdout.write("\r" + " ".repeat(100) + "\r");
+    },
+  };
+}
+
+function timestampForFilename(): string {
+  const now = new Date();
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+    String(now.getHours()).padStart(2, "0"),
+    String(now.getMinutes()).padStart(2, "0"),
+    String(now.getSeconds()).padStart(2, "0"),
+  ].join("-");
+}
+
+/**
+ * Inserta un lote de procesos (y sus historial, órdenes, cobros) en una transacción.
+ * Si falla, escribe las filas en el archivo de errores y no actualiza numeroResolucionUsados.
+ */
+async function flushBatch(
+  batch: BatchItem[],
+  impuestoId: string,
+  numeroResolucionUsados: Set<string>,
+  csvLines: string[],
+  errorFilePathRef: { current: string | null },
+  stats: { procesosCreados: number }
+): Promise<void> {
+  try {
+    await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(procesos)
+        .values(
+          batch.map((b) => ({
+            impuestoId,
+            contribuyenteId: b.contribuyenteId,
+            vigencia: b.vigencia,
+            periodo: b.periodo,
+            noComparendo: b.noComparendo,
+            montoCop: b.montoCop,
+            estadoActual: b.estadoActual,
+            asignadoAId: null,
+            fechaLimite: b.fechaLimite,
+            fechaAplicacionImpuesto: b.fechaAplicacionImpuesto,
+          }))
+        )
+        .returning({ id: procesos.id });
+      const procesoIds = inserted.map((r) => r.id);
+      await tx.insert(historialProceso).values(
+        procesoIds.map((id, i) => ({
+          procesoId: id,
+          tipoEvento: "cambio_estado" as const,
+          estadoAnterior: null,
+          estadoNuevo: batch[i]!.estadoActual,
+          comentario: "Proceso creado desde importación cartera tránsito",
+        }))
+      );
+      const ordenesPayload = batch
+        .map((b, i) =>
+          b.numeroResolucion
+            ? {
+                procesoId: procesoIds[i]!,
+                numeroResolucion: b.numeroResolucion,
+                fechaResolucion: b.fechaResolucion,
+                codigoInfraccion: b.codigoInfraccion,
+                tipoResolucion: b.tipoResolucion,
+              }
+            : null
+        )
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+      if (ordenesPayload.length > 0) {
+        await tx.insert(ordenesResolucion).values(ordenesPayload);
+      }
+      const cobrosPayload = batch
+        .map((b, i) =>
+          b.tieneCobroCoactivo && b.fechaCoactivo
+            ? {
+                procesoId: procesoIds[i]!,
+                noCoactivo: b.noCoactivo,
+                fechaInicio: b.fechaCoactivo,
+              }
+            : null
+        )
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+      if (cobrosPayload.length > 0) {
+        await tx.insert(cobrosCoactivos).values(cobrosPayload);
+      }
+    });
+    for (const b of batch) {
+      if (b.idempotenciaKey) numeroResolucionUsados.add(b.idempotenciaKey);
+    }
+    stats.procesosCreados += batch.length;
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const msg = `Batch insert failed: ${errMsg}`;
+    if (!errorFilePathRef.current) {
+      errorFilePathRef.current = join(
+        process.cwd(),
+        `import-cartera-errores-${timestampForFilename()}.csv`
+      );
+      const header = csvLines[0] ?? "";
+      writeFileSync(errorFilePathRef.current, `${header};"error"\n`, "utf-8");
+    }
+    for (const b of batch) {
+      const rawLine = csvLines[b.csvLineIndex + 1] ?? "";
+      const escaped = errMsg.replace(/"/g, '""');
+      appendFileSync(errorFilePathRef.current!, `${rawLine};"${escaped}"\n`, "utf-8");
+    }
+    console.warn(`⚠ Lote de ${batch.length} procesos falló:`, errMsg);
+  }
 }
 
 async function main(): Promise<void> {
@@ -260,11 +452,22 @@ async function main(): Promise<void> {
       nombre: c.nombreRazonSocial,
     });
   }
+  const numeroResolucionUsados = await loadExistingProcessKeys(impuestoId);
+  console.log(`📌 Procesos ya existentes en BD (impuesto Tránsito): ${numeroResolucionUsados.size}`);
+
+  const csvLines = csvContent.split(/\r?\n/).filter((l) => l.trim());
   let creados = 0;
-  let procesosCreados = 0;
   let procesosOmitidos = 0;
-  const numeroResolucionUsados = new Set<string>();
-  for (const fila of filas) {
+  const stats = { procesosCreados: 0 };
+  const errorFilePathRef: { current: string | null } = { current: null };
+  const batch: BatchItem[] = [];
+
+  const totalFilas = filas.length;
+  const spinner = createProgressSpinner(totalFilas);
+
+  for (let i = 0; i < filas.length; i++) {
+    spinner.update(i + 1);
+    const fila = filas[i]!;
     const nit = fila.identificacion || "SIN-DOC";
     const key = contribuyenteKey(fila.tipoDocumento, nit);
     let contribId: number;
@@ -326,58 +529,56 @@ async function main(): Promise<void> {
     }
     const estadoActual = estadoActualDesdeCartera(fila.estadoCartera);
     const noComparendo = fila.nroComparendo?.trim() ? limpia(fila.nroComparendo) : null;
-    try {
-      const [inserted] = await db
-        .insert(procesos)
-        .values({
-          impuestoId,
-          contribuyenteId: contribId,
-          vigencia,
-          periodo: null,
-          noComparendo,
-          montoCop,
-          estadoActual,
-          asignadoAId: null,
-          fechaLimite,
-          fechaAplicacionImpuesto: fechaAplicacion,
-        })
-        .returning({ id: procesos.id });
-      if (inserted) {
-        await db.insert(historialProceso).values({
-          procesoId: inserted.id,
-          tipoEvento: "cambio_estado",
-          estadoAnterior: null,
-          estadoNuevo: estadoActual,
-          comentario: "Proceso creado desde importación cartera tránsito",
-        });
-        if (numeroResolucion) {
-          await db.insert(ordenesResolucion).values({
-            procesoId: inserted.id,
-            numeroResolucion,
-            fechaResolucion: fila.fechaResolucion ?? null,
-            codigoInfraccion: fila.codigoInfraccion?.trim() || null,
-            tipoResolucion: tipoResolucionDesdeCsv(fila.tipoResolucion),
-          });
-        }
-        if (fila.polca === "S" && fila.fechaCoactivo) {
-          await db.insert(cobrosCoactivos).values({
-            procesoId: inserted.id,
-            noCoactivo: fila.nroCoactivo?.trim() ? limpia(fila.nroCoactivo) : null,
-            fechaInicio: fila.fechaCoactivo,
-          });
-        }
-        procesosCreados++;
-        if (idempotenciaKey) numeroResolucionUsados.add(idempotenciaKey);
-      }
-    } catch (err) {
-      console.warn(`⚠ Error creando proceso para ${nit} / ${fila.nroComparendo}:`, err);
-      procesosOmitidos++;
+    const tieneCobroCoactivo = fila.polca === "S" && !!fila.fechaCoactivo;
+    batch.push({
+      contribuyenteId: contribId,
+      vigencia,
+      periodo: null,
+      noComparendo,
+      montoCop,
+      estadoActual,
+      fechaLimite,
+      fechaAplicacionImpuesto: fechaAplicacion,
+      numeroResolucion,
+      fechaResolucion: fila.fechaResolucion ?? null,
+      codigoInfraccion: fila.codigoInfraccion?.trim() || null,
+      tipoResolucion: tipoResolucionDesdeCsv(fila.tipoResolucion),
+      tieneCobroCoactivo,
+      noCoactivo: fila.nroCoactivo?.trim() ? limpia(fila.nroCoactivo) : null,
+      fechaCoactivo: fila.fechaCoactivo ?? null,
+      idempotenciaKey,
+      csvLineIndex: i,
+    });
+    if (batch.length >= BATCH_SIZE) {
+      await flushBatch(
+        batch,
+        impuestoId,
+        numeroResolucionUsados,
+        csvLines,
+        errorFilePathRef,
+        stats
+      );
+      batch.length = 0;
     }
   }
+  if (batch.length > 0) {
+    await flushBatch(
+      batch,
+      impuestoId,
+      numeroResolucionUsados,
+      csvLines,
+      errorFilePathRef,
+      stats
+    );
+  }
+  spinner.stop();
   console.log(`✅ Contribuyentes nuevos: ${creados}`);
-  console.log(`✅ Procesos creados: ${procesosCreados}`);
+  console.log(`✅ Procesos creados: ${stats.procesosCreados}`);
   if (procesosOmitidos > 0) {
     console.log(`⏭ Procesos omitidos/duplicados/error: ${procesosOmitidos}`);
+  }
+  if (errorFilePathRef.current) {
+    console.log(`📁 Errores registrados en: ${errorFilePathRef.current}`);
   }
 }
 

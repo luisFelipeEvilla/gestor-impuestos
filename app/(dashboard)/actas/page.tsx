@@ -281,7 +281,7 @@ export default async function ActasPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={buildActasUrl({ ...urlParams, page: 1 })}>
+                        <Link href={buildActasUrl({ ...urlParams, page: 1 })} scroll={false}>
                           <ChevronsLeft className="size-4" aria-hidden />
                           Primera
                         </Link>
@@ -294,7 +294,7 @@ export default async function ActasPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={buildActasUrl({ ...urlParams, page: page - 1 })}>
+                        <Link href={buildActasUrl({ ...urlParams, page: page - 1 })} scroll={false}>
                           <ChevronLeft className="size-4" aria-hidden />
                           Anterior
                         </Link>
@@ -310,7 +310,7 @@ export default async function ActasPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={buildActasUrl({ ...urlParams, page: page + 1 })}>
+                        <Link href={buildActasUrl({ ...urlParams, page: page + 1 })} scroll={false}>
                           Siguiente
                           <ChevronRight className="size-4" aria-hidden />
                         </Link>
@@ -323,7 +323,7 @@ export default async function ActasPage({ searchParams }: Props) {
                       </Button>
                     ) : (
                       <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link href={buildActasUrl({ ...urlParams, page: totalPages })}>
+                        <Link href={buildActasUrl({ ...urlParams, page: totalPages })} scroll={false}>
                           Última
                           <ChevronsRight className="size-4" aria-hidden />
                         </Link>
