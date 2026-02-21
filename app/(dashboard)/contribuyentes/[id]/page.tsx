@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 import { getTipoDocumentoLabel } from "@/lib/constants/tipo-documento";
 import { db } from "@/lib/db";
-import { contribuyentes } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { contribuyentes, procesos, impuestos } from "@/lib/db/schema";
+import { eq, and, desc } from "drizzle-orm";
+import { getSession } from "@/lib/auth-server";
 import {
   Card,
   CardContent,
@@ -12,7 +14,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EliminarContribuyenteButton } from "./botones-contribuyente";
+import { labelEstado } from "@/lib/estados-proceso";
 import { unstable_noStore } from "next/cache";
 
 export const dynamic = 'force-dynamic';
@@ -32,9 +43,31 @@ export default async function DetalleContribuyentePage({ params }: Props) {
     .where(eq(contribuyentes.id, id));
   if (!contribuyente) notFound();
 
+  const session = await getSession();
+  const whereContrib = eq(procesos.contribuyenteId, id);
+  const wherePermiso =
+    session?.user?.rol === "admin"
+      ? undefined
+      : session?.user?.id
+        ? eq(procesos.asignadoAId, session.user.id)
+        : eq(procesos.id, -1);
+  const whereCond = wherePermiso ? and(whereContrib, wherePermiso) : whereContrib;
+  const procesosList = await db
+    .select({
+      id: procesos.id,
+      vigencia: procesos.vigencia,
+      montoCop: procesos.montoCop,
+      estadoActual: procesos.estadoActual,
+      impuestoNombre: impuestos.nombre,
+    })
+    .from(procesos)
+    .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
+    .where(whereCond)
+    .orderBy(desc(procesos.creadoEn));
+
   return (
-    <div className="p-6">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div className="p-6 space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <Button variant="ghost" size="sm" asChild>
           <Link href="/contribuyentes">← Contribuyentes</Link>
         </Button>
@@ -95,6 +128,56 @@ export default async function DetalleContribuyentePage({ params }: Props) {
               </div>
             )}
           </dl>
+        </CardContent>
+      </Card>
+
+      <Card className="mx-auto max-w-4xl">
+        <CardHeader>
+          <CardTitle>Procesos de cobro</CardTitle>
+          <CardDescription>
+            Procesos asociados a este contribuyente
+            {session?.user?.rol !== "admin" &&
+              " (solo los asignados a ti)"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {procesosList.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-4">
+              No hay procesos asociados
+              {session?.user?.rol !== "admin" ? " que tengas asignados" : ""}.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Impuesto</TableHead>
+                  <TableHead>Vigencia</TableHead>
+                  <TableHead>Monto (COP)</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="w-[80px]">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {procesosList.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.impuestoNombre}</TableCell>
+                    <TableCell>{p.vigencia}</TableCell>
+                    <TableCell>
+                      {Number(p.montoCop).toLocaleString("es-CO")}
+                    </TableCell>
+                    <TableCell>{labelEstado(p.estadoActual)}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
+                        <Link href={`/procesos/${p.id}`}>
+                          Ver <ChevronRight className="size-4" aria-hidden />
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

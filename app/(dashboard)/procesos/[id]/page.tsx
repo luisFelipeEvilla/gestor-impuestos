@@ -107,6 +107,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
   const [row] = await db
     .select({
       id: procesos.id,
+      contribuyenteId: procesos.contribuyenteId,
       vigencia: procesos.vigencia,
       periodo: procesos.periodo,
       noComparendo: procesos.noComparendo,
@@ -246,7 +247,13 @@ export default async function DetalleProcesoPage({ params }: Props) {
           <Card className="w-full">
             <CardHeader>
               <CardTitle>
-                Proceso #{row.id} · {row.impuestoNombre} – {row.contribuyenteNombre}
+                Proceso #{row.id} · {row.impuestoNombre} –{" "}
+                <Link
+                  href={`/contribuyentes/${row.contribuyenteId}`}
+                  className="text-primary hover:underline"
+                >
+                  {row.contribuyenteNombre}
+                </Link>
               </CardTitle>
               <CardDescription>
                 Vigencia {row.vigencia}
@@ -266,7 +273,12 @@ export default async function DetalleProcesoPage({ params }: Props) {
                 <div>
                   <dt className="text-muted-foreground">Contribuyente</dt>
                   <dd className="font-medium">
-                    {row.contribuyenteNit} – {row.contribuyenteNombre}
+                    <Link
+                      href={`/contribuyentes/${row.contribuyenteId}`}
+                      className="text-primary hover:underline"
+                    >
+                      {row.contribuyenteNit} – {row.contribuyenteNombre}
+                    </Link>
                   </dd>
                 </div>
                 <div>

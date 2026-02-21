@@ -204,6 +204,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const baseQuery = db
     .select({
       id: procesos.id,
+      contribuyenteId: procesos.contribuyenteId,
       vigencia: procesos.vigencia,
       periodo: procesos.periodo,
       noComparendo: procesos.noComparendo,

@@ -75,6 +75,7 @@ function persistVisibleColumns(visible: Set<string>) {
 
 export type FilaProceso = {
   id: number;
+  contribuyenteId: number;
   vigencia: number;
   periodo: string | null;
   noComparendo: string | null;
@@ -308,15 +309,16 @@ export function TablaProcesosConAsignacion({
               )}
               {isColumnVisible("contribuyente") && (
                 <TableCell className="max-w-[200px] w-[200px]">
-                  <span
-                    className="block truncate"
+                  <Link
+                    href={`/contribuyentes/${p.contribuyenteId}`}
+                    className="block truncate text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded"
                     title={`${p.contribuyenteNombre} (${p.contribuyenteNit})`}
                   >
                     {p.contribuyenteNombre}
                     <span className="ml-1 text-xs text-muted-foreground">
                       ({p.contribuyenteNit})
                     </span>
-                  </span>
+                  </Link>
                 </TableCell>
               )}
               {isColumnVisible("vigencia") && <TableCell>{p.vigencia}</TableCell>}
