@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTipoDocumentoLabel } from "@/lib/constants/tipo-documento";
 import { db } from "@/lib/db";
 import { contribuyentes } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -48,15 +49,15 @@ export default async function DetalleContribuyentePage({ params }: Props) {
         <CardHeader>
           <CardTitle>{contribuyente.nombreRazonSocial}</CardTitle>
           <CardDescription>
-            {contribuyente.tipoDocumento === "nit" ? "NIT" : "Cédula"}: {contribuyente.nit}
+            {getTipoDocumentoLabel(contribuyente.tipoDocumento)}: {contribuyente.nit}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
           <dl className="grid gap-2 text-sm">
             <div>
               <dt className="text-muted-foreground">Tipo de documento</dt>
-              <dd className="font-medium capitalize">
-                {contribuyente.tipoDocumento === "nit" ? "NIT" : "Cédula"}
+              <dd className="font-medium">
+                {getTipoDocumentoLabel(contribuyente.tipoDocumento)}
               </dd>
             </div>
             <div>

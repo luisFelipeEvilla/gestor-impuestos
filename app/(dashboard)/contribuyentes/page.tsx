@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Building2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Building2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { db } from "@/lib/db";
 import { contribuyentes } from "@/lib/db/schema";
 import { count, desc, or, ilike } from "drizzle-orm";
@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FiltroBusquedaContribuyentes } from "./filtro-busqueda";
 import { unstable_noStore } from "next/cache";
@@ -133,10 +134,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                 </TableBody>
               </Table>
               {totalPages > 1 && (
-                <nav
-                  className="flex flex-wrap items-center justify-between gap-4 border-t border-border/80 pt-4 mt-4"
-                  aria-label="Paginación"
-                >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-border/80 pt-4 mt-4">
                   <p className="text-sm text-muted-foreground">
                     Página {currentPage} de {totalPages}
                     {total > 0 && (
@@ -145,7 +143,20 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                       </span>
                     )}
                   </p>
-                  <div className="flex items-center gap-2">
+                  <nav className="flex flex-wrap items-center gap-2" aria-label="Paginación">
+                    {currentPage <= 1 ? (
+                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                        <ChevronsLeft className="size-4" aria-hidden />
+                        Primera
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: 1 })}`}>
+                          <ChevronsLeft className="size-4" aria-hidden />
+                          Primera
+                        </Link>
+                      </Button>
+                    )}
                     {currentPage <= 1 ? (
                       <Button variant="outline" size="sm" className="gap-1" disabled>
                         <ChevronLeft className="size-4" aria-hidden />
@@ -159,6 +170,9 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                         </Link>
                       </Button>
                     )}
+                    <span className="px-2 text-sm text-muted-foreground">
+                      Página {currentPage} de {totalPages}
+                    </span>
                     {currentPage >= totalPages ? (
                       <Button variant="outline" size="sm" className="gap-1" disabled>
                         Siguiente
@@ -172,8 +186,42 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
                         </Link>
                       </Button>
                     )}
-                  </div>
-                </nav>
+                    {currentPage >= totalPages ? (
+                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                        Última
+                        <ChevronsRight className="size-4" aria-hidden />
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                        <Link href={`/contribuyentes${buildQueryString({ q: busqueda || undefined, page: totalPages })}`}>
+                          Última
+                          <ChevronsRight className="size-4" aria-hidden />
+                        </Link>
+                      </Button>
+                    )}
+                    <form method="GET" action="/contribuyentes" className="flex items-center gap-1.5">
+                      {busqueda ? (
+                        <input type="hidden" name="q" value={busqueda} />
+                      ) : null}
+                      <label htmlFor="contribuyentes-page-go" className="sr-only">
+                        Ir a página
+                      </label>
+                      <Input
+                        id="contribuyentes-page-go"
+                        type="number"
+                        name="page"
+                        min={1}
+                        max={totalPages}
+                        defaultValue={currentPage}
+                        className="w-16 h-8 text-center text-sm"
+                        aria-label="Número de página"
+                      />
+                      <Button type="submit" variant="secondary" size="sm">
+                        Ir
+                      </Button>
+                    </form>
+                  </nav>
+                </div>
               )}
             </>
           )}

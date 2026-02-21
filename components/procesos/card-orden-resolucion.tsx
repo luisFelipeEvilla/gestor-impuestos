@@ -21,10 +21,20 @@ import {
 import type { OrdenResolucion } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
+const TIPO_RESOLUCION_OPTIONS: { value: "sancion" | "resumen_ap"; label: string }[] = [
+  { value: "sancion", label: "Sanción" },
+  { value: "resumen_ap", label: "Resumen AP" },
+];
+
 function formatDate(value: Date | string | null | undefined): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO");
+}
+
+function labelTipoResolucion(value: string | null | undefined): string {
+  if (!value) return "—";
+  return TIPO_RESOLUCION_OPTIONS.find((o) => o.value === value)?.label ?? value;
 }
 
 type CardOrdenResolucionProps = {
@@ -39,11 +49,14 @@ export function CardOrdenResolucion({ procesoId, orden }: CardOrdenResolucionPro
 
   const [createState, createAction] = useActionState(
     async (_: { error?: string } | null, formData: FormData) => {
+      const tipo = formData.get("tipoResolucion") as string | null;
       const r = await crearOrdenResolucion(
         procesoId,
         (formData.get("numeroResolucion") as string)?.trim() ?? "",
         (formData.get("fechaResolucion") as string)?.trim() || null,
-        (formData.get("archivo") as File)?.size ? (formData.get("archivo") as File) : undefined
+        (formData.get("archivo") as File)?.size ? (formData.get("archivo") as File) : undefined,
+        (formData.get("codigoInfraccion") as string)?.trim() || null,
+        tipo === "sancion" || tipo === "resumen_ap" ? tipo : null
       );
       if (r?.error) return r;
       setCreating(false);
@@ -55,11 +68,14 @@ export function CardOrdenResolucion({ procesoId, orden }: CardOrdenResolucionPro
 
   const [updateState, updateAction] = useActionState(
     async (_: { error?: string } | null, formData: FormData) => {
+      const tipo = formData.get("tipoResolucion") as string | null;
       const r = await actualizarOrdenResolucion(
         procesoId,
         (formData.get("numeroResolucion") as string)?.trim() ?? "",
         (formData.get("fechaResolucion") as string)?.trim() || null,
-        (formData.get("archivo") as File)?.size ? (formData.get("archivo") as File) : undefined
+        (formData.get("archivo") as File)?.size ? (formData.get("archivo") as File) : undefined,
+        (formData.get("codigoInfraccion") as string)?.trim() || null,
+        tipo === "sancion" || tipo === "resumen_ap" ? tipo : null
       );
       if (r?.error) return r;
       setEditing(false);
@@ -101,6 +117,14 @@ export function CardOrdenResolucion({ procesoId, orden }: CardOrdenResolucionPro
               <div>
                 <dt className="text-muted-foreground">Fecha de resolución</dt>
                 <dd>{formatDate(orden.fechaResolucion)}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Código infracción</dt>
+                <dd>{orden.codigoInfraccion ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Tipo de resolución</dt>
+                <dd>{labelTipoResolucion(orden.tipoResolucion)}</dd>
               </div>
               {orden.rutaArchivo && orden.nombreOriginal && (
                 <div>
@@ -156,6 +180,32 @@ export function CardOrdenResolucion({ procesoId, orden }: CardOrdenResolucionPro
                 type="date"
                 defaultValue={orden?.fechaResolucion ? String(orden.fechaResolucion).slice(0, 10) : ""}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="codigoInfraccion-orden">Código infracción (opcional)</Label>
+              <Input
+                id="codigoInfraccion-orden"
+                name="codigoInfraccion"
+                type="text"
+                defaultValue={orden?.codigoInfraccion ?? ""}
+                placeholder="Ej. A01"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="tipoResolucion-orden">Tipo de resolución (opcional)</Label>
+              <select
+                id="tipoResolucion-orden"
+                name="tipoResolucion"
+                defaultValue={orden?.tipoResolucion ?? ""}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">Seleccionar...</option>
+                {TIPO_RESOLUCION_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="archivo-orden">

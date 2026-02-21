@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TIPOS_DOCUMENTO } from "@/lib/constants/tipo-documento";
+import type { TipoDocumento } from "@/lib/constants/tipo-documento";
 import type { EstadoFormEmpresa } from "@/lib/actions/empresa";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +21,7 @@ type CargoOption = { id: number; nombre: string };
 type EmpresaFormData = {
   id: number;
   nombre: string;
-  tipoDocumento: "nit" | "cedula";
+  tipoDocumento: TipoDocumento;
   numeroDocumento: string;
   direccion: string | null;
   telefonoContacto: string | null;
@@ -103,8 +105,11 @@ export function EmpresaForm({ action, initialData, cargos }: EmpresaFormProps) {
                 )}
                 aria-invalid={!!state?.errores?.tipoDocumento}
               >
-                <option value="nit">NIT</option>
-                <option value="cedula">Cédula</option>
+                {TIPOS_DOCUMENTO.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
               </select>
               {state?.errores?.tipoDocumento && (
                 <p className="text-destructive text-xs">{state.errores.tipoDocumento[0]}</p>

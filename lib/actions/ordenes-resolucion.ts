@@ -31,7 +31,9 @@ export async function crearOrdenResolucion(
   procesoId: number,
   numeroResolucion: string,
   fechaResolucion: string | null,
-  archivo?: File | null
+  archivo?: File | null,
+  codigoInfraccion?: string | null,
+  tipoResolucion?: "sancion" | "resumen_ap" | null
 ): Promise<EstadoOrdenResolucion> {
   if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
   const numero = numeroResolucion?.trim();
@@ -73,6 +75,8 @@ export async function crearOrdenResolucion(
       procesoId,
       numeroResolucion: numero,
       fechaResolucion: fechaResolucion?.trim() ? fechaResolucion.trim().slice(0, 10) : null,
+      codigoInfraccion: codigoInfraccion?.trim() || null,
+      tipoResolucion: tipoResolucion ?? null,
       rutaArchivo,
       nombreOriginal,
       mimeType,
@@ -94,7 +98,9 @@ export async function actualizarOrdenResolucion(
   procesoId: number,
   numeroResolucion: string,
   fechaResolucion: string | null,
-  archivo?: File | null
+  archivo?: File | null,
+  codigoInfraccion?: string | null,
+  tipoResolucion?: "sancion" | "resumen_ap" | null
 ): Promise<EstadoOrdenResolucion> {
   if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
   const numero = numeroResolucion?.trim();
@@ -135,6 +141,8 @@ export async function actualizarOrdenResolucion(
       .set({
         numeroResolucion: numero,
         fechaResolucion: fechaResolucion?.trim() ? fechaResolucion.trim().slice(0, 10) : null,
+        codigoInfraccion: codigoInfraccion?.trim() || null,
+        tipoResolucion: tipoResolucion ?? null,
         rutaArchivo,
         nombreOriginal,
         mimeType,

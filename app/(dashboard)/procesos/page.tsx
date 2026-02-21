@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { FolderOpen, ChevronRight, ChevronLeft } from "lucide-react";
+import { FolderOpen, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { db } from "@/lib/db";
 import {
   procesos,
@@ -20,6 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TablaProcesosConAsignacion } from "@/components/procesos/tabla-procesos-con-asignacion";
 import { FiltrosProcesos } from "./filtros-procesos";
@@ -269,7 +270,30 @@ export default async function ProcesosPage({ searchParams }: Props) {
                   <p className="text-sm text-muted-foreground">
                     Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} de {total}
                   </p>
-                  <nav className="flex items-center gap-1" aria-label="Paginación">
+                  <nav className="flex flex-wrap items-center gap-2" aria-label="Paginación">
+                    {page <= 1 ? (
+                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                        <ChevronsLeft className="size-4" aria-hidden />
+                        Primera
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                        <Link
+                          href={buildProcesosUrl({
+                            estado: estadoActual ?? undefined,
+                            vigencia: vigenciaNum,
+                            contribuyente: contribuyenteQ || undefined,
+                            asignadoId: asignadoIdNum ?? undefined,
+                            fechaAsignacion: fechaAsignacion ?? undefined,
+                            impuestoId: impuestoIdStr ?? undefined,
+                            page: 1,
+                          })}
+                        >
+                          <ChevronsLeft className="size-4" aria-hidden />
+                          Primera
+                        </Link>
+                      </Button>
+                    )}
                     {page <= 1 ? (
                       <Button variant="outline" size="sm" className="gap-1" disabled>
                         <ChevronLeft className="size-4" aria-hidden />
@@ -319,6 +343,53 @@ export default async function ProcesosPage({ searchParams }: Props) {
                         </Link>
                       </Button>
                     )}
+                    {page >= totalPages ? (
+                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                        Última
+                        <ChevronsRight className="size-4" aria-hidden />
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                        <Link
+                          href={buildProcesosUrl({
+                            estado: estadoActual ?? undefined,
+                            vigencia: vigenciaNum,
+                            contribuyente: contribuyenteQ || undefined,
+                            asignadoId: asignadoIdNum ?? undefined,
+                            fechaAsignacion: fechaAsignacion ?? undefined,
+                            impuestoId: impuestoIdStr ?? undefined,
+                            page: totalPages,
+                          })}
+                        >
+                          Última
+                          <ChevronsRight className="size-4" aria-hidden />
+                        </Link>
+                      </Button>
+                    )}
+                    <form method="GET" action="/procesos" className="flex items-center gap-1.5">
+                      {estadoActual ? <input type="hidden" name="estado" value={estadoActual} /> : null}
+                      {vigenciaNum != null ? <input type="hidden" name="vigencia" value={String(vigenciaNum)} /> : null}
+                      {contribuyenteQ ? <input type="hidden" name="contribuyente" value={contribuyenteQ} /> : null}
+                      {asignadoIdNum != null && asignadoIdNum > 0 ? <input type="hidden" name="asignado" value={String(asignadoIdNum)} /> : null}
+                      {fechaAsignacion ? <input type="hidden" name="fechaAsignacion" value={fechaAsignacion} /> : null}
+                      {impuestoIdStr ? <input type="hidden" name="impuesto" value={impuestoIdStr} /> : null}
+                      <label htmlFor="procesos-page-go" className="sr-only">
+                        Ir a página
+                      </label>
+                      <Input
+                        id="procesos-page-go"
+                        type="number"
+                        name="page"
+                        min={1}
+                        max={totalPages}
+                        defaultValue={page}
+                        className="w-16 h-8 text-center text-sm"
+                        aria-label="Número de página"
+                      />
+                      <Button type="submit" variant="secondary" size="sm">
+                        Ir
+                      </Button>
+                    </form>
                   </nav>
                 </div>
               )}

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TIPOS_DOCUMENTO } from "@/lib/constants/tipo-documento";
 import type { EstadoFormContribuyente } from "@/lib/actions/contribuyentes";
 import type { Contribuyente } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
@@ -64,8 +65,11 @@ export function ContribuyenteForm({
               )}
               aria-invalid={!!state?.errores?.tipoDocumento}
             >
-              <option value="nit">NIT</option>
-              <option value="cedula">Cédula</option>
+              {TIPOS_DOCUMENTO.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className="grid gap-2">
