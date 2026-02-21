@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { procesos, historialProceso, impuestos, contribuyentes, usuarios, documentosProceso, cobrosCoactivos } from "@/lib/db/schema";
 import type { NewHistorialProceso } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   enviarNotificacionCobroPorEmail,
   crearEvidenciaEnvio,
@@ -493,6 +493,67 @@ export async function asignarProceso(
     }
     console.error(err);
     return { error: "Error al asignar el proceso." };
+  }
+}
+
+/** Asigna en lote varios procesos a un usuario. Solo administradores. */
+export async function asignarProcesosEnLote(
+  procesoIds: number[],
+  asignadoAId: number
+): Promise<{ error?: string }> {
+  const ids = procesoIds.filter((id) => Number.isInteger(id) && id > 0);
+  if (ids.length === 0) return { error: "Selecciona al menos un proceso." };
+  if (!Number.isInteger(asignadoAId) || asignadoAId < 1) return { error: "Usuario inválido." };
+
+  try {
+    const session = await getSession();
+    if (session?.user?.rol !== "admin") {
+      return { error: "Solo un administrador puede asignar procesos en lote." };
+    }
+
+    const filas = await db
+      .select({ id: procesos.id, asignadoAId: procesos.asignadoAId, estadoActual: procesos.estadoActual })
+      .from(procesos)
+      .where(inArray(procesos.id, ids));
+
+    for (const row of filas) {
+      const pasabaDeSinAsignarAAsignado = row.asignadoAId == null && asignadoAId != null;
+      const nuevoEstado = pasabaDeSinAsignarAAsignado ? ("asignado" as const) : row.estadoActual;
+
+      await db
+        .update(procesos)
+        .set({
+          asignadoAId,
+          estadoActual: nuevoEstado,
+          actualizadoEn: new Date(),
+        })
+        .where(eq(procesos.id, row.id));
+
+      await db.insert(historialProceso).values({
+        procesoId: row.id,
+        tipoEvento: "asignacion",
+        comentario: "Proceso asignado",
+      });
+      if (pasabaDeSinAsignarAAsignado) {
+        await db.insert(historialProceso).values({
+          procesoId: row.id,
+          tipoEvento: "cambio_estado",
+          estadoAnterior: row.estadoActual,
+          estadoNuevo: "asignado",
+          comentario: "Estado actualizado al asignar responsable",
+        });
+      }
+    }
+
+    for (const id of ids) revalidatePath(`/procesos/${id}`);
+    revalidatePath("/procesos");
+    return {};
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
+      throw err;
+    }
+    console.error(err);
+    return { error: "Error al asignar los procesos." };
   }
 }
 

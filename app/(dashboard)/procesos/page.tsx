@@ -20,19 +20,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
-import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
+import { TablaProcesosConAsignacion } from "@/components/procesos/tabla-procesos-con-asignacion";
 import { FiltrosProcesos } from "./filtros-procesos";
 import { unstable_noStore } from "next/cache";
-import { labelEstado } from "@/lib/estados-proceso";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -268,70 +259,11 @@ export default async function ProcesosPage({ searchParams }: Props) {
             />
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Impuesto</TableHead>
-                    <TableHead className="max-w-[200px] w-[200px]">Contribuyente</TableHead>
-                    <TableHead>Vigencia</TableHead>
-                    <TableHead>No. comparendo</TableHead>
-                    <TableHead>Nº resolución</TableHead>
-                    <TableHead>Monto (COP)</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-center">Fecha límite</TableHead>
-                    <TableHead>Asignado</TableHead>
-                    <TableHead className="w-[80px]">Acción</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lista.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">
-                        {p.impuestoNombre}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] w-[200px]">
-                        <span
-                          className="block truncate"
-                          title={`${p.contribuyenteNombre} (${p.contribuyenteNit})`}
-                        >
-                          {p.contribuyenteNombre}
-                          <span className="text-muted-foreground ml-1 text-xs">({p.contribuyenteNit})</span>
-                        </span>
-                      </TableCell>
-                      <TableCell>{p.vigencia}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {p.noComparendo ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {p.numeroResolucion ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        {Number(p.montoCop).toLocaleString("es-CO")}
-                      </TableCell>
-                      <TableCell>
-                        {labelEstado(p.estadoActual)}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <SemaforoFechaLimite
-                          fechaLimite={p.fechaLimite}
-                          variant="pill"
-                          className="justify-center"
-                        />
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {p.asignadoNombre ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
-                          <Link href={`/procesos/${p.id}`}>
-                            Ver <ChevronRight className="size-4" aria-hidden />
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <TablaProcesosConAsignacion
+                lista={lista}
+                usuarios={usuariosList}
+                isAdmin={session?.user?.rol === "admin"}
+              />
               {totalPages > 1 && (
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t pt-4 mt-4">
                   <p className="text-sm text-muted-foreground">

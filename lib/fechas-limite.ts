@@ -1,15 +1,17 @@
 /**
- * Semaforización de fecha límite (prescripción 5 años).
- * - Rojo: vencido o faltan ≤ 30 días
- * - Amarillo: faltan entre 31 y 365 días
- * - Verde: faltan más de 365 días
+ * Semaforización de fecha límite (prescripción).
+ * - Rojo: ya pasó la fecha (prescrito) o faltan ≤ 6 meses (prescripción muy cercana)
+ * - Amarillo: faltan entre 6 y 12 meses (prescripción cercana)
+ * - Verde: faltan más de 12 meses (en plazo)
  * - Sin fecha: no hay fecha límite
  */
 
 export type SemáforoFechaLimite = "rojo" | "amarillo" | "verde" | "sin_fecha";
 
-const DÍAS_UMBRAL_ROJO = 30;
-const DÍAS_UMBRAL_AMARILLO = 365;
+/** 6 meses en días (aprox.) */
+const DÍAS_6_MESES = 182;
+/** 12 meses en días */
+const DÍAS_12_MESES = 365;
 
 /**
  * Devuelve el estado del semáforo según la fecha límite y la fecha de referencia (por defecto hoy).
@@ -26,10 +28,10 @@ export function getSemáforoFechaLimite(
   límite.setHours(0, 0, 0, 0);
   const diffMs = límite.getTime() - hoy.getTime();
   const días = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-  if (días < 0) return "rojo"; // vencido
-  if (días <= DÍAS_UMBRAL_ROJO) return "rojo";
-  if (días <= DÍAS_UMBRAL_AMARILLO) return "amarillo";
-  return "verde";
+  if (días < 0) return "rojo"; // prescrito
+  if (días <= DÍAS_6_MESES) return "rojo"; // prescripción muy cercana
+  if (días <= DÍAS_12_MESES) return "amarillo"; // prescripción cercana
+  return "verde"; // en plazo
 }
 
 /**
@@ -50,7 +52,7 @@ export function getDíasRestantesFechaLimite(
 }
 
 /**
- * Texto corto para mostrar al usuario (ej. "Vence en 15 días", "Vencido hace 3 días").
+ * Texto corto para mostrar al usuario según proximidad a prescripción.
  */
 export function getTextoEstadoFechaLimite(
   fechaLimite: string | Date | null | undefined,
@@ -58,10 +60,8 @@ export function getTextoEstadoFechaLimite(
 ): string {
   const días = getDíasRestantesFechaLimite(fechaLimite, fechaReferencia);
   if (días === null) return "Sin fecha límite";
-  if (días < 0) return `Vencido hace ${Math.abs(días)} ${Math.abs(días) === 1 ? "día" : "días"}`;
-  if (días === 0) return "Vence hoy";
-  if (días === 1) return "Vence mañana";
-  if (días <= 30) return `Vence en ${días} días`;
-  if (días <= 365) return `Vence en ${días} días`;
-  return `Vence en ${días} días`;
+  if (días < 0) return "Prescrito";
+  if (días <= DÍAS_6_MESES) return "Prescripción muy cercana";
+  if (días <= DÍAS_12_MESES) return "Prescripción cercana";
+  return "En plazo";
 }

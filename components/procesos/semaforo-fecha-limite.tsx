@@ -10,13 +10,13 @@ const SEMÁFORO_CONFIG: Record<
   { label: string; dotClass: string; bgClass: string; textClass: string }
 > = {
   rojo: {
-    label: "Urgente / Vencido",
+    label: "Prescrito / Prescripción muy cercana",
     dotClass: "bg-red-500",
     bgClass: "bg-red-500/10",
     textClass: "text-red-700 dark:text-red-400",
   },
   amarillo: {
-    label: "Por vencer",
+    label: "Prescripción cercana",
     dotClass: "bg-amber-500",
     bgClass: "bg-amber-500/10",
     textClass: "text-amber-700 dark:text-amber-400",
@@ -87,7 +87,7 @@ export function SemaforoFechaLimite({
         title={titleCompleto}
       >
         <span className={cn("size-2 shrink-0 rounded-full", config.dotClass)} aria-hidden />
-        {config.label}
+        {texto}
       </span>
     );
   }
