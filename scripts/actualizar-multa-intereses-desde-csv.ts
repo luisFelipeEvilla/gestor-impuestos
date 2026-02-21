@@ -9,18 +9,28 @@
  * Requiere: DATABASE_URL en .env
  */
 import "dotenv/config";
-import { readFileSync } from "fs";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { db } from "../lib/db";
 import { contribuyentes, procesos } from "../lib/db/schema";
 import { and, eq, isNotNull } from "drizzle-orm";
 
-const CSV_PATH = process.argv[2]
-  ? resolve(process.cwd(), process.argv[2])
+const args = process.argv.slice(2).filter((arg) => !arg.startsWith("--") && arg !== "--");
+const CSV_PATH = args[0]
+  ? resolve(process.cwd(), args[0])
   : resolve(process.cwd(), "ReporteCarteraActual.csv");
 const DRY_RUN = process.argv.includes("--dry-run");
 
+const OUTPUT_DIR = resolve(process.cwd(), "output", "actualizar-multa-intereses");
+
 const TOLERANCIA = 0.01;
+
+/** Escapa un valor para CSV (separador ;): si contiene " o ;, lo envuelve en comillas y duplica " */
+function escapeCsvCell(value: string | number): string {
+  const s = String(value);
+  if (/[";]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
@@ -139,13 +149,24 @@ function parseCsv(filePath: string): CsvRow[] {
 
   const headerRaw = parseLine(lines[0]!);
   const header = headerRaw.map((cell) => normalizarHeader(cell));
+  // CSV puede tener "Valor Interés" (singular) → normalizado "Valor Interes"
+  const idxValorIntereses =
+    header.indexOf("Valor Intereses") >= 0
+      ? header.indexOf("Valor Intereses")
+      : header.indexOf("Valor Interes");
+  if (idxValorIntereses < 0) {
+    console.warn(
+      "Advertencia: no se encontró columna 'Valor Intereses' ni 'Valor Interes' en el CSV. Cabeceras:",
+      header.join(" | ")
+    );
+  }
   const idx = {
     nroComparendo: header.indexOf("Nro Comparendo"),
     fechaComparendo: header.indexOf("Fecha Comparendo"),
     fechaResolucion: header.indexOf("Fecha Resolucion"),
     identificacion: header.indexOf("Identificacion Infractor"),
     valorMulta: header.indexOf("Valor Multa"),
-    valorIntereses: header.indexOf("Valor Intereses"),
+    valorIntereses: idxValorIntereses,
     valorDeuda: header.indexOf("Valor Deuda"),
   };
 
@@ -228,6 +249,7 @@ async function main(): Promise<void> {
   let omitidosSinMatch = 0;
   let omitidosVerificacionFallida = 0;
   const ejemplosVerificacionFallida: { linea: number; suma: number; deuda: number }[] = [];
+  const filasNoCoinciden: CsvRow[] = [];
 
   const spinner = createProgressSpinner(csvRows.length);
   let processed = 0;
@@ -247,6 +269,7 @@ async function main(): Promise<void> {
       const diff = Math.abs(suma - row.deudaNum);
       if (diff > TOLERANCIA) {
         omitidosVerificacionFallida++;
+        filasNoCoinciden.push(row);
         if (ejemplosVerificacionFallida.length < 10) {
           ejemplosVerificacionFallida.push({
             linea: row.linea,
@@ -285,6 +308,34 @@ async function main(): Promise<void> {
     ejemplosVerificacionFallida.forEach((e) =>
       console.log(`  Línea ${e.linea}: multa+intereses=${e.suma.toFixed(2)} valorDeuda=${e.deuda.toFixed(2)}`)
     );
+  }
+
+  if (filasNoCoinciden.length > 0) {
+    mkdirSync(OUTPUT_DIR, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const filename = `no-coinciden-${timestamp}.csv`;
+    const outPath = resolve(OUTPUT_DIR, filename);
+    const header =
+      "linea;key;valor_multa;valor_intereses;valor_deuda;suma_multa_mas_intereses;valor_deuda_numerico;diferencia";
+    const lines = [
+      header,
+      ...filasNoCoinciden.map((row) => {
+        const suma = row.multaNum + row.interesesNum;
+        const diferencia = row.deudaNum - suma;
+        return [
+          row.linea,
+          escapeCsvCell(row.key),
+          escapeCsvCell(row.valorMulta),
+          escapeCsvCell(row.valorIntereses),
+          escapeCsvCell(row.valorDeuda),
+          suma.toFixed(2),
+          row.deudaNum.toFixed(2),
+          diferencia.toFixed(2),
+        ].join(";");
+      }),
+    ];
+    writeFileSync(outPath, lines.join("\n"), "utf-8");
+    console.log("\nHallazgos (suma ≠ deuda) guardados en:", outPath);
   }
 
   if (!DRY_RUN && actualizados > 0) {
