@@ -66,7 +66,7 @@ export function ProcesoForm({
           <CardDescription>
             {isEdit
               ? "Modifica los datos del proceso de cobro."
-              : "Registra un nuevo proceso de cobro (impuesto + contribuyente)."}
+              : "Registra un nuevo proceso de cobro (contribuyente obligatorio; impuesto opcional)."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -76,7 +76,7 @@ export function ProcesoForm({
             </p>
           )}
           <div className="grid gap-2">
-            <Label htmlFor="impuestoId">Impuesto</Label>
+            <Label htmlFor="impuestoId">Impuesto (opcional)</Label>
             <select
               id="impuestoId"
               name="impuestoId"
@@ -85,9 +85,8 @@ export function ProcesoForm({
                 "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
               )}
               aria-invalid={!!state?.errores?.impuestoId}
-              aria-required="true"
             >
-              <option value="">Selecciona un impuesto</option>
+              <option value="">Sin impuesto</option>
               {impuestosList.map((i) => (
                 <option key={i.id} value={i.id}>
                   {i.nombre}

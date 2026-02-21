@@ -1,5 +1,5 @@
 /**
- * Verifica si los montos cuadran: suma(BD Tránsito) + suma(omitidos) = suma(CSV original).
+ * Verifica si los montos cuadran: suma(BD procesos) + suma(omitidos) = suma(CSV original).
  *
  * Uso: pnpm exec tsx scripts/verificar-montos-cartera.ts [csv-original] [csv-omitidos]
  * - csv-original: CSV completo (p. ej. ReporteCarteraActual.csv). Por defecto: ReporteCarteraActual.csv
@@ -15,14 +15,12 @@ import "dotenv/config";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { db } from "../lib/db";
-import { impuestos, procesos } from "../lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { procesos } from "../lib/db/schema";
+import { sql } from "drizzle-orm";
 
 const CSV_ORIGINAL =
   process.argv[2] ? resolve(process.cwd(), process.argv[2]) : resolve(process.cwd(), "ReporteCarteraActual.csv");
 const CSV_OMITIDOS = process.argv[3] ? resolve(process.cwd(), process.argv[3]) : null;
-
-const IMPUESTO_NOMBRE_TRANSITO = "Comparendos de tránsito";
 
 function normalizarHeader(header: string): string {
   return header
@@ -126,22 +124,13 @@ function sumarMontosOmitidos(filePath: string): {
   };
 }
 
-async function sumarMontosBdTransito(): Promise<{ suma: number; cantidad: number }> {
-  const [impuesto] = await db
-    .select({ id: impuestos.id })
-    .from(impuestos)
-    .where(eq(impuestos.nombre, IMPUESTO_NOMBRE_TRANSITO));
-  if (!impuesto) {
-    return { suma: 0, cantidad: 0 };
-  }
-
+async function sumarMontosBd(): Promise<{ suma: number; cantidad: number }> {
   const [row] = await db
     .select({
       suma: sql<string>`COALESCE(SUM(${procesos.montoCop}), 0)`,
       cantidad: sql<number>`COUNT(*)::int`,
     })
-    .from(procesos)
-    .where(eq(procesos.impuestoId, impuesto.id));
+    .from(procesos);
   if (!row) return { suma: 0, cantidad: 0 };
   const suma = parseFloat(String(row.suma ?? "0"));
   const cantidad = Number(row.cantidad ?? 0);
@@ -162,9 +151,9 @@ async function main() {
     process.exit(1);
   }
 
-  const bd = await sumarMontosBdTransito();
+  const bd = await sumarMontosBd();
   console.log(
-    `\n🗄️  BD (Tránsito): suma = ${bd.suma.toLocaleString("es-CO", { minimumFractionDigits: 2 })} (${bd.cantidad} procesos)`
+    `\n🗄️  BD (todos los procesos): suma = ${bd.suma.toLocaleString("es-CO", { minimumFractionDigits: 2 })} (${bd.cantidad} procesos)`
   );
 
   let sumOmitidosVigencia = 0;

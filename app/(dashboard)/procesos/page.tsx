@@ -225,7 +225,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
       asignadoNombre: usuarios.nombre,
     })
     .from(procesos)
-    .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
+    .leftJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
     .leftJoin(ordenesResolucion, eq(procesos.id, ordenesResolucion.procesoId));
@@ -233,7 +233,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const countQuery = db
     .select({ total: count(procesos.id) })
     .from(procesos)
-    .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
+    .leftJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id));
 

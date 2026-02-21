@@ -8,11 +8,10 @@
  */
 import "dotenv/config";
 import { db } from "../lib/db";
-import { procesos, impuestos } from "../lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { procesos } from "../lib/db/schema";
+import { eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
-const IMPUESTO_NOMBRE_TRANSITO = "Comparendos de tránsito";
 const NO_REPORTADO = "NO REPORTADO";
 
 async function main(): Promise<void> {
@@ -21,30 +20,18 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const [impuestoRow] = await db
-    .select({ id: impuestos.id })
-    .from(impuestos)
-    .where(eq(impuestos.nombre, IMPUESTO_NOMBRE_TRANSITO));
-
-  if (!impuestoRow) {
-    console.error("❌ No se encontró el impuesto:", IMPUESTO_NOMBRE_TRANSITO);
-    process.exit(1);
-  }
-
-  const impuestoId = impuestoRow.id;
-  console.log("--- Diagnóstico por no_comparendo (impuesto Tránsito) ---\n");
+  console.log("--- Diagnóstico por no_comparendo (todos los procesos) ---\n");
 
   const [totalRow] = await db
     .select({ count: sql<number>`count(*)::int` })
-    .from(procesos)
-    .where(eq(procesos.impuestoId, impuestoId));
+    .from(procesos);
   const totalProcesos = totalRow?.count ?? 0;
-  console.log(`Total procesos (impuesto Tránsito): ${totalProcesos.toLocaleString()}`);
+  console.log(`Total procesos: ${totalProcesos.toLocaleString()}`);
 
   const [noReportadoRow] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(procesos)
-    .where(and(eq(procesos.impuestoId, impuestoId), eq(procesos.noComparendo, NO_REPORTADO)));
+    .where(eq(procesos.noComparendo, NO_REPORTADO));
   const countNoReportado = noReportadoRow?.count ?? 0;
   console.log(`Procesos con no_comparendo = "${NO_REPORTADO}" (se eliminarán todos para re-subir): ${countNoReportado.toLocaleString()}`);
 
@@ -55,8 +42,7 @@ async function main(): Promise<void> {
       COUNT(*)::int AS cnt,
       (COUNT(*) - 1)::int AS sobrantes
     FROM procesos p
-    WHERE p.impuesto_id = ${impuestoId}
-    GROUP BY p.impuesto_id, p.no_comparendo
+    GROUP BY p.no_comparendo
     HAVING COUNT(*) > 1
   `);
   const rowsDup: GroupNoComparendo[] = Array.isArray(dupResult)

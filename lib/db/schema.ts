@@ -200,9 +200,10 @@ export const contribuyentes = pgTable("contribuyentes", {
 // Tabla: procesos (trabajo de cobro)
 export const procesos = pgTable("procesos", {
   id: serial("id").primaryKey(),
-  impuestoId: uuid("impuesto_id")
-    .notNull()
-    .references(() => impuestos.id, { onDelete: "restrict", onUpdate: "cascade" }),
+  impuestoId: uuid("impuesto_id").references(() => impuestos.id, {
+    onDelete: "restrict",
+    onUpdate: "cascade",
+  }),
   contribuyenteId: integer("contribuyente_id")
     .notNull()
     .references(() => contribuyentes.id, { onDelete: "restrict", onUpdate: "cascade" }),

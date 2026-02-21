@@ -61,7 +61,7 @@ export default async function DetalleContribuyentePage({ params }: Props) {
       impuestoNombre: impuestos.nombre,
     })
     .from(procesos)
-    .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
+    .leftJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .where(whereCond)
     .orderBy(desc(procesos.creadoEn));
 
@@ -160,7 +160,7 @@ export default async function DetalleContribuyentePage({ params }: Props) {
               <TableBody>
                 {procesosList.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.impuestoNombre}</TableCell>
+                    <TableCell className="font-medium">{p.impuestoNombre ?? "—"}</TableCell>
                     <TableCell>{p.vigencia}</TableCell>
                     <TableCell>
                       {Number(p.montoCop).toLocaleString("es-CO")}

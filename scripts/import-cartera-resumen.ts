@@ -10,14 +10,12 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import type { TipoDocumento } from "../lib/constants/tipo-documento";
 import { db } from "../lib/db";
-import { contribuyentes, impuestos, procesos } from "../lib/db/schema";
+import { contribuyentes, procesos } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
 
 const CSV_PATH =
   process.env.CARTERA_CSV_PATH ||
   (process.argv[2] ? resolve(process.cwd(), process.argv[2]) : resolve(process.cwd(), "ReporteCarteraActual.csv"));
-
-const IMPUESTO_NOMBRE_TRANSITO = "Comparendos de tránsito";
 
 function normalizarTipoDocCsv(val: string): string {
   return val
@@ -153,25 +151,6 @@ function contribuyenteKey(tipoDoc: TipoDocumento, nit: string): string {
   return `${tipoDoc}:${nit}`;
 }
 
-async function getOrCreateImpuestoTransito(): Promise<string> {
-  const [existente] = await db
-    .select({ id: impuestos.id })
-    .from(impuestos)
-    .where(eq(impuestos.nombre, IMPUESTO_NOMBRE_TRANSITO));
-  if (existente) return existente.id;
-  const [inserted] = await db
-    .insert(impuestos)
-    .values({
-      nombre: IMPUESTO_NOMBRE_TRANSITO,
-      naturaleza: "no_tributario",
-      descripcion: "Comparendos y sanciones de tránsito",
-      activo: true,
-    })
-    .returning({ id: impuestos.id });
-  if (!inserted) throw new Error("No se pudo crear el impuesto Tránsito");
-  return inserted.id;
-}
-
 async function main(): Promise<void> {
   if (!process.env.DATABASE_URL) {
     console.error("DATABASE_URL no está definida en .env");
@@ -189,8 +168,6 @@ async function main(): Promise<void> {
     console.error("El CSV no tiene filas de datos.");
     process.exit(1);
   }
-
-  const impuestoId = await getOrCreateImpuestoTransito();
 
   const contribuyentesByKey = new Map<string, { id: number }>();
   const contribuyentesExistentes = await db
@@ -224,8 +201,7 @@ async function main(): Promise<void> {
       nit: contribuyentes.nit,
     })
     .from(procesos)
-    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
-    .where(eq(procesos.impuestoId, impuestoId));
+    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id));
 
   const clavesYaEnBd = new Set<string>();
   for (const row of procesosExistentes) {
@@ -277,7 +253,7 @@ async function main(): Promise<void> {
 
   const total = yaExisten + porImportar + conErrores;
   console.log("--- Resumen de importación de cartera (preview) ---");
-  console.log(`Procesos ya existentes en BD (impuesto Tránsito): ${yaExisten}`);
+  console.log(`Procesos ya existentes en BD: ${yaExisten}`);
   console.log(`Filas que quedarían por importar: ${porImportar}`);
   console.log(`Filas con errores u omitidas (vigencia inválida, duplicados en CSV): ${conErrores}`);
   console.log(`Total filas en CSV: ${filas.length}`);

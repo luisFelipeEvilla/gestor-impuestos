@@ -10,7 +10,7 @@ import "dotenv/config";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { db } from "../lib/db";
-import { contribuyentes, impuestos, procesos } from "../lib/db/schema";
+import { contribuyentes, procesos } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
 
 const CSV_ORIGINAL =
@@ -19,8 +19,6 @@ const CSV_VIGENCIA =
   process.argv[3]
     ? resolve(process.cwd(), process.argv[3])
     : resolve(process.cwd(), "import-cartera-vigencia-invalida-2026-02-21-12-15-15.csv");
-
-const IMPUESTO_NOMBRE_TRANSITO = "Comparendos de tránsito";
 
 function normalizarHeader(header: string): string {
   return header
@@ -128,14 +126,8 @@ function parseCsvToKeys(filePath: string): CsvRowKey[] {
   return rows;
 }
 
-/** Carga desde BD: clave de idempotencia -> monto (normalizado a 2 decimales). */
+/** Carga desde BD: clave de idempotencia -> monto (normalizado a 2 decimales). Todos los procesos. */
 async function loadBdKeysMontos(): Promise<Map<string, number>> {
-  const [impuesto] = await db
-    .select({ id: impuestos.id })
-    .from(impuestos)
-    .where(eq(impuestos.nombre, IMPUESTO_NOMBRE_TRANSITO));
-  if (!impuesto) return new Map();
-
   const rows = await db
     .select({
       noComparendo: procesos.noComparendo,
@@ -144,8 +136,7 @@ async function loadBdKeysMontos(): Promise<Map<string, number>> {
       nit: contribuyentes.nit,
     })
     .from(procesos)
-    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
-    .where(eq(procesos.impuestoId, impuesto.id));
+    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id));
 
   const map = new Map<string, number>();
   for (const r of rows) {
@@ -210,7 +201,7 @@ async function main() {
   console.log(`\n   Comprobación: suma categorías = ${sumaCategorias.toLocaleString("es-CO", { minimumFractionDigits: 2 })} (diff con CSV: ${diffSuma.toFixed(2)})`);
 
   console.log("\n--- Cuadre esperado: BD + vigencia ---");
-  console.log(`   Suma BD (desde DB):     ${sumBd.toLocaleString("es-CO", { minimumFractionDigits: 2 })} (${bdMap.size} procesos)`);
+  console.log(`   Suma BD (todos los procesos): ${sumBd.toLocaleString("es-CO", { minimumFractionDigits: 2 })} (${bdMap.size} procesos)`);
   console.log(`   Suma vigencia (archivo): ${sumVigencia.toLocaleString("es-CO", { minimumFractionDigits: 2 })}`);
   console.log(`   BD + vigencia:          ${(sumBd + sumVigencia).toLocaleString("es-CO", { minimumFractionDigits: 2 })}`);
   console.log(`   Suma CSV:               ${sumCsv.toLocaleString("es-CO", { minimumFractionDigits: 2 })}`);

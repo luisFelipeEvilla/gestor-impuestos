@@ -8,42 +8,37 @@
  */
 import "dotenv/config";
 import { db } from "../lib/db";
-import { procesos, impuestos } from "../lib/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { procesos } from "../lib/db/schema";
+import { eq, inArray } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
-const IMPUESTO_NOMBRE_TRANSITO = "Comparendos de tránsito";
 const NO_REPORTADO = "NO REPORTADO";
 
 type RowNoComparendo = { id: number; no_comparendo: string | null };
 
 /** IDs de procesos con no_comparendo = 'No reportado' (se eliminan todos). */
-async function getIdsNoReportado(impuestoId: string): Promise<number[]> {
+async function getIdsNoReportado(): Promise<number[]> {
   const rows = await db
     .select({ id: procesos.id })
     .from(procesos)
-    .where(
-      and(eq(procesos.impuestoId, impuestoId), eq(procesos.noComparendo, NO_REPORTADO))
-    );
+    .where(eq(procesos.noComparendo, NO_REPORTADO));
   return rows.map((r) => r.id);
 }
 
 /** Por cada no_comparendo duplicado (excepto "No reportado"), devuelve los IDs a eliminar (conserva el de menor id). */
-async function getIdsDuplicadosPorNoComparendo(impuestoId: string): Promise<number[]> {
+async function getIdsDuplicadosPorNoComparendo(): Promise<number[]> {
   const result = await db.execute(sql`
     WITH claves_duplicadas AS (
-      SELECT p.impuesto_id, p.no_comparendo
+      SELECT p.no_comparendo
       FROM procesos p
-      WHERE p.impuesto_id = ${impuestoId}
-        AND (p.no_comparendo IS DISTINCT FROM ${NO_REPORTADO})
-      GROUP BY p.impuesto_id, p.no_comparendo
+      WHERE (p.no_comparendo IS DISTINCT FROM ${NO_REPORTADO})
+      GROUP BY p.no_comparendo
       HAVING COUNT(*) > 1
     )
     SELECT p.id::int AS id, p.no_comparendo
     FROM procesos p
     INNER JOIN claves_duplicadas c
-      ON c.impuesto_id = p.impuesto_id
-      AND (c.no_comparendo IS NOT DISTINCT FROM p.no_comparendo)
+      ON (c.no_comparendo IS NOT DISTINCT FROM p.no_comparendo)
     ORDER BY p.no_comparendo NULLS LAST, p.id
   `);
 
@@ -80,21 +75,10 @@ async function main(): Promise<void> {
     console.log("--- Modo --dry-run: no se modificará la BD ---\n");
   }
 
-  const [impuestoRow] = await db
-    .select({ id: impuestos.id })
-    .from(impuestos)
-    .where(eq(impuestos.nombre, IMPUESTO_NOMBRE_TRANSITO));
-
-  if (!impuestoRow) {
-    console.error("❌ No se encontró el impuesto:", IMPUESTO_NOMBRE_TRANSITO);
-    process.exit(1);
-  }
-
-  const impuestoId = impuestoRow.id;
-  console.log("Buscando procesos a eliminar (impuesto Tránsito)...");
+  console.log("Buscando procesos a eliminar (todos los procesos)...");
   const [idsNoReportado, idsDuplicados] = await Promise.all([
-    getIdsNoReportado(impuestoId),
-    getIdsDuplicadosPorNoComparendo(impuestoId),
+    getIdsNoReportado(),
+    getIdsDuplicadosPorNoComparendo(),
   ]);
   const idsToDelete = [...new Set([...idsNoReportado, ...idsDuplicados])];
   console.log(`  Con no_comparendo = "${NO_REPORTADO}" (todos): ${idsNoReportado.length.toLocaleString()}`);

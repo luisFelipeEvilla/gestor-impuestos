@@ -13,7 +13,6 @@ import type { TipoDocumento } from "../lib/constants/tipo-documento";
 import { db } from "../lib/db";
 import {
   contribuyentes,
-  impuestos,
   procesos,
   historialProceso,
   ordenesResolucion,
@@ -26,7 +25,6 @@ const CSV_PATH =
   (process.argv[2] ? resolve(process.cwd(), process.argv[2]) : resolve(process.cwd(), "ReporteCarteraActual.csv"));
 
 const BATCH_SIZE = 1000;
-const IMPUESTO_NOMBRE_TRANSITO = "Comparendos de tránsito";
 /** Carpeta donde se escriben CSV de errores, omitidos y vigencia inválida (está en .gitignore). */
 const IMPORT_CARTERA_OUTPUT_DIR = "import-cartera-output";
 
@@ -220,25 +218,6 @@ function parseCsv(content: string): FilaCsv[] {
   return rows;
 }
 
-async function getOrCreateImpuestoTransito(): Promise<string> {
-  const [existente] = await db
-    .select({ id: impuestos.id })
-    .from(impuestos)
-    .where(eq(impuestos.nombre, IMPUESTO_NOMBRE_TRANSITO));
-  if (existente) return existente.id;
-  const [inserted] = await db
-    .insert(impuestos)
-    .values({
-      nombre: IMPUESTO_NOMBRE_TRANSITO,
-      naturaleza: "no_tributario",
-      descripcion: "Comparendos y sanciones de tránsito",
-      activo: true,
-    })
-    .returning({ id: impuestos.id });
-  if (!inserted) throw new Error("No se pudo crear el impuesto Tránsito");
-  return inserted.id;
-}
-
 /** Clave de unicidad: no_comparendo, fecha, valor_multa, no_documento_infractor (mismo orden que en BD). */
 function buildIdempotenciaKey(
   noComparendo: string | null,
@@ -252,8 +231,8 @@ function buildIdempotenciaKey(
   return `${noComp}|${fecha}|${montoCop}|${doc}`;
 }
 
-/** Carga las claves de idempotencia de procesos ya importados para el impuesto (evitar duplicados al re-ejecutar). */
-async function loadExistingProcessKeys(impuestoId: string): Promise<Set<string>> {
+/** Carga las claves de idempotencia de todos los procesos en BD (evitar duplicados al re-ejecutar). */
+async function loadExistingProcessKeys(): Promise<Set<string>> {
   const rows = await db
     .select({
       noComparendo: procesos.noComparendo,
@@ -262,8 +241,7 @@ async function loadExistingProcessKeys(impuestoId: string): Promise<Set<string>>
       nit: contribuyentes.nit,
     })
     .from(procesos)
-    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
-    .where(eq(procesos.impuestoId, impuestoId));
+    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id));
   const set = new Set<string>();
   for (const r of rows) {
     const montoStr = String(r.montoCop ?? "0");
@@ -343,7 +321,6 @@ function timestampForFilename(): string {
  */
 async function flushBatch(
   batch: BatchItem[],
-  impuestoId: string,
   numeroResolucionUsados: Set<string>,
   csvLines: string[],
   outputDir: string,
@@ -356,7 +333,7 @@ async function flushBatch(
         .insert(procesos)
         .values(
           batch.map((b) => ({
-            impuestoId,
+            impuestoId: null,
             contribuyenteId: b.contribuyenteId,
             vigencia: b.vigencia,
             periodo: b.periodo,
@@ -452,8 +429,6 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   console.log(`📄 Filas leídas: ${filas.length}`);
-  const impuestoId = await getOrCreateImpuestoTransito();
-  console.log(`📌 Impuesto Tránsito (id=${impuestoId})`);
   const contribuyentesByKey = new Map<
     string,
     { id: number; tipoDocumento: TipoDocumento; nit: string; nombre: string }
@@ -475,8 +450,8 @@ async function main(): Promise<void> {
       nombre: c.nombreRazonSocial,
     });
   }
-  const numeroResolucionUsados = await loadExistingProcessKeys(impuestoId);
-  console.log(`📌 Procesos ya existentes en BD (impuesto Tránsito): ${numeroResolucionUsados.size}`);
+  const numeroResolucionUsados = await loadExistingProcessKeys();
+  console.log(`📌 Procesos ya existentes en BD: ${numeroResolucionUsados.size}`);
 
   const csvLines = csvContent.split(/\r?\n/).filter((l) => l.trim());
   const outputDir = join(process.cwd(), IMPORT_CARTERA_OUTPUT_DIR);
@@ -624,7 +599,6 @@ async function main(): Promise<void> {
     if (batch.length >= BATCH_SIZE) {
       await flushBatch(
         batch,
-        impuestoId,
         numeroResolucionUsados,
         csvLines,
         outputDir,
@@ -637,7 +611,6 @@ async function main(): Promise<void> {
   if (batch.length > 0) {
     await flushBatch(
       batch,
-      impuestoId,
       numeroResolucionUsados,
       csvLines,
       outputDir,

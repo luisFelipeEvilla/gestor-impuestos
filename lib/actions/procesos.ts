@@ -57,7 +57,11 @@ const estadoProcesoValues = [
 ] as const;
 
 const schemaCrear = z.object({
-  impuestoId: z.string().uuid("Selecciona un impuesto"),
+  impuestoId: z
+    .string()
+    .optional()
+    .transform((v) => (v === "" || v == null ? undefined : v))
+    .refine((v) => v === undefined || /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v ?? ""), "Impuesto inválido"),
   contribuyenteId: z.coerce.number().int().positive("Selecciona un contribuyente"),
   vigencia: z.coerce.number().int().min(2000, "Vigencia inválida").max(2100),
   periodo: z.string().max(50).optional().or(z.literal("")),
@@ -144,7 +148,7 @@ export async function crearProceso(
     const [inserted] = await db
       .insert(procesos)
       .values({
-        impuestoId,
+        impuestoId: impuestoId ?? null,
         contribuyenteId,
         vigencia,
         periodo: periodo?.trim() || null,
@@ -181,7 +185,7 @@ export async function crearProceso(
     }
     if (err instanceof Error && "code" in err && (err as { code?: string }).code === "23503") {
       return {
-        error: "El impuesto o el contribuyente no existe. Verifica que estén activos.",
+        error: "El contribuyente no existe. Verifica que esté activo.",
       };
     }
     console.error(err);
@@ -257,7 +261,7 @@ export async function actualizarProceso(
     const [updated] = await db
       .update(procesos)
       .set({
-        impuestoId,
+        impuestoId: impuestoId ?? null,
         contribuyenteId,
         vigencia,
         periodo: periodo?.trim() || null,
@@ -313,7 +317,7 @@ export async function actualizarProceso(
     }
     if (err instanceof Error && "code" in err && (err as { code?: string }).code === "23503") {
       return {
-        error: "El impuesto o el contribuyente no existe. Verifica que estén activos.",
+        error: "El contribuyente no existe. Verifica que esté activo.",
       };
     }
     console.error(err);
@@ -627,7 +631,7 @@ type RowProcesoNotificacion = {
   periodo: string | null;
   contribuyenteNombre: string;
   contribuyenteEmail: string | null;
-  impuestoNombre: string;
+  impuestoNombre: string | null;
 };
 
 async function validarProcesoParaNotificacion(
@@ -647,7 +651,7 @@ async function validarProcesoParaNotificacion(
     })
     .from(procesos)
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
-    .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
+    .leftJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .where(eq(procesos.id, procesoId));
 
   if (!row) return { error: "Proceso no encontrado." };
@@ -689,8 +693,8 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
 
     const resultado = await enviarNotificacionCobroPorEmail(email, {
       nombreContribuyente: row.contribuyenteNombre,
-      impuestoNombre: row.impuestoNombre,
-      impuestoCodigo: row.impuestoNombre,
+      impuestoNombre: row.impuestoNombre ?? "Proceso de cobro",
+      impuestoCodigo: row.impuestoNombre ?? "Proceso de cobro",
       montoCop: montoCopFormatted,
       vigencia: row.vigencia,
       periodo: row.periodo,

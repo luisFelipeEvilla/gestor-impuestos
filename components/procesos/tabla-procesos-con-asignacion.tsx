@@ -83,7 +83,7 @@ export type FilaProceso = {
   estadoActual: string;
   numeroResolucion: string | null;
   fechaLimite: string | null;
-  impuestoNombre: string;
+  impuestoNombre: string | null;
   contribuyenteNombre: string;
   contribuyenteNit: string;
   asignadoNombre: string | null;
@@ -305,7 +305,7 @@ export function TablaProcesosConAsignacion({
                 </TableCell>
               )}
               {isColumnVisible("impuesto") && (
-                <TableCell className="font-medium">{p.impuestoNombre}</TableCell>
+                <TableCell className="font-medium">{p.impuestoNombre ?? "—"}</TableCell>
               )}
               {isColumnVisible("contribuyente") && (
                 <TableCell className="max-w-[200px] w-[200px]">

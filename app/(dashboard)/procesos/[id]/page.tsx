@@ -123,7 +123,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
       asignadoNombre: usuarios.nombre,
     })
     .from(procesos)
-    .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
+    .leftJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
     .where(eq(procesos.id, id));
@@ -247,7 +247,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
           <Card className="w-full">
             <CardHeader>
               <CardTitle>
-                Proceso #{row.id} · {row.impuestoNombre} –{" "}
+                Proceso #{row.id} · {row.impuestoNombre ?? "—"} –{" "}
                 <Link
                   href={`/contribuyentes/${row.contribuyenteId}`}
                   className="text-primary hover:underline"
@@ -266,9 +266,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
               <dl className="grid gap-2 text-sm">
                 <div>
                   <dt className="text-muted-foreground">Impuesto</dt>
-                  <dd className="font-medium">
-                    {row.impuestoNombre}
-                  </dd>
+                  <dd className="font-medium">{row.impuestoNombre ?? "—"}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Contribuyente</dt>
