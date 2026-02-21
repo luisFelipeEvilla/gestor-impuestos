@@ -38,6 +38,7 @@ import { CardOrdenResolucion } from "@/components/procesos/card-orden-resolucion
 import { CardAcuerdosPagoList } from "@/components/procesos/card-acuerdos-pago-list";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { DetalleConHistorial } from "./detalle-con-historial";
+import { TabsGestionProceso } from "./tabs-gestion-proceso";
 import { unstable_noStore } from "next/cache";
 import { labelEstado } from "@/lib/estados-proceso";
 import type { EvidenciaEnvioEmail } from "@/lib/notificaciones/resend";
@@ -147,6 +148,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
         categoriaNota: historialProceso.categoriaNota,
         metadata: historialProceso.metadata,
         fecha: historialProceso.fecha,
+        usuarioId: historialProceso.usuarioId,
         autorNombre: usuarios.nombre,
       })
       .from(historialProceso)
@@ -162,6 +164,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
       .select({
         id: documentosProceso.id,
         categoria: documentosProceso.categoria,
+        tipoDocumento: documentosProceso.tipoDocumento,
         nombreOriginal: documentosProceso.nombreOriginal,
         mimeType: documentosProceso.mimeType,
         tamano: documentosProceso.tamano,
@@ -208,17 +211,18 @@ export default async function DetalleProcesoPage({ params }: Props) {
           mimeType: d.mimeType,
           tamano: d.tamano,
           creadoEn: d.creadoEn,
+          tipoDocumento: d.tipoDocumento ?? null,
           creadoPorNombre: d.subidoPorNombre ?? null,
         }));
       return acc;
     },
     {} as Record<
       CategoriaKey,
-      { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date; creadoPorNombre: string | null }[]
+      { id: number; nombreOriginal: string; mimeType: string; tamano: number; creadoEn: Date; tipoDocumento: string | null; creadoPorNombre: string | null }[]
     >
   );
 
-  type NotaConAutor = { id: number; comentario: string; fecha: Date; autorNombre: string | null };
+  type NotaConAutor = { id: number; comentario: string; fecha: Date; autorNombre: string | null; autorId: number | null };
   const notasPorCategoria = categorias.reduce(
     (acc, cat) => {
       const list = historialRows
@@ -231,6 +235,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
           comentario: h.comentario ?? "",
           fecha: h.fecha,
           autorNombre: h.autorNombre ?? null,
+          autorId: h.usuarioId ?? null,
         }));
       acc[cat] = [...list].sort(
         (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
@@ -239,6 +244,10 @@ export default async function DetalleProcesoPage({ params }: Props) {
     },
     {} as Record<CategoriaKey, NotaConAutor[]>
   );
+
+  const sessionUser = session
+    ? { id: session.user.id, rol: session.user.rol }
+    : null;
 
   return (
     <div className="p-6 space-y-6">
@@ -303,17 +312,22 @@ export default async function DetalleProcesoPage({ params }: Props) {
                 <div>
                   <dt className="text-muted-foreground">Monto total (COP)</dt>
                   <dd className="font-medium">{Number(row.montoCop).toLocaleString("es-CO")}</dd>
-                  {(row.montoMultaCop != null || row.montoInteresesCop != null) && (
-                    <dd className="text-muted-foreground text-sm mt-1">
-                      {row.montoMultaCop != null && (
-                        <span>Multa: {Number(row.montoMultaCop).toLocaleString("es-CO")} COP</span>
-                      )}
-                      {row.montoMultaCop != null && row.montoInteresesCop != null && " · "}
-                      {row.montoInteresesCop != null && (
-                        <span>Intereses: {Number(row.montoInteresesCop).toLocaleString("es-CO")} COP</span>
-                      )}
-                    </dd>
-                  )}
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Valor infracción (COP)</dt>
+                  <dd className="text-muted-foreground text-sm">
+                    {row.montoMultaCop != null
+                      ? Number(row.montoMultaCop).toLocaleString("es-CO")
+                      : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Intereses (COP)</dt>
+                  <dd className="text-muted-foreground text-sm">
+                    {row.montoInteresesCop != null
+                      ? Number(row.montoInteresesCop).toLocaleString("es-CO")
+                      : "—"}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Estado</dt>
@@ -459,88 +473,101 @@ export default async function DetalleProcesoPage({ params }: Props) {
         }
       />
 
-      <div className="w-full space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Documentos generales del proceso</CardTitle>
-            <CardDescription>
-              Documentos del proceso no asociados a una etapa concreta (en contacto, acuerdo de pago o cobro coactivo).
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <SubirDocumentoForm procesoId={row.id} categoria="general" />
-            <ListaDocumentos
-              procesoId={row.id}
-              documentos={documentosPorCategoria.general}
-              puedeEliminar
-              variant="table"
-            />
-          </CardContent>
-        </Card>
+      <TabsGestionProceso
+        generalContent={
+          <>
+            <div className="w-full space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Documentos generales del proceso</CardTitle>
+                  <CardDescription>
+                    Documentos del proceso no asociados a una etapa concreta (en contacto, acuerdo de pago o cobro coactivo).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <SubirDocumentoForm procesoId={row.id} categoria="general" />
+                  <ListaDocumentos
+                    procesoId={row.id}
+                    documentos={documentosPorCategoria.general}
+                    puedeEliminar
+                    variant="table"
+                  />
+                </CardContent>
+              </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Bitácora del proceso</CardTitle>
-            <CardDescription>
-              Registra llamadas, acuerdos y seguimiento que no correspondan a una etapa concreta. Útil para dejar trazabilidad y que el equipo vea el historial de gestión.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <h4 className="text-sm font-medium text-foreground mb-2">Añadir nota</h4>
-              <AgregarNotaForm procesoId={row.id} categoria="general" />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Bitácora del proceso</CardTitle>
+                  <CardDescription>
+                    Registra llamadas, acuerdos y seguimiento que no correspondan a una etapa concreta. Útil para dejar trazabilidad y que el equipo vea el historial de gestión.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <h4 className="text-sm font-medium text-foreground mb-2">Añadir nota</h4>
+                    <AgregarNotaForm procesoId={row.id} categoria="general" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-foreground mb-2">Notas recientes</h4>
+                    <ListaNotas notas={notasPorCategoria.general} procesoId={row.id} sessionUser={sessionUser} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <CardOrdenResolucion procesoId={row.id} orden={ordenResolucion} />
             </div>
-            <div>
-              <h4 className="text-sm font-medium text-foreground mb-2">Notas recientes</h4>
-              <ListaNotas notas={notasPorCategoria.general} />
+
+            <div className="space-y-6 mt-6">
+              <Card className="w-full">
+                <CardHeader>
+                  <CardTitle>Notificación</CardTitle>
+                  <CardDescription>
+                    Después de asignar: envía la notificación al contribuyente por email o registra la notificación por vía física.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <BotonesNotificacion
+                    procesoId={row.id}
+                    yaNotificado={yaNotificado}
+                    fechaNotificacion={fechaNotificacion}
+                    notificacionMetadata={notificacionMetadata}
+                    documentosEvidencia={documentosEvidencia}
+                  />
+                </CardContent>
+              </Card>
+
+              <CardEnContacto
+                procesoId={row.id}
+                estadoActual={row.estadoActual ?? ""}
+                documentos={documentosPorCategoria.en_contacto}
+                notas={notasPorCategoria.en_contacto}
+                sessionUser={sessionUser}
+              />
             </div>
-          </CardContent>
-        </Card>
-
-        <CardOrdenResolucion procesoId={row.id} orden={ordenResolucion} />
-      </div>
-
-      <div className="space-y-6">
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle>Notificación</CardTitle>
-            <CardDescription>
-              Primer paso después de asignar: envía la notificación al contribuyente. El estado pasará a &quot;Notificado&quot;.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <BotonesNotificacion
-              procesoId={row.id}
-              yaNotificado={yaNotificado}
-              fechaNotificacion={fechaNotificacion}
-              notificacionMetadata={notificacionMetadata}
-              documentosEvidencia={documentosEvidencia}
-            />
-          </CardContent>
-        </Card>
-
-        <CardEnContacto
-          procesoId={row.id}
-          estadoActual={row.estadoActual ?? ""}
-          documentos={documentosPorCategoria.en_contacto}
-          notas={notasPorCategoria.en_contacto}
-        />
-
-        <CardAcuerdosPagoList
-          procesoId={row.id}
-          acuerdos={acuerdosPagoList}
-          estadoActual={row.estadoActual ?? ""}
-          documentos={documentosPorCategoria.acuerdo_pago}
-          notas={notasPorCategoria.acuerdo_pago}
-        />
-        <CardCobroCoactivo
-          procesoId={row.id}
-          estadoActual={row.estadoActual ?? ""}
-          documentos={documentosPorCategoria.cobro_coactivo}
-          notas={notasPorCategoria.cobro_coactivo}
-          cobroCoactivo={cobroCoactivo}
-        />
-      </div>
+          </>
+        }
+        acuerdosContent={
+          <CardAcuerdosPagoList
+            procesoId={row.id}
+            acuerdos={acuerdosPagoList}
+            estadoActual={row.estadoActual ?? ""}
+            documentos={documentosPorCategoria.acuerdo_pago}
+            notas={notasPorCategoria.acuerdo_pago}
+            montoTotalCop={row.montoCop}
+            sessionUser={sessionUser}
+          />
+        }
+        cobroContent={
+          <CardCobroCoactivo
+            procesoId={row.id}
+            estadoActual={row.estadoActual ?? ""}
+            documentos={documentosPorCategoria.cobro_coactivo}
+            notas={notasPorCategoria.cobro_coactivo}
+            cobroCoactivo={cobroCoactivo}
+            sessionUser={sessionUser}
+          />
+        }
+      />
     </div>
   );
 }

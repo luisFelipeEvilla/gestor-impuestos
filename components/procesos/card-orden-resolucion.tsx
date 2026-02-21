@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CardSectionAccordion } from "@/components/ui/card-accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
 import {
   crearOrdenResolucion,
   actualizarOrdenResolucion,
@@ -40,6 +41,9 @@ export function CardOrdenResolucion({ procesoId, orden }: CardOrdenResolucionPro
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [openEliminar, setOpenEliminar] = useState(false);
+  const formEliminarRef = useRef<HTMLFormElement>(null);
+  const confirmandoEliminarRef = useRef(false);
 
   const [createState, createAction] = useActionState(
     async (_: { error?: string } | null, formData: FormData) => {
@@ -136,7 +140,28 @@ export function CardOrdenResolucion({ procesoId, orden }: CardOrdenResolucionPro
               <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
                 Editar
               </Button>
-              <form action={deleteAction}>
+              <ConfirmarEliminacionModal
+                open={openEliminar}
+                onOpenChange={setOpenEliminar}
+                title="Eliminar orden de resolución"
+                description="Se eliminará el registro y el documento asociado. No se puede deshacer."
+                onConfirm={() => {
+                  confirmandoEliminarRef.current = true;
+                  formEliminarRef.current?.requestSubmit();
+                }}
+              />
+              <form
+                ref={formEliminarRef}
+                action={deleteAction}
+                onSubmit={(e) => {
+                  if (!confirmandoEliminarRef.current) {
+                    e.preventDefault();
+                    setOpenEliminar(true);
+                    return;
+                  }
+                  confirmandoEliminarRef.current = false;
+                }}
+              >
                 <Button type="submit" variant="outline" size="sm" className="text-destructive">
                   Eliminar
                 </Button>

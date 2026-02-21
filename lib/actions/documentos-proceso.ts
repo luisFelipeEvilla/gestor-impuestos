@@ -20,6 +20,12 @@ import {
   type CategoriaDocumentoNota,
   type EstadoDocumentoProceso,
 } from "@/lib/proceso-categorias";
+import {
+  TIPOS_DOCUMENTO_PROCESO,
+  type TipoDocumentoProceso,
+} from "@/lib/tipos-documento-proceso";
+
+const TIPOS_DOCUMENTO_VALIDOS = new Set(TIPOS_DOCUMENTO_PROCESO.map((t) => t.value));
 
 export type PresignedDocumentoProcesoResult = {
   url?: string;
@@ -75,11 +81,13 @@ export async function registrarDocumentoProceso(
   nombreOriginal: string,
   mimeType: string,
   tamano: number,
-  categoria: CategoriaDocumentoNota
+  categoria: CategoriaDocumentoNota,
+  tipoDocumento: TipoDocumentoProceso = "otro"
 ): Promise<EstadoDocumentoProceso> {
   if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
   if (!rutaArchivo?.trim() || !nombreOriginal?.trim()) return { error: "Datos del archivo incompletos." };
   if (!CATEGORIAS_DOCUMENTO_NOTA.includes(categoria)) return { error: "Categoría inválida." };
+  if (!TIPOS_DOCUMENTO_VALIDOS.has(tipoDocumento)) return { error: "Tipo de documento inválido." };
   if (!isAllowedMime(mimeType)) return { error: "Tipo de archivo no permitido." };
 
   try {
@@ -99,6 +107,7 @@ export async function registrarDocumentoProceso(
       procesoId,
       subidoPorId: session?.user?.id ?? null,
       categoria,
+      tipoDocumento,
       nombreOriginal,
       rutaArchivo,
       mimeType,
@@ -129,6 +138,7 @@ export async function subirDocumentoProceso(
   const procesoIdRaw = formData.get("procesoId");
   const procesoId = typeof procesoIdRaw === "string" ? parseInt(procesoIdRaw, 10) : Number(procesoIdRaw);
   const categoriaRaw = (formData.get("categoria") as string)?.trim() || "general";
+  const tipoDocumentoRaw = (formData.get("tipoDocumento") as string)?.trim() || "otro";
   const file = formData.get("archivo") as File | null;
 
   if (!Number.isInteger(procesoId) || procesoId < 1) {
@@ -137,7 +147,11 @@ export async function subirDocumentoProceso(
   if (!CATEGORIAS_DOCUMENTO_NOTA.includes(categoriaRaw as CategoriaDocumentoNota)) {
     return { error: "Categoría de documento inválida." };
   }
+  if (!TIPOS_DOCUMENTO_VALIDOS.has(tipoDocumentoRaw as TipoDocumentoProceso)) {
+    return { error: "Tipo de documento inválido." };
+  }
   const categoria = categoriaRaw as CategoriaDocumentoNota;
+  const tipoDocumento = tipoDocumentoRaw as TipoDocumentoProceso;
   if (!file || file.size === 0) {
     return { error: "Selecciona un archivo." };
   }
@@ -177,6 +191,7 @@ export async function subirDocumentoProceso(
       procesoId,
       subidoPorId: session?.user?.id ?? null,
       categoria,
+      tipoDocumento,
       nombreOriginal: file.name,
       rutaArchivo,
       mimeType: file.type,

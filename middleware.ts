@@ -61,7 +61,7 @@ export const config = {
     "/impuestos/:path*",
     "/usuarios/:path*",
     "/cargos/:path*",
-    "/perfil/:path*",
+    "/profile/:path*",
     "/empresa/:path*",
     "/login",
     "/recuperar-password/:path*",

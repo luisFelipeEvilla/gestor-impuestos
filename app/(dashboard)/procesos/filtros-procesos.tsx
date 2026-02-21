@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,10 +18,10 @@ import { Card, CardContent } from "@/components/ui/card";
 const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
   { value: "asignado", label: "Asignado" },
-  { value: "notificado", label: "Notificado" },
-  { value: "en_contacto", label: "Cobro persuasivo" },
-  { value: "en_cobro_coactivo", label: "En cobro coactivo" },
-  { value: "cobrado", label: "Cobrado" },
+  { value: "facturacion", label: "Facturación" },
+  { value: "acuerdo_pago", label: "Acuerdo de pago" },
+  { value: "en_cobro_coactivo", label: "Cobro coactivo" },
+  { value: "finalizado", label: "Finalizado" },
 ] as const;
 
 const AÑO_MIN = 2000;
@@ -42,13 +42,14 @@ const OPCIONES_ANTIGUEDAD = [
 ] as const;
 
 type UsuarioOption = { id: number; nombre: string };
+type ImpuestoOption = { id: string; nombre: string };
 
 type FiltrosProcesosProps = {
   estadoActual: string | null;
   vigenciaActual: number | null;
   antiguedadActual: string | null;
-  contribuyenteActual: string;
-  comparendoActual: string;
+  impuestoIdActual: string | null;
+  impuestos: ImpuestoOption[];
   usuarios: UsuarioOption[];
   asignadoIdActual: number | null;
   fechaAsignacionActual: string | null;
@@ -58,31 +59,21 @@ export function FiltrosProcesos({
   estadoActual,
   vigenciaActual,
   antiguedadActual,
-  contribuyenteActual,
-  comparendoActual,
+  impuestoIdActual,
+  impuestos: impuestosList,
   usuarios: usuariosList,
   asignadoIdActual,
   fechaAsignacionActual,
 }: FiltrosProcesosProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [contribuyente, setContribuyente] = useState(contribuyenteActual);
-  const [comparendo, setComparendo] = useState(comparendoActual);
-
-  useEffect(() => {
-    setContribuyente(contribuyenteActual);
-  }, [contribuyenteActual]);
-  useEffect(() => {
-    setComparendo(comparendoActual);
-  }, [comparendoActual]);
 
   const buildParams = useCallback(
     (updates: {
       estado?: string | null;
       vigencia?: string | number | null;
       antiguedad?: string | null;
-      contribuyente?: string;
-      comparendo?: string;
+      impuestoId?: string | null;
       asignadoId?: number | null;
       fechaAsignacion?: string | null;
     }) => {
@@ -93,12 +84,8 @@ export function FiltrosProcesos({
         updates.vigencia !== undefined ? updates.vigencia : vigenciaActual;
       const antig =
         updates.antiguedad !== undefined ? updates.antiguedad : antiguedadActual;
-      const contrib =
-        updates.contribuyente !== undefined
-          ? updates.contribuyente
-          : contribuyente;
-      const comp =
-        updates.comparendo !== undefined ? updates.comparendo : comparendo;
+      const impId =
+        updates.impuestoId !== undefined ? updates.impuestoId : impuestoIdActual;
       const asigId =
         updates.asignadoId !== undefined
           ? updates.asignadoId
@@ -111,15 +98,13 @@ export function FiltrosProcesos({
       params.delete("estado");
       params.delete("vigencia");
       params.delete("antiguedad");
-      params.delete("contribuyente");
-      params.delete("comparendo");
+      params.delete("impuesto");
       params.delete("asignado");
       params.delete("fechaAsignacion");
       if (estado != null && estado !== "todos") params.set("estado", estado);
       if (vigencia != null) params.set("vigencia", String(vigencia));
       if (antig != null && antig !== "todos") params.set("antiguedad", antig);
-      if (contrib.trim()) params.set("contribuyente", contrib.trim());
-      if (comp.trim()) params.set("comparendo", comp.trim());
+      if (impId != null && impId !== "todos") params.set("impuesto", impId);
       if (asigId != null && asigId > 0) params.set("asignado", String(asigId));
       if (fechaAsig != null && fechaAsig !== "")
         params.set("fechaAsignacion", fechaAsig);
@@ -130,11 +115,20 @@ export function FiltrosProcesos({
       estadoActual,
       vigenciaActual,
       antiguedadActual,
-      contribuyente,
-      comparendo,
+      impuestoIdActual,
       fechaAsignacionActual,
       asignadoIdActual,
     ]
+  );
+
+  const handleImpuestoChange = useCallback(
+    (value: string) => {
+      const params = buildParams({
+        impuestoId: value === "todos" ? null : value,
+      });
+      router.push(`/procesos?${params.toString()}`);
+    },
+    [router, buildParams]
   );
 
   const handleEstadoChange = useCallback(
@@ -186,18 +180,6 @@ export function FiltrosProcesos({
     [router, buildParams]
   );
 
-  const handleSubmitBusqueda = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      const params = buildParams({
-        contribuyente: contribuyente.trim(),
-        comparendo: comparendo.trim(),
-      });
-      router.push(`/procesos?${params.toString()}`, { scroll: false });
-    },
-    [router, buildParams, contribuyente, comparendo]
-  );
-
   const handleLimpiar = useCallback(() => {
     router.push("/procesos");
   }, [router]);
@@ -206,8 +188,7 @@ export function FiltrosProcesos({
     estadoActual != null ||
     vigenciaActual != null ||
     (antiguedadActual != null && antiguedadActual !== "todos") ||
-    contribuyenteActual.length > 0 ||
-    comparendoActual.length > 0 ||
+    (impuestoIdActual != null && impuestoIdActual !== "todos") ||
     asignadoIdActual != null ||
     fechaAsignacionActual != null;
 
@@ -219,20 +200,27 @@ export function FiltrosProcesos({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-4 items-end">
       <div className="flex flex-col gap-1.5">
         <Label
-          htmlFor="filtro-comparendo"
+          htmlFor="filtro-impuesto"
           className="text-xs text-muted-foreground"
         >
-          Nº comparendo
+          Tipo de proceso
         </Label>
-        <Input
-          id="filtro-comparendo"
-          type="search"
-          placeholder="Número..."
-          value={comparendo}
-          onChange={(e) => setComparendo(e.target.value)}
-          className={fieldClass}
-          aria-label="Filtrar por número de comparendo"
-        />
+        <Select
+          value={impuestoIdActual ?? "todos"}
+          onValueChange={handleImpuestoChange}
+        >
+          <SelectTrigger id="filtro-impuesto" className={fieldClass}>
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            {impuestosList.map((i) => (
+              <SelectItem key={i.id} value={i.id}>
+                {i.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label

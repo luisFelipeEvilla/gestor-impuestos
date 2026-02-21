@@ -1,6 +1,8 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
 import {
   eliminarUsuario,
   desactivarUsuario,
@@ -20,23 +22,40 @@ const activarAction = async (formData: FormData) => {
 };
 
 export function EliminarUsuarioButton({ id }: { id: number }) {
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    if (
-      !confirm(
-        "¿Eliminar este usuario? No se puede deshacer. Los procesos asignados quedarán sin asignar."
-      )
-    ) {
-      e.preventDefault();
-    }
-  };
+  const [open, setOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirmandoRef = useRef(false);
 
   return (
-    <form action={eliminarAction} onSubmit={handleSubmit}>
-      <input type="hidden" name="id" value={id} />
-      <Button type="submit" variant="destructive">
-        Eliminar
-      </Button>
-    </form>
+    <>
+      <ConfirmarEliminacionModal
+        open={open}
+        onOpenChange={setOpen}
+        title="Eliminar usuario"
+        description="No se puede deshacer. Los procesos asignados quedarán sin asignar."
+        onConfirm={() => {
+          confirmandoRef.current = true;
+          formRef.current?.requestSubmit();
+        }}
+      />
+      <form
+        ref={formRef}
+        action={eliminarAction}
+        onSubmit={(e) => {
+          if (!confirmandoRef.current) {
+            e.preventDefault();
+            setOpen(true);
+            return;
+          }
+          confirmandoRef.current = false;
+        }}
+      >
+        <input type="hidden" name="id" value={id} />
+        <Button type="submit" variant="destructive">
+          Eliminar
+        </Button>
+      </form>
+    </>
   );
 }
 

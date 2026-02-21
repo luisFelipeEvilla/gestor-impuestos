@@ -4,6 +4,7 @@ import { useActionState, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -24,6 +25,7 @@ import {
   type CategoriaDocumentoNota,
   type EstadoDocumentoProceso,
 } from "@/lib/proceso-categorias";
+import { TIPOS_DOCUMENTO_PROCESO, labelTipoDocumentoProceso } from "@/lib/tipos-documento-proceso";
 
 export type DocumentoItem = {
   id: number;
@@ -32,6 +34,8 @@ export type DocumentoItem = {
   tamano: number;
   creadoEn: Date;
   categoria?: string;
+  /** Tipo de documento (Mandamiento de pago, Medidas cautelares, etc.) */
+  tipoDocumento?: string | null;
   /** Nombre del usuario que subió el documento (opcional; si no existe en BD se muestra "—") */
   creadoPorNombre?: string | null;
 };
@@ -110,13 +114,15 @@ export function SubirDocumentoForm({ procesoId, categoria }: SubirDocumentoFormP
         return;
       }
 
+      const tipoDocumento = (form.get("tipoDocumento") as string)?.trim() || "otro";
       const reg = await registrarDocumentoProceso(
         procesoId,
         presigned.rutaArchivo,
         file.name,
         file.type || "application/octet-stream",
         file.size,
-        categoria
+        categoria,
+        tipoDocumento as import("@/lib/tipos-documento-proceso").TipoDocumentoProceso
       );
       if (reg.error) {
         setSubmitError(reg.error);
@@ -137,6 +143,24 @@ export function SubirDocumentoForm({ procesoId, categoria }: SubirDocumentoFormP
       <input type="hidden" name="procesoId" value={procesoId} />
       <input type="hidden" name="categoria" value={categoria} />
       <div className="flex flex-wrap items-end gap-2">
+        <div className="grid gap-1.5 min-w-[180px]">
+          <Label htmlFor="tipoDocumento-subir" className="text-xs">
+            Tipo de documento
+          </Label>
+          <select
+            id="tipoDocumento-subir"
+            name="tipoDocumento"
+            required
+            className="border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+            aria-label="Tipo de documento"
+          >
+            {TIPOS_DOCUMENTO_PROCESO.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="grid flex-1 min-w-[200px] gap-1.5">
           <Label htmlFor="archivo" className="text-xs">
             Archivo (PDF, imágenes, Word, Excel; hasta {MAX_S3_MB} MB con S3)
@@ -205,7 +229,8 @@ export function ListaDocumentos({
           <TableHeader>
             <TableRow className="border-border/60">
               <TableHead className="font-medium">Nombre</TableHead>
-              <TableHead className="font-medium">Tipo</TableHead>
+              <TableHead className="font-medium">Tipo de documento</TableHead>
+              <TableHead className="font-medium">Formato</TableHead>
               <TableHead className="font-medium">Subido por</TableHead>
               <TableHead className="font-medium">Fecha</TableHead>
               {puedeEliminar && (
@@ -225,6 +250,9 @@ export function ListaDocumentos({
                   >
                     {doc.nombreOriginal}
                   </a>
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {labelTipoDocumentoProceso(doc.tipoDocumento)}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {labelTipoDocumento(doc.mimeType)}
@@ -265,6 +293,8 @@ export function ListaDocumentos({
               {doc.nombreOriginal}
             </a>
             <span className="text-muted-foreground text-xs">
+              {labelTipoDocumentoProceso(doc.tipoDocumento)}
+              {" · "}
               {formatTamano(doc.tamano)}
               {" · "}
               {new Date(doc.creadoEn).toLocaleDateString("es-CO", {
@@ -287,24 +317,44 @@ function EliminarDocumentoButton({ documentoId }: { documentoId: number }) {
       eliminarDocumentoProceso(formData),
     null
   );
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    if (!confirm("¿Eliminar este documento? No se puede deshacer.")) {
-      e.preventDefault();
-    }
-  };
+  const [open, setOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirmandoRef = useRef(false);
 
   return (
-    <form action={formAction} onSubmit={handleSubmit}>
-      <input type="hidden" name="documentoId" value={documentoId} />
-      <Button type="submit" variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-        Eliminar
-      </Button>
+    <>
+      <ConfirmarEliminacionModal
+        open={open}
+        onOpenChange={setOpen}
+        title="Eliminar documento"
+        description="No se puede deshacer."
+        onConfirm={() => {
+          confirmandoRef.current = true;
+          formRef.current?.requestSubmit();
+        }}
+      />
+      <form
+        ref={formRef}
+        action={formAction}
+        onSubmit={(e) => {
+          if (!confirmandoRef.current) {
+            e.preventDefault();
+            setOpen(true);
+            return;
+          }
+          confirmandoRef.current = false;
+        }}
+      >
+        <input type="hidden" name="documentoId" value={documentoId} />
+        <Button type="submit" variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+          Eliminar
+        </Button>
+      </form>
       {state?.error && (
         <p className="text-destructive text-xs w-full" role="alert">
           {state.error}
         </p>
       )}
-    </form>
+    </>
   );
 }

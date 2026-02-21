@@ -3,6 +3,7 @@
 import { useActionState, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -197,29 +198,49 @@ function EliminarDocumentoActaButton({ documentoId }: { documentoId: number }) {
       eliminarDocumentoActa(formData),
     null
   );
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    if (!confirm("¿Eliminar este documento? No se puede deshacer.")) {
-      e.preventDefault();
-    }
-  };
+  const [open, setOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirmandoRef = useRef(false);
 
   return (
-    <form action={formAction} onSubmit={handleSubmit}>
-      <input type="hidden" name="documentoId" value={documentoId} />
-      <Button
-        type="submit"
-        variant="ghost"
-        size="sm"
-        className="text-destructive hover:text-destructive"
+    <>
+      <ConfirmarEliminacionModal
+        open={open}
+        onOpenChange={setOpen}
+        title="Eliminar documento"
+        description="No se puede deshacer."
+        onConfirm={() => {
+          confirmandoRef.current = true;
+          formRef.current?.requestSubmit();
+        }}
+      />
+      <form
+        ref={formRef}
+        action={formAction}
+        onSubmit={(e) => {
+          if (!confirmandoRef.current) {
+            e.preventDefault();
+            setOpen(true);
+            return;
+          }
+          confirmandoRef.current = false;
+        }}
       >
-        Eliminar
-      </Button>
+        <input type="hidden" name="documentoId" value={documentoId} />
+        <Button
+          type="submit"
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+        >
+          Eliminar
+        </Button>
+      </form>
       {state?.error && (
         <p className="text-destructive text-xs w-full" role="alert">
           {state.error}
         </p>
       )}
-    </form>
+    </>
   );
 }

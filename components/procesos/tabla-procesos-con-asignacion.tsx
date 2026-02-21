@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ChevronRight, Columns3, Check } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronRight, Columns3, Check, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { getSemáforoFechaLimite } from "@/lib/fechas-limite";
 import { toast } from "sonner";
 import {
   Table,
@@ -87,18 +88,30 @@ export type FilaProceso = {
   asignadoNombre: string | null;
 };
 
+const SORTABLE_COLUMNS: Record<string, string> = {
+  antiguedad: "fechaLimite",
+  vigencia: "vigencia",
+  monto: "montoCop",
+  estado: "estadoActual",
+};
+
 interface TablaProcesosConAsignacionProps {
   lista: FilaProceso[];
   usuarios: { id: number; nombre: string }[];
   isAdmin: boolean;
+  orderBy?: string;
+  order?: "asc" | "desc";
 }
 
 export function TablaProcesosConAsignacion({
   lista,
   usuarios,
   isAdmin,
+  orderBy = "fechaLimite",
+  order = "asc",
 }: TablaProcesosConAsignacionProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [asignadoId, setAsignadoId] = useState<string>("");
@@ -172,6 +185,70 @@ export function TablaProcesosConAsignacion({
 
   const showAssignBar = isAdmin && lista.length > 0;
   const hasSelection = selectedIds.size > 0;
+
+  const buildSortUrl = useCallback(
+    (nextOrderBy: string, nextOrder: "asc" | "desc") => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("orderBy", nextOrderBy);
+      params.set("order", nextOrder);
+      params.set("page", "1");
+      return `/procesos?${params.toString()}`;
+    },
+    [searchParams]
+  );
+
+  const handleRowClick = useCallback(
+    (e: React.MouseEvent<HTMLTableRowElement>, procesoId: number) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.closest("a") ||
+        target.closest("button") ||
+        target.closest('input[type="checkbox"]')
+      ) {
+        return;
+      }
+      router.push(`/procesos/${procesoId}`);
+    },
+    [router]
+  );
+
+  function SortableHead({
+    columnId,
+    label,
+    className,
+  }: {
+    columnId: string;
+    label: string;
+    className?: string;
+  }) {
+    const sortKey = SORTABLE_COLUMNS[columnId];
+    if (!sortKey) {
+      return <TableHead className={className}>{label}</TableHead>;
+    }
+    const isActive = orderBy === sortKey;
+    const nextOrder = isActive && order === "asc" ? "desc" : "asc";
+    const href = buildSortUrl(sortKey, isActive ? nextOrder : sortKey === "fechaLimite" ? "asc" : "desc");
+    return (
+      <TableHead className={className}>
+        <Link
+          href={href}
+          scroll={false}
+          className="inline-flex items-center gap-1 font-medium hover:text-primary transition-colors"
+        >
+          {label}
+          {isActive ? (
+            order === "asc" ? (
+              <ArrowUp className="size-3.5 shrink-0" aria-hidden />
+            ) : (
+              <ArrowDown className="size-3.5 shrink-0" aria-hidden />
+            )
+          ) : (
+            <ArrowUpDown className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          )}
+        </Link>
+      </TableHead>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -258,7 +335,7 @@ export function TablaProcesosConAsignacion({
         <TableHeader>
           <TableRow>
             {isColumnVisible("seleccion") && (
-              <TableHead className="w-10 pr-0">
+              <TableHead className="w-10 pr-0" onClick={(e) => e.stopPropagation()}>
                 <input
                   type="checkbox"
                   role="checkbox"
@@ -272,25 +349,41 @@ export function TablaProcesosConAsignacion({
             {isColumnVisible("asignado") && <TableHead>Asignado</TableHead>}
             {isColumnVisible("noComparendo") && <TableHead>No. comparendo</TableHead>}
             {isColumnVisible("antiguedad") && (
-              <TableHead className="text-center">Antigüedad</TableHead>
+              <SortableHead columnId="antiguedad" label="Antigüedad" className="text-center" />
             )}
             {isColumnVisible("contribuyente") && (
               <TableHead className="max-w-[200px] w-[200px]">Contribuyente</TableHead>
             )}
-            {isColumnVisible("vigencia") && <TableHead>Vigencia</TableHead>}
+            {isColumnVisible("vigencia") && (
+              <SortableHead columnId="vigencia" label="Vigencia" />
+            )}
             {isColumnVisible("numeroResolucion") && <TableHead>Nº resolución</TableHead>}
-            {isColumnVisible("monto") && <TableHead>Monto (COP)</TableHead>}
-            {isColumnVisible("estado") && <TableHead>Estado</TableHead>}
+            {isColumnVisible("monto") && (
+              <SortableHead columnId="monto" label="Monto (COP)" />
+            )}
+            {isColumnVisible("estado") && (
+              <SortableHead columnId="estado" label="Estado" />
+            )}
             {isColumnVisible("accion") && (
               <TableHead className="w-[80px]">Acción</TableHead>
             )}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {lista.map((p) => (
-            <TableRow key={p.id}>
+          {lista.map((p) => {
+            const semaforo = getSemáforoFechaLimite(p.fechaLimite);
+            const rowUrgente = semaforo === "rojo";
+            return (
+            <TableRow
+              key={p.id}
+              className={cn(
+                rowUrgente && "border-l-4 border-l-red-500/70 bg-red-500/5 dark:bg-red-950/20",
+                "cursor-pointer transition-colors hover:bg-muted/50"
+              )}
+              onClick={(e) => handleRowClick(e, p.id)}
+            >
               {isColumnVisible("seleccion") && (
-                <TableCell className="pr-0">
+                <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     role="checkbox"
@@ -321,7 +414,7 @@ export function TablaProcesosConAsignacion({
                 </TableCell>
               )}
               {isColumnVisible("contribuyente") && (
-                <TableCell className="max-w-[200px] w-[200px]">
+                <TableCell className="max-w-[200px] w-[200px]" onClick={(e) => e.stopPropagation()}>
                   <Link
                     href={`/contribuyentes/${p.contribuyenteId}`}
                     className="block truncate text-primary hover:underline focus:outline-none focus:ring-2 focus:ring-ring rounded"
@@ -349,7 +442,7 @@ export function TablaProcesosConAsignacion({
                 <TableCell>{labelEstado(p.estadoActual)}</TableCell>
               )}
               {isColumnVisible("accion") && (
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
                     <Link href={`/procesos/${p.id}`}>
                       Ver <ChevronRight className="size-4" aria-hidden />
@@ -358,7 +451,8 @@ export function TablaProcesosConAsignacion({
                 </TableCell>
               )}
             </TableRow>
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
     </div>

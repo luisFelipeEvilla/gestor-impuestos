@@ -78,7 +78,7 @@ export async function cambiarContraseña(
       .returning({ id: usuarios.id });
 
     if (!updated) return { error: "No se pudo actualizar la contraseña." };
-    revalidatePath("/perfil");
+    revalidatePath("/profile");
     return {};
   } catch (err) {
     console.error(err);
@@ -127,7 +127,7 @@ export async function actualizarPerfil(
 
     if (!updated) return { error: "No se pudo actualizar el perfil." };
 
-    revalidatePath("/perfil");
+    revalidatePath("/profile");
     revalidatePath("/");
     return {};
   } catch (err) {

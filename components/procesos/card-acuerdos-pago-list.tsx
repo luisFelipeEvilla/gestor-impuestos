@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CardSectionAccordion } from "@/components/ui/card-accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
 import {
   crearAcuerdoPago,
   actualizarAcuerdoPago,
@@ -24,6 +25,13 @@ import {
   SubirDocumentoForm,
 } from "@/components/procesos/documentos-proceso";
 import type { DocumentoItem } from "@/components/procesos/documentos-proceso";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 function formatDate(value: Date | string | null | undefined): string {
   if (!value) return "—";
@@ -39,7 +47,13 @@ type CardAcuerdosPagoListProps = {
   estadoActual?: string;
   documentos?: DocumentoItem[];
   notas?: NotaItem[];
+  /** Monto total del proceso (COP) para mostrar contexto al definir cuotas. */
+  montoTotalCop?: string | number | null;
+  sessionUser?: { id: number; rol: string } | null;
 };
+
+const CONTEXTO_ACUERDOS =
+  "Los acuerdos de pago permiten al contribuyente cumplir en cuotas según lo acordado, en el marco del procedimiento administrativo (Ley 1437).";
 
 export function CardAcuerdosPagoList({
   procesoId,
@@ -47,12 +61,17 @@ export function CardAcuerdosPagoList({
   estadoActual,
   documentos = [],
   notas = [],
+  montoTotalCop,
+  sessionUser,
 }: CardAcuerdosPagoListProps) {
   const showEtapa = estadoActual != null;
-  const enNegociacion = estadoActual === "en_negociacion";
+  const enAcuerdoPago = estadoActual === "acuerdo_pago";
   const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [openEliminar, setOpenEliminar] = useState(false);
+  const formEliminarRef = useRef<HTMLFormElement | null>(null);
+  const confirmandoEliminarRef = useRef(false);
 
   const parseNum = (v: FormDataEntryValue | null) => (v != null && v !== "" ? Number(String(v)) : null);
 
@@ -108,9 +127,34 @@ export function CardAcuerdosPagoList({
 
   const descripcion =
     "Registro de acuerdos del proceso: número, fechas, porcentaje de cuota inicial, número de cuotas y día del mes de cobro. Acuerdo de pago y cobro coactivo son etapas independientes. Documentos y notas asociados al acuerdo.";
+  const montoFormateado =
+    montoTotalCop != null && montoTotalCop !== ""
+      ? Number(montoTotalCop).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
+      : null;
 
   return (
-    <CardSectionAccordion title="Acuerdos de pago" description={descripcion}>
+    <CardSectionAccordion
+      title="Acuerdos de pago"
+      description={
+        <span className="block space-y-1">
+          <span className="block text-muted-foreground text-sm">{CONTEXTO_ACUERDOS}</span>
+          {montoFormateado && (
+            <span className="block text-sm font-medium">Monto del proceso: {montoFormateado}</span>
+          )}
+          <span className="block text-muted-foreground text-sm">{descripcion}</span>
+        </span>
+      }
+    >
+      <ConfirmarEliminacionModal
+        open={openEliminar}
+        onOpenChange={setOpenEliminar}
+        title="Eliminar acuerdo de pago"
+        description="Se eliminará el registro. No se puede deshacer."
+        onConfirm={() => {
+          confirmandoEliminarRef.current = true;
+          formEliminarRef.current?.requestSubmit();
+        }}
+      />
         {initialAcuerdos.length > 0 && (
           <ul className="space-y-2 text-sm">
             {initialAcuerdos.map((a) => (
@@ -204,7 +248,18 @@ export function CardAcuerdosPagoList({
                       <Button type="button" variant="ghost" size="sm" onClick={() => setEditingId(a.id)}>
                         Editar
                       </Button>
-                      <form action={deleteAction}>
+                      <form
+                        action={deleteAction}
+                        onSubmit={(e) => {
+                          if (!confirmandoEliminarRef.current) {
+                            e.preventDefault();
+                            formEliminarRef.current = e.currentTarget;
+                            setOpenEliminar(true);
+                            return;
+                          }
+                          confirmandoEliminarRef.current = false;
+                        }}
+                      >
                         <input type="hidden" name="id" value={a.id} />
                         <input type="hidden" name="procesoId" value={procesoId} />
                         <Button type="submit" variant="ghost" size="sm" className="text-destructive">
@@ -223,87 +278,103 @@ export function CardAcuerdosPagoList({
             {deleteState.error}
           </p>
         )}
-        {adding ? (
-          <form action={createAction} className="space-y-3 rounded-md border border-dashed border-border p-3">
-            <input type="hidden" name="procesoId" value={procesoId} />
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="grid gap-1.5">
-                <Label htmlFor="numeroAcuerdo-new">Nº del acuerdo</Label>
-                <Input id="numeroAcuerdo-new" name="numeroAcuerdo" required placeholder="Ej. AP-001-2026" />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="fechaAcuerdo-new">Fecha del acuerdo</Label>
-                <Input id="fechaAcuerdo-new" name="fechaAcuerdo" type="date" />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="fechaInicio-new">Fecha de inicio</Label>
-                <Input id="fechaInicio-new" name="fechaInicio" type="date" />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="cuotas-new">Número de cuotas</Label>
-                <Input id="cuotas-new" name="cuotas" type="number" min={1} required placeholder="Ej. 6" />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="porcentajeCuotaInicial-new">Porcentaje cuota inicial (%)</Label>
-                <Input
-                  id="porcentajeCuotaInicial-new"
-                  name="porcentajeCuotaInicial"
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.01}
-                  required
-                  placeholder="Ej. 20"
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="diaCobroMes-new">Día del mes de cobro (1-31)</Label>
-                <Input
-                  id="diaCobroMes-new"
-                  name="diaCobroMes"
-                  type="number"
-                  min={1}
-                  max={31}
-                  required
-                  placeholder="Ej. 15"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit">Agregar acuerdo</Button>
-              <Button type="button" variant="outline" onClick={() => setAdding(false)}>
-                Cancelar
-              </Button>
-            </div>
-            {createState?.error && (
-              <p className="text-destructive text-sm" role="alert">
-                {createState.error}
-              </p>
-            )}
-          </form>
-        ) : (
+        <Dialog open={adding} onOpenChange={setAdding}>
           <Button type="button" variant="outline" size="sm" onClick={() => setAdding(true)}>
             Agregar acuerdo de pago
           </Button>
-        )}
+          <DialogContent className="max-w-md sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Nuevo acuerdo de pago</DialogTitle>
+            </DialogHeader>
+            <form action={createAction} className="space-y-4">
+              <input type="hidden" name="procesoId" value={procesoId} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="numeroAcuerdo-new">Nº del acuerdo</Label>
+                  <Input id="numeroAcuerdo-new" name="numeroAcuerdo" required placeholder="Ej. AP-001-2026" />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="fechaAcuerdo-new">Fecha del acuerdo</Label>
+                  <Input id="fechaAcuerdo-new" name="fechaAcuerdo" type="date" />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="fechaInicio-new">Fecha de inicio</Label>
+                  <Input id="fechaInicio-new" name="fechaInicio" type="date" />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cuotas-new">Número de cuotas</Label>
+                  <Input id="cuotas-new" name="cuotas" type="number" min={1} required placeholder="Ej. 6" />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="porcentajeCuotaInicial-new">Porcentaje cuota inicial (%)</Label>
+                  <Input
+                    id="porcentajeCuotaInicial-new"
+                    name="porcentajeCuotaInicial"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    required
+                    placeholder="Ej. 20"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="diaCobroMes-new">Día del mes de cobro (1-31)</Label>
+                  <Input
+                    id="diaCobroMes-new"
+                    name="diaCobroMes"
+                    type="number"
+                    min={1}
+                    max={31}
+                    required
+                    placeholder="Ej. 15"
+                  />
+                </div>
+              </div>
+              {createState?.error && (
+                <p className="text-destructive text-sm" role="alert">
+                  {createState.error}
+                </p>
+              )}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setAdding(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit">Agregar acuerdo</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {showEtapa && (
           <>
-            {enNegociacion && (
+            {enAcuerdoPago && (
               <div className="space-y-3">
                 <h4 className="text-sm font-medium">Acciones</h4>
-                <AccionEstadoForm
-                  procesoId={procesoId}
-                  estadoDestino="en_cobro_coactivo"
-                  label="Pasar a cobro coactivo (por incumplimiento del acuerdo)"
-                  variant="destructive"
-                />
+                <div>
+                  <p className="text-muted-foreground text-xs mb-1">Acuerdo cumplido</p>
+                  <AccionEstadoForm
+                    procesoId={procesoId}
+                    estadoDestino="finalizado"
+                    label="Finalizar (acuerdo cumplido)"
+                    variant="default"
+                  />
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs mb-1">Incumplimiento del acuerdo</p>
+                  <AccionEstadoForm
+                    procesoId={procesoId}
+                    estadoDestino="en_cobro_coactivo"
+                    label="Pasar a cobro coactivo (por incumplimiento)"
+                    variant="destructive"
+                  />
+                </div>
               </div>
             )}
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Comentarios (Acuerdo de pago)</h4>
               <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_ACUERDO_PAGO} />
-              <ListaNotas notas={notas} />
+              <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
             </div>
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Documentos (Acuerdo de pago)</h4>

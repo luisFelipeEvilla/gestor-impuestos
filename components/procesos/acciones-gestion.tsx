@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,6 +18,8 @@ import {
   cambiarEstadoProceso,
   asignarProceso,
   agregarNotaProceso,
+  eliminarNotaProceso,
+  actualizarNotaProceso,
   enviarNotificacion,
 } from "@/lib/actions/procesos";
 import { actualizarDatosCobroCoactivoForm } from "@/lib/actions/cobros-coactivos";
@@ -27,14 +30,16 @@ import {
   SubirDocumentoForm,
 } from "@/components/procesos/documentos-proceso";
 import { labelEstado } from "@/lib/estados-proceso";
+import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
+import { Pencil, Trash2 } from "lucide-react";
 
 const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
   { value: "asignado", label: "Asignado" },
-  { value: "notificado", label: "Notificado" },
-  { value: "en_contacto", label: "Cobro persuasivo" },
-  { value: "en_cobro_coactivo", label: "En cobro coactivo" },
-  { value: "cobrado", label: "Cobrado" },
+  { value: "facturacion", label: "Facturación" },
+  { value: "acuerdo_pago", label: "Acuerdo de pago" },
+  { value: "en_cobro_coactivo", label: "Cobro coactivo" },
+  { value: "finalizado", label: "Finalizado" },
 ] as const;
 
 type UsuarioOption = { id: number; nombre: string };
@@ -378,6 +383,8 @@ export type NotaItem = {
   comentario: string;
   fecha: Date;
   autorNombre?: string | null;
+  /** Id del usuario autor; si no se pasa, la UI no puede decidir si mostrar editar/eliminar. */
+  autorId?: number | null;
 };
 
 function formatTiempoRelativo(fecha: Date | string): string {
@@ -394,7 +401,171 @@ function formatTiempoRelativo(fecha: Date | string): string {
   return d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
 }
 
-export function ListaNotas({ notas }: { notas: NotaItem[] }): React.ReactNode {
+type SessionUser = { id: number; rol: string };
+
+type NotaRowProps = {
+  nota: NotaItem;
+  procesoId?: number;
+  sessionUser?: SessionUser | null;
+};
+
+function NotaRow({ nota, procesoId, sessionUser }: NotaRowProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(nota.comentario);
+  const [error, setError] = useState<string | null>(null);
+  const [openEliminar, setOpenEliminar] = useState(false);
+
+  const esAdmin = sessionUser?.rol === "admin";
+  const esAutor = nota.autorId != null && sessionUser?.id === nota.autorId;
+  const puedeGestionar = procesoId != null && sessionUser != null && (esAdmin || esAutor);
+
+  const handleGuardar = () => {
+    if (!procesoId || editText.trim() === nota.comentario) {
+      setEditing(false);
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await actualizarNotaProceso(procesoId, nota.id, editText.trim());
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      setEditing(false);
+      router.refresh();
+    });
+  };
+
+  const handleEliminar = () => {
+    if (!procesoId) return;
+    startTransition(async () => {
+      const result = await eliminarNotaProceso(procesoId, nota.id);
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  return (
+    <li
+      className="group rounded-xl border border-border/80 bg-card px-4 py-3 text-sm shadow-sm transition-shadow hover:shadow-md"
+      data-cursor-element-id={`nota-${nota.id}`}
+    >
+      {editing ? (
+          <div className="space-y-2">
+            <Textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              className="min-h-[88px] w-full text-sm"
+              rows={3}
+              disabled={isPending}
+              aria-label="Editar nota"
+            />
+            {error && (
+              <p className="text-destructive text-xs" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleGuardar}
+                disabled={isPending || !editText.trim()}
+              >
+                {isPending ? "Guardando…" : "Guardar"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setEditing(false);
+                  setEditText(nota.comentario);
+                  setError(null);
+                }}
+                disabled={isPending}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-foreground whitespace-pre-wrap">{nota.comentario}</p>
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 mt-2 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                {nota.autorNombre && (
+                  <span className="font-medium text-muted-foreground">
+                    {nota.autorNombre}
+                  </span>
+                )}
+                <span
+                  title={new Date(nota.fecha).toLocaleString("es-CO", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                >
+                  {formatTiempoRelativo(nota.fecha)}
+                </span>
+              </div>
+              {puedeGestionar && (
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => setEditing(true)}
+                    disabled={isPending}
+                    aria-label="Editar nota"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => setOpenEliminar(true)}
+                    disabled={isPending}
+                    aria-label="Eliminar nota"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      {puedeGestionar && (
+        <ConfirmarEliminacionModal
+          open={openEliminar}
+          onOpenChange={setOpenEliminar}
+          title="Eliminar nota"
+          description="¿Estás seguro de que quieres eliminar esta nota? Esta acción no se puede deshacer."
+          onConfirm={handleEliminar}
+          isPending={isPending}
+        />
+      )}
+    </li>
+  );
+}
+
+export type ListaNotasProps = {
+  notas: NotaItem[];
+  /** Si se pasan procesoId y sessionUser, cada nota muestra editar/eliminar solo al autor o admin. */
+  procesoId?: number;
+  /** Usuario actual (id + rol). Si no se pasa, no se muestran botones de editar/eliminar. */
+  sessionUser?: { id: number; rol: string } | null;
+  categoria?: CategoriaNota;
+};
+
+export function ListaNotas({ notas, procesoId, sessionUser }: ListaNotasProps): React.ReactNode {
   if (notas.length === 0) {
     return (
       <div
@@ -414,22 +585,7 @@ export function ListaNotas({ notas }: { notas: NotaItem[] }): React.ReactNode {
   return (
     <ul className="space-y-3" role="list">
       {notas.map((n) => (
-        <li
-          key={n.id}
-          className="group rounded-xl border border-border/80 bg-card px-4 py-3 text-sm shadow-sm transition-shadow hover:shadow-md"
-        >
-          <p className="text-foreground whitespace-pre-wrap">{n.comentario}</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-2 text-xs text-muted-foreground">
-            {n.autorNombre && (
-              <span className="font-medium text-muted-foreground">
-                {n.autorNombre}
-              </span>
-            )}
-            <span title={new Date(n.fecha).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" })}>
-              {formatTiempoRelativo(n.fecha)}
-            </span>
-          </div>
-        </li>
+        <NotaRow key={n.id} nota={n} procesoId={procesoId} sessionUser={sessionUser} />
       ))}
     </ul>
   );
@@ -538,6 +694,7 @@ type CardEtapaProps = {
   estadoActual: string;
   documentos: DocumentoItem[];
   notas: NotaItem[];
+  sessionUser?: { id: number; rol: string } | null;
 };
 
 type CobroCoactivoEntity = {
@@ -551,44 +708,50 @@ function fechaToInputValue(fecha: Date | string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
 }
 
-const DESCRIPCION_EN_CONTACTO =
-  "Gestión del pago con el contribuyente tras la notificación. Agrega comentarios y documentos de esta etapa. Puedes pasar a acuerdo de pago, a cobro coactivo (sin necesidad de acuerdo previo) o registrar pago. Cuando haya resultado, usa una de las acciones.";
+const DESCRIPCION_FACTURACION =
+  "Etapa de facturación y gestión inicial. Agrega comentarios y documentos. Puedes pasar a Acuerdo de pago, a Cobro coactivo (sin acuerdo previo) o finalizar si se registra el pago.";
 
 export function CardEnContacto({
   procesoId,
   estadoActual,
   documentos,
   notas,
+  sessionUser,
 }: CardEtapaProps) {
-  const activo = estadoActual === "notificado" || estadoActual === "en_contacto";
+  const activo = estadoActual === "asignado" || estadoActual === "facturacion";
 
   return (
     <CardSectionAccordion
-      title="Cobro persuasivo"
-      description={DESCRIPCION_EN_CONTACTO}
+      title="Facturación"
+      description={DESCRIPCION_FACTURACION}
     >
         {activo ? (
           <>
             <div className="space-y-3">
               <h4 className="text-sm font-medium">Acciones</h4>
-              {estadoActual === "notificado" && (
+              {estadoActual === "asignado" && (
                 <AccionEstadoForm
                   procesoId={procesoId}
-                  estadoDestino="en_contacto"
-                  label="Pasar a Cobro persuasivo"
+                  estadoDestino="facturacion"
+                  label="Pasar a Facturación"
                 />
               )}
-              {estadoActual === "en_contacto" && (
+              {estadoActual === "facturacion" && (
                 <div className="space-y-3">
                   <div>
                     <p className="text-muted-foreground text-xs mb-1">El contribuyente realizó el pago</p>
                     <AccionEstadoForm
                       procesoId={procesoId}
-                      estadoDestino="cobrado"
-                      label="Registrar pago del contribuyente"
+                      estadoDestino="finalizado"
+                      label="Finalizar (registrar pago)"
                       variant="default"
                     />
                   </div>
+                  <AccionEstadoForm
+                    procesoId={procesoId}
+                    estadoDestino="acuerdo_pago"
+                    label="Pasar a Acuerdo de pago"
+                  />
                   <div>
                     <p className="text-muted-foreground text-xs mb-1">Se inicia cobro coactivo (sin acuerdo de pago)</p>
                     <AccionEstadoForm
@@ -601,12 +764,12 @@ export function CardEnContacto({
               )}
             </div>
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Comentarios (Cobro persuasivo)</h4>
+              <h4 className="text-sm font-medium">Comentarios (Facturación)</h4>
               <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} />
-              <ListaNotas notas={notas} />
+              <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
             </div>
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Documentos (Cobro persuasivo)</h4>
+              <h4 className="text-sm font-medium">Documentos (Facturación)</h4>
               <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} />
               <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
             </div>
@@ -619,12 +782,12 @@ export function CardEnContacto({
         {!activo && (
           <>
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Comentarios (Cobro persuasivo)</h4>
+              <h4 className="text-sm font-medium">Comentarios (Facturación)</h4>
               <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} />
-              <ListaNotas notas={notas} />
+              <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
             </div>
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Documentos (Cobro persuasivo)</h4>
+              <h4 className="text-sm font-medium">Documentos (Facturación)</h4>
               <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
             </div>
           </>
@@ -633,28 +796,29 @@ export function CardEnContacto({
   );
 }
 
-/** Estados desde los que se puede pasar a cobro coactivo desde esta card */
-const ESTADOS_PUEDEN_INICIAR_COBRO_COACTIVO = ["notificado", "en_contacto"] as const;
+/** Contexto normativo: cobro coactivo como ejecución ante la autoridad competente. */
+const CONTEXTO_COBRO_COACTIVO =
+  "El cobro coactivo es la etapa de ejecución ante la autoridad competente (Estatuto Tributario / Ley 1437), con títulos ejecutivos y medidas de ley. El número de expediente y la fecha deben coincidir con el sistema donde se tramita el cobro. El plazo de prescripción se calcula desde la fecha de inicio del cobro coactivo.";
 
 const DESCRIPCION_COBRO_COACTIVO_INACTIVO =
-  "Etapa independiente del acuerdo de pago. Puede iniciarse desde Cobro persuasivo (sin acuerdo) o desde Acuerdos de pago (por incumplimiento). Inicia el cobro coactivo cuando corresponda.";
+  "Etapa independiente del acuerdo de pago. Puede iniciarse en cualquier momento (sin necesidad de pasar por Acuerdos de pago). Inicia el cobro coactivo cuando corresponda.";
 
 export function CardCobroCoactivo({
   procesoId,
   estadoActual,
   documentos,
   notas,
+  sessionUser,
   cobroCoactivo = null,
 }: CardEtapaProps & { cobroCoactivo?: CobroCoactivoEntity }) {
   const activo = estadoActual === "en_cobro_coactivo";
-  const puedeIniciar =
-    !activo && ESTADOS_PUEDEN_INICIAR_COBRO_COACTIVO.includes(estadoActual as (typeof ESTADOS_PUEDEN_INICIAR_COBRO_COACTIVO)[number]);
+  const puedeIniciar = !activo && estadoActual !== "finalizado";
   const fechaInicio = cobroCoactivo?.fechaInicio
     ? new Date(cobroCoactivo.fechaInicio).toLocaleDateString("es-CO")
     : null;
   const descripcion = fechaInicio
-    ? `Cobro activo desde ${fechaInicio}. Documentos y notas de esta etapa. Cuando se efectúe el cobro, regístralo con la acción correspondiente.`
-    : DESCRIPCION_COBRO_COACTIVO_INACTIVO;
+    ? `${CONTEXTO_COBRO_COACTIVO} Cobro activo desde ${fechaInicio}. Documentos y notas de esta etapa. Cuando se efectúe el cobro, regístralo con la acción correspondiente.`
+    : `${CONTEXTO_COBRO_COACTIVO} ${DESCRIPCION_COBRO_COACTIVO_INACTIVO}`;
 
   return (
     <CardSectionAccordion title="Cobro coactivo" description={descripcion}>
@@ -671,7 +835,7 @@ export function CardCobroCoactivo({
               <h4 className="text-sm font-medium">Acciones</h4>
               <AccionEstadoForm
                 procesoId={procesoId}
-                estadoDestino="cobrado"
+                estadoDestino="finalizado"
                 label="Registrar cobro"
                 variant="default"
               />
@@ -679,7 +843,7 @@ export function CardCobroCoactivo({
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Comentarios (Cobro coactivo)</h4>
               <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_COBRO_COACTIVO} />
-              <ListaNotas notas={notas} />
+              <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
             </div>
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Documentos (Cobro coactivo)</h4>
@@ -700,15 +864,15 @@ export function CardCobroCoactivo({
                 />
               </div>
             )}
-            {!puedeIniciar && (
+            {!puedeIniciar && estadoActual === "finalizado" && (
               <p className="text-muted-foreground text-sm">
-                El proceso no está en cobro coactivo (estado actual: {labelEstado(estadoActual)}). Para iniciar cobro coactivo, el proceso debe estar en Cobro persuasivo o Notificado.
+                El proceso ya está finalizado. No es posible iniciar cobro coactivo.
               </p>
             )}
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Comentarios (Cobro coactivo)</h4>
               <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_COBRO_COACTIVO} />
-              <ListaNotas notas={notas} />
+              <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
             </div>
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Documentos (Cobro coactivo)</h4>

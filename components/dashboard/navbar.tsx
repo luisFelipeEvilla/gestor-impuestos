@@ -86,7 +86,7 @@ export function Navbar({ session }: NavbarProps) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
-                <Link href="/perfil" className="cursor-pointer">
+                <Link href="/profile" className="cursor-pointer">
                   <User className="size-4" />
                   Mi perfil
                 </Link>

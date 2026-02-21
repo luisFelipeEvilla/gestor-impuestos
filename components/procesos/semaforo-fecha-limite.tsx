@@ -74,7 +74,9 @@ export function SemaforoFechaLimite({
   const fechaFormateada = formatFechaLimiteParaTitle(fechaLimite);
   const titleCompleto =
     fechaFormateada != null ? `Fecha límite: ${fechaFormateada}` : textoEstado;
-  const showDíasBadge = getDíasRestantesFechaLimite(fechaLimite) !== null;
+  const díasRestantes = getDíasRestantesFechaLimite(fechaLimite);
+  /** No mostrar badge de días cuando ya está prescrito (no aporta información) */
+  const showDíasBadge = díasRestantes !== null && díasRestantes >= 0;
 
   if (soloIndicador) {
     return (

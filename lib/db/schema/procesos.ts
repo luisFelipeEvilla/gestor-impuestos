@@ -8,15 +8,18 @@ import {
   text,
   timestamp,
   unique,
+  uuid,
 } from "drizzle-orm/pg-core";
 import {
   estadoProcesoEnum,
   tipoEventoHistorialEnum,
   categoriaDocumentoNotaEnum,
   tipoResolucionEnum,
+  tipoDocumentoProcesoEnum,
 } from "./enums";
 import { contribuyentes } from "./contribuyentes";
 import { usuarios } from "./usuarios";
+import { impuestos } from "./impuestos";
 
 // Tabla: procesos (trabajo de cobro)
 export const procesos = pgTable("procesos", {
@@ -39,6 +42,11 @@ export const procesos = pgTable("procesos", {
     onUpdate: "cascade",
   }),
   fechaLimite: date("fecha_limite"),
+  /** Tipo de impuesto (catálogo). Opcional para procesos existentes o sin clasificar. */
+  impuestoId: uuid("impuesto_id").references(() => impuestos.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
   /** Fecha de creación o aplicación del impuesto (origen del proceso) */
   fechaAplicacionImpuesto: date("fecha_aplicacion_impuesto"),
   /** Fecha de creación del registro en el sistema */
@@ -79,6 +87,8 @@ export const documentosProceso = pgTable("documentos_proceso", {
   }),
   /** Clasificación del documento: general, en_contacto, acuerdo_pago, cobro_coactivo */
   categoria: categoriaDocumentoNotaEnum("categoria").notNull().default("general"),
+  /** Tipo de documento para trazabilidad (Mandamiento de pago, Medidas cautelares, etc.). */
+  tipoDocumento: tipoDocumentoProcesoEnum("tipo_documento").notNull().default("otro"),
   nombreOriginal: text("nombre_original").notNull(),
   rutaArchivo: text("ruta_archivo").notNull(),
   mimeType: text("mime_type").notNull(),

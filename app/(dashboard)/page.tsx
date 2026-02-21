@@ -1,12 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import {
-  ClipboardList,
-  Receipt,
-  Building2,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { ClipboardList, Wallet } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -14,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafico-estados";
 import { DashboardGraficoMontoEstados } from "@/components/dashboard/dashboard-grafico-monto-estados";
 import { DashboardGraficoResponsables } from "@/components/dashboard/dashboard-grafico-responsables";
@@ -21,12 +16,7 @@ import { DashboardFiltros } from "@/components/dashboard/dashboard-filtros";
 import { DashboardPolling } from "@/components/dashboard/dashboard-polling";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { db } from "@/lib/db";
-import {
-  procesos,
-  impuestos,
-  contribuyentes,
-  usuarios,
-} from "@/lib/db/schema";
+import { procesos, contribuyentes, usuarios } from "@/lib/db/schema";
 import { eq, desc, and, gte, lte, sql, notInArray } from "drizzle-orm";
 import { unstable_noStore } from "next/cache";
 import { labelEstado } from "@/lib/estados-proceso";
@@ -34,7 +24,7 @@ import { labelEstado } from "@/lib/estados-proceso";
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const ESTADOS_CERRADOS = ["cobrado"] as const;
+const ESTADOS_CERRADOS = ["finalizado"] as const;
 
 type Props = { searchParams: Promise<{ vigencia?: string }> };
 
@@ -55,6 +45,7 @@ function formatMonto(value: string | number): string {
 
 export default async function DashboardPage({ searchParams }: Props) {
   unstable_noStore();
+
   const { vigencia: vigenciaParam } = await searchParams;
   const vigenciaNum =
     vigenciaParam != null && /^\d{4}$/.test(vigenciaParam)
@@ -75,9 +66,6 @@ export default async function DashboardPage({ searchParams }: Props) {
 
   const [
     totalProcesos,
-    totalImpuestos,
-    totalContribuyentes,
-    totalUsuarios,
     procesosPorEstado,
     montoEnGestion,
     montoPorEstado,
@@ -88,9 +76,6 @@ export default async function DashboardPage({ searchParams }: Props) {
     vigenciaCond
       ? db.select({ count: sql<number>`count(*)::int` }).from(procesos).where(vigenciaCond)
       : db.select({ count: sql<number>`count(*)::int` }).from(procesos),
-    db.select({ count: sql<number>`count(*)::int` }).from(impuestos).where(eq(impuestos.activo, true)),
-    db.select({ count: sql<number>`count(*)::int` }).from(contribuyentes),
-    db.select({ count: sql<number>`count(*)::int` }).from(usuarios).where(eq(usuarios.activo, true)),
     vigenciaCond
       ? db
           .select({ estado: procesos.estadoActual, count: sql<number>`count(*)::int` })
@@ -126,6 +111,8 @@ export default async function DashboardPage({ searchParams }: Props) {
           .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
           .where(vigenciaCond)
           .groupBy(procesos.asignadoAId)
+          .orderBy(desc(sql`count(*)::int`))
+          .limit(10)
       : db
           .select({
             asignadoAId: procesos.asignadoAId,
@@ -134,7 +121,9 @@ export default async function DashboardPage({ searchParams }: Props) {
           })
           .from(procesos)
           .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
-          .groupBy(procesos.asignadoAId),
+          .groupBy(procesos.asignadoAId)
+          .orderBy(desc(sql`count(*)::int`))
+          .limit(10),
     db
       .select({
         id: procesos.id,
@@ -180,18 +169,15 @@ export default async function DashboardPage({ searchParams }: Props) {
   ]);
 
   const totalP = totalProcesos[0]?.count ?? 0;
-  const totalI = totalImpuestos[0]?.count ?? 0;
-  const totalC = totalContribuyentes[0]?.count ?? 0;
-  const totalU = totalUsuarios[0]?.count ?? 0;
   const montoGestion = montoEnGestion[0]?.total ?? "0";
 
   const ordenEstados = [
     "pendiente",
     "asignado",
-    "notificado",
-    "en_contacto",
+    "facturacion",
+    "acuerdo_pago",
     "en_cobro_coactivo",
-    "cobrado",
+    "finalizado",
   ];
   const seen = new Set(ordenEstados);
   const procesosPorEstadoOrdenado = [
@@ -219,11 +205,16 @@ export default async function DashboardPage({ searchParams }: Props) {
       <DashboardPolling />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="h-1 w-12 rounded-full bg-primary" aria-hidden />
             <h1 className="text-3xl font-bold tracking-tight text-foreground">
               Dashboard
             </h1>
+            {vigenciaNum != null && (
+              <Badge variant="secondary" className="font-normal">
+                Vigencia {vigenciaNum}
+              </Badge>
+            )}
           </div>
           <p className="text-muted-foreground text-sm pl-14">
             Resumen de procesos de cobro, vencimientos y montos en gestión (COP).
@@ -234,87 +225,71 @@ export default async function DashboardPage({ searchParams }: Props) {
         </Suspense>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-1 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Procesos
-            </CardTitle>
-            <ClipboardList className="size-5 text-primary/70" aria-hidden />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-foreground">{totalP}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Total de procesos de cobro
-            </p>
-          </CardContent>
-        </Card>
+      {totalP === 0 && vigenciaNum == null && (
+        <div className="rounded-xl border border-border/80 bg-muted/30 px-4 py-4 text-center">
+          <p className="text-muted-foreground text-sm">
+            No hay procesos de cobro.{" "}
+            <Link
+              href="/procesos"
+              className="text-primary font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+            >
+              Crea uno desde Procesos
+            </Link>
+            .
+          </p>
+        </div>
+      )}
 
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-2 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Monto en gestión
-            </CardTitle>
-            <Wallet className="size-5 text-primary/70" aria-hidden />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-primary">{formatMonto(montoGestion)}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Suma de procesos no cobrados
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Link
+          href="/procesos"
+          className="block rounded-2xl transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label="Ver procesos de cobro"
+        >
+          <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-1 h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Procesos
+              </CardTitle>
+              <ClipboardList className="size-5 text-primary/70" aria-hidden />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-foreground">{totalP}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Total de procesos de cobro
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-3 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Impuestos
-            </CardTitle>
-            <Receipt className="size-5 text-primary/70" aria-hidden />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-foreground">{totalI}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Tipos de impuesto activos
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-4 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Contribuyentes
-            </CardTitle>
-            <Building2 className="size-5 text-primary/70" aria-hidden />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-foreground">{totalC}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Personas o entidades en cartera
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-5 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Usuarios
-            </CardTitle>
-            <Users className="size-5 text-primary/70" aria-hidden />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-foreground">{totalU}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Usuarios activos en la plataforma
-            </p>
-          </CardContent>
-        </Card>
+        <Link
+          href="/procesos"
+          className="block rounded-2xl transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-label="Ver procesos en gestión"
+        >
+          <Card className="border-l-4 border-l-primary/80 animate-fade-in animate-delay-2 h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Monto en gestión
+              </CardTitle>
+              <Wallet className="size-5 text-primary/70" aria-hidden />
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold text-primary">{formatMonto(montoGestion)}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Suma de procesos no cobrados
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Procesos por estado</CardTitle>
+            <h2 className="text-lg font-semibold leading-none tracking-tight">
+              Procesos por estado
+            </h2>
             <CardDescription>
               Distribución actual de estados del flujo de cobro
             </CardDescription>
@@ -326,9 +301,11 @@ export default async function DashboardPage({ searchParams }: Props) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Procesos por responsable</CardTitle>
+            <h2 className="text-lg font-semibold leading-none tracking-tight">
+              Procesos por responsable
+            </h2>
             <CardDescription>
-              Cantidad de procesos asignados por usuario
+              Top 10 responsables por cantidad de procesos asignados
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -345,7 +322,9 @@ export default async function DashboardPage({ searchParams }: Props) {
       <div className="grid gap-6 lg:grid-cols-1">
         <Card>
           <CardHeader>
-            <CardTitle>Monto en gestión por estado</CardTitle>
+            <h2 className="text-lg font-semibold leading-none tracking-tight">
+              Monto en gestión por estado
+            </h2>
             <CardDescription>
               Suma de montos (COP) por estado, excluyendo cobrado
             </CardDescription>
@@ -359,7 +338,9 @@ export default async function DashboardPage({ searchParams }: Props) {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Vencimientos próximos</CardTitle>
+            <h2 className="text-lg font-semibold leading-none tracking-tight">
+              Vencimientos próximos
+            </h2>
             <CardDescription>
               Procesos con fecha límite en los próximos 30 días
             </CardDescription>
@@ -413,7 +394,9 @@ export default async function DashboardPage({ searchParams }: Props) {
 
         <Card>
           <CardHeader>
-            <CardTitle>Procesos recientes</CardTitle>
+            <h2 className="text-lg font-semibold leading-none tracking-tight">
+              Procesos recientes
+            </h2>
             <CardDescription>
               Últimos procesos creados
             </CardDescription>

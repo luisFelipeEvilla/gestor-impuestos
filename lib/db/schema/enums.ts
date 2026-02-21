@@ -20,16 +20,14 @@ export const tipoDocumentoEnum = pgEnum("tipo_documento", [
   "tarjeta_identidad",
 ]);
 
+/** Estados del proceso de cobro (Colombia, gobernación). */
 export const estadoProcesoEnum = pgEnum("estado_proceso", [
   "pendiente",
   "asignado",
-  "en_contacto",
-  "notificado",
-  "en_negociacion",
-  "cobrado",
-  "incobrable",
+  "facturacion",
+  "acuerdo_pago",
   "en_cobro_coactivo",
-  "suspendido",
+  "finalizado",
 ]);
 
 export const tipoEventoHistorialEnum = pgEnum("tipo_evento_historial", [
@@ -84,4 +82,18 @@ export const estadoCompromisoActaEnum = pgEnum("estado_compromiso_acta", [
 export const tipoResolucionEnum = pgEnum("tipo_resolucion", [
   "sancion",
   "resumen_ap",
+]);
+
+/** Tipo de documento del proceso (trazabilidad y auditoría). */
+export const tipoDocumentoProcesoEnum = pgEnum("tipo_documento_proceso", [
+  "orden_resolucion",
+  "mandamiento_pago",
+  "acta_notificacion",
+  "acuerdo_pago_firmado",
+  "liquidacion",
+  "medidas_cautelares",
+  "resolucion_incumplimiento",
+  "auto_terminacion",
+  "constancia_pago",
+  "otro",
 ]);

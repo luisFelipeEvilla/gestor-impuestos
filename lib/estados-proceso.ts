@@ -1,14 +1,13 @@
 /**
- * Etiquetas de estado de proceso para mostrar en la UI.
- * El valor en BD (ej. en_contacto) se mantiene; aquí solo la etiqueta visible.
+ * Etiquetas de estado de proceso para mostrar en la UI (6 estados).
  */
 const ESTADO_LABELS: Record<string, string> = {
   pendiente: "Pendiente",
   asignado: "Asignado",
-  notificado: "Notificado",
-  en_contacto: "Cobro persuasivo",
-  en_cobro_coactivo: "En cobro coactivo",
-  cobrado: "Cobrado",
+  facturacion: "Facturación",
+  acuerdo_pago: "Acuerdo de pago",
+  en_cobro_coactivo: "Cobro coactivo",
+  finalizado: "Finalizado",
 };
 
 /**

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
 import {
   crearMiembroCliente,
   eliminarMiembroCliente,
@@ -34,18 +36,40 @@ export function MiembrosCliente({ clienteId, miembros }: MiembrosClienteProps) {
     null
   );
 
-  const handleEliminar = async (id: number) => {
-    if (!confirm("¿Eliminar este miembro?")) return;
-    const res = await eliminarMiembroCliente(id, clienteId);
+  const [openEliminar, setOpenEliminar] = useState(false);
+  const [miembroIdAEliminar, setMiembroIdAEliminar] = useState<number | null>(null);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+
+  const handleAbrirEliminar = (id: number) => {
+    setErrorEliminar(null);
+    setMiembroIdAEliminar(id);
+    setOpenEliminar(true);
+  };
+
+  const handleConfirmarEliminar = async () => {
+    if (miembroIdAEliminar == null) return;
+    const res = await eliminarMiembroCliente(miembroIdAEliminar, clienteId);
     if (res?.error) {
-      alert(res.error);
+      setErrorEliminar(res.error);
       return;
     }
+    setOpenEliminar(false);
+    setMiembroIdAEliminar(null);
     router.refresh();
   };
 
   return (
     <Card className="mx-auto max-w-2xl mt-6">
+      <ConfirmarEliminacionModal
+        open={openEliminar}
+        onOpenChange={(open) => {
+          setOpenEliminar(open);
+          if (!open) setErrorEliminar(null);
+        }}
+        title="Eliminar miembro"
+        description="El miembro dejará de estar asociado a este cliente."
+        onConfirm={handleConfirmarEliminar}
+      />
       <CardHeader>
         <CardTitle>Miembros del cliente</CardTitle>
         <CardDescription>
@@ -53,6 +77,11 @@ export function MiembrosCliente({ clienteId, miembros }: MiembrosClienteProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {errorEliminar && (
+          <p className="text-destructive text-sm" role="alert">
+            {errorEliminar}
+          </p>
+        )}
         <form action={formAction} className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
           <p className="text-sm font-medium">Agregar miembro</p>
           {state?.error && (
@@ -121,7 +150,7 @@ export function MiembrosCliente({ clienteId, miembros }: MiembrosClienteProps) {
                   variant="ghost"
                   size="sm"
                   className="text-destructive hover:text-destructive"
-                  onClick={() => handleEliminar(m.id)}
+                  onClick={() => handleAbrirEliminar(m.id)}
                   aria-label={`Eliminar ${m.nombre}`}
                 >
                   Eliminar

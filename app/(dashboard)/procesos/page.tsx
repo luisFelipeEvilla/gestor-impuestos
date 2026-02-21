@@ -16,10 +16,11 @@ import {
   procesos,
   contribuyentes,
   usuarios,
+  impuestos,
   historialProceso,
   ordenesResolucion,
 } from "@/lib/db/schema";
-import { asc, desc, eq, and, or, ilike, inArray, sql, count, notInArray } from "drizzle-orm";
+import { asc, desc, eq, and, inArray, notInArray, sql, count } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import {
   Card,
@@ -33,7 +34,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TablaProcesosConAsignacion } from "@/components/procesos/tabla-procesos-con-asignacion";
 import { FiltrosProcesos } from "./filtros-procesos";
-import { FiltroBusquedaListadoProcesos } from "./filtro-busqueda-listado";
+import { ChipsFiltrosProcesos } from "./chips-filtros-procesos";
 import { SelectorPorPagina } from "@/components/selector-por-pagina";
 import { parsePerPage } from "@/lib/pagination";
 import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafico-estados";
@@ -55,10 +56,10 @@ export const runtime = 'nodejs';
 const ESTADOS_VALIDOS = [
   "pendiente",
   "asignado",
-  "notificado",
-  "en_contacto",
+  "facturacion",
+  "acuerdo_pago",
   "en_cobro_coactivo",
-  "cobrado",
+  "finalizado",
 ] as const;
 
 /** Misma lógica que lib/fechas-limite (semáforo fecha límite prescripción) */
@@ -70,28 +71,35 @@ const ANTIGUEDAD_VALIDOS = [
   "sin_fecha",
 ] as const;
 
+const ORDER_BY_VALIDOS = ["fechaLimite", "creadoEn", "montoCop", "vigencia", "estadoActual"] as const;
+const ORDER_VALIDOS = ["asc", "desc"] as const;
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function buildProcesosUrl(filtros: {
   estado?: string | null;
   vigencia?: number | null;
   antiguedad?: string | null;
-  contribuyente?: string;
+  impuestoId?: string | null;
   asignadoId?: number | null;
   fechaAsignacion?: string | null;
-  comparendo?: string | null;
   page?: number;
   perPage?: number;
+  orderBy?: (typeof ORDER_BY_VALIDOS)[number];
+  order?: (typeof ORDER_VALIDOS)[number];
 }) {
   const search = new URLSearchParams();
   if (filtros.estado) search.set("estado", filtros.estado);
   if (filtros.vigencia != null) search.set("vigencia", String(filtros.vigencia));
   if (filtros.antiguedad && ANTIGUEDAD_VALIDOS.includes(filtros.antiguedad as (typeof ANTIGUEDAD_VALIDOS)[number]))
     search.set("antiguedad", filtros.antiguedad);
-  if (filtros.contribuyente?.trim()) search.set("contribuyente", filtros.contribuyente.trim());
+  if (filtros.impuestoId) search.set("impuesto", filtros.impuestoId);
   if (filtros.asignadoId != null && filtros.asignadoId > 0) search.set("asignado", String(filtros.asignadoId));
   if (filtros.fechaAsignacion) search.set("fechaAsignacion", filtros.fechaAsignacion);
-  if (filtros.comparendo?.trim()) search.set("comparendo", filtros.comparendo.trim());
   if (filtros.perPage != null) search.set("perPage", String(filtros.perPage));
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
+  if (filtros.orderBy && ORDER_BY_VALIDOS.includes(filtros.orderBy)) search.set("orderBy", filtros.orderBy);
+  if (filtros.order && ORDER_VALIDOS.includes(filtros.order)) search.set("order", filtros.order);
   const q = search.toString();
   return q ? `/procesos?${q}` : "/procesos";
 }
@@ -101,12 +109,13 @@ type Props = {
     estado?: string;
     vigencia?: string;
     antiguedad?: string;
-    contribuyente?: string;
+    impuesto?: string;
     asignado?: string;
     fechaAsignacion?: string;
-    comparendo?: string;
     page?: string;
     perPage?: string;
+    orderBy?: string;
+    order?: string;
   }>;
 };
 
@@ -116,14 +125,15 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const params = await searchParams;
   const estadoParam = params.estado;
   const vigenciaParam = params.vigencia;
-  const contribuyenteQ = (params.contribuyente ?? "").trim();
+  const impuestoParam = params.impuesto?.trim();
+  const impuestoIdParam =
+    impuestoParam != null && UUID_REGEX.test(impuestoParam) ? impuestoParam : null;
   const asignadoParam = params.asignado;
   const asignadoIdNum =
     asignadoParam != null && /^\d+$/.test(asignadoParam)
       ? parseInt(asignadoParam, 10)
       : null;
   const fechaAsignacionParam = params.fechaAsignacion;
-  const comparendoQ = (params.comparendo ?? "").trim();
   const pageParam = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
   const pageSize = parsePerPage(params.perPage);
 
@@ -144,6 +154,20 @@ export default async function ProcesosPage({ searchParams }: Props) {
     antiguedadParam != null && ANTIGUEDAD_VALIDOS.includes(antiguedadParam as (typeof ANTIGUEDAD_VALIDOS)[number])
       ? (antiguedadParam as (typeof ANTIGUEDAD_VALIDOS)[number])
       : null;
+  const orderByParam = params.orderBy;
+  const orderByActual: (typeof ORDER_BY_VALIDOS)[number] =
+    orderByParam != null && ORDER_BY_VALIDOS.includes(orderByParam as (typeof ORDER_BY_VALIDOS)[number])
+      ? (orderByParam as (typeof ORDER_BY_VALIDOS)[number])
+      : "fechaLimite";
+  const orderParam = params.order;
+  const orderActual: (typeof ORDER_VALIDOS)[number] =
+    orderParam != null && ORDER_VALIDOS.includes(orderParam as (typeof ORDER_VALIDOS)[number])
+      ? (orderParam as (typeof ORDER_VALIDOS)[number])
+      : orderByActual === "fechaLimite"
+        ? "asc"
+        : orderByActual === "creadoEn"
+          ? "desc"
+          : "desc";
 
   let idsConFechaAsignacion: number[] | null = null;
   if (fechaAsignacion != null) {
@@ -162,11 +186,22 @@ export default async function ProcesosPage({ searchParams }: Props) {
     }
   }
 
-  const usuariosList = await db
-    .select({ id: usuarios.id, nombre: usuarios.nombre })
-    .from(usuarios)
-    .where(eq(usuarios.activo, true))
-    .orderBy(usuarios.nombre);
+  const [usuariosList, impuestosList] = await Promise.all([
+    db
+      .select({ id: usuarios.id, nombre: usuarios.nombre })
+      .from(usuarios)
+      .where(eq(usuarios.activo, true))
+      .orderBy(usuarios.nombre),
+    db
+      .select({ id: impuestos.id, nombre: impuestos.nombre })
+      .from(impuestos)
+      .where(eq(impuestos.activo, true))
+      .orderBy(impuestos.nombre),
+  ]);
+  const impuestosOptions = impuestosList.map((i) => ({
+    id: i.id,
+    nombre: i.nombre,
+  }));
 
   const condicionesSoloPermisos: ReturnType<typeof eq>[] = [];
   if (session?.user?.rol !== "admin") {
@@ -182,19 +217,11 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const condiciones = [];
   if (estadoActual != null) condiciones.push(eq(procesos.estadoActual, estadoActual));
   if (vigenciaNum != null) condiciones.push(eq(procesos.vigencia, vigenciaNum));
-  if (contribuyenteQ.length > 0) {
-    condiciones.push(
-      or(
-        ilike(contribuyentes.nombreRazonSocial, `%${contribuyenteQ}%`),
-        ilike(contribuyentes.nit, `%${contribuyenteQ}%`)
-      )
-    );
+  if (impuestoIdParam != null) {
+    condiciones.push(eq(procesos.impuestoId, impuestoIdParam));
   }
   if (asignadoIdNum != null) {
     condiciones.push(eq(procesos.asignadoAId, asignadoIdNum));
-  }
-  if (comparendoQ.length > 0) {
-    condiciones.push(ilike(procesos.noComparendo, `%${comparendoQ}%`));
   }
   if (idsConFechaAsignacion != null) {
     condiciones.push(inArray(procesos.id, idsConFechaAsignacion));
@@ -284,9 +311,23 @@ export default async function ProcesosPage({ searchParams }: Props) {
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
     .where(
       scopeWhere
-        ? and(scopeWhere, notInArray(procesos.estadoActual, ["cobrado"]))
-        : notInArray(procesos.estadoActual, ["cobrado"])
+        ? and(scopeWhere, notInArray(procesos.estadoActual, ["finalizado"]))
+        : notInArray(procesos.estadoActual, ["finalizado"])
     );
+
+  const orderDir = orderActual === "asc" ? asc : desc;
+  const listQuery =
+    whereCond ? baseQuery.where(whereCond) : baseQuery;
+  const listWithOrder =
+    orderByActual === "fechaLimite"
+      ? listQuery.orderBy(orderDir(procesos.fechaLimite), desc(procesos.creadoEn))
+      : orderByActual === "creadoEn"
+        ? listQuery.orderBy(orderDir(procesos.creadoEn))
+        : orderByActual === "montoCop"
+          ? listQuery.orderBy(orderDir(procesos.montoCop), asc(procesos.fechaLimite))
+          : orderByActual === "vigencia"
+            ? listQuery.orderBy(orderDir(procesos.vigencia), asc(procesos.fechaLimite))
+            : listQuery.orderBy(orderDir(procesos.estadoActual), asc(procesos.fechaLimite));
 
   const [
     countResult,
@@ -296,10 +337,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
     montoEnGestionResult,
   ] = await Promise.all([
     scopeWhere ? countQuery.where(scopeWhere) : countQuery,
-    (whereCond ? baseQuery.where(whereCond) : baseQuery)
-      .orderBy(asc(procesos.fechaLimite), desc(procesos.creadoEn))
-      .limit(pageSize)
-      .offset(offset),
+    listWithOrder.limit(pageSize).offset(offset),
     porEstadoScopeQuery,
     porVigenciaScopeQuery,
     montoEnGestionScopeQuery,
@@ -311,17 +349,17 @@ export default async function ProcesosPage({ searchParams }: Props) {
 
   const totalProcesosScope = total;
   const montoEnGestionScope = montoEnGestionResult[0]?.total ?? "0";
-  const cobradosScope =
-    procesosPorEstadoScope.find((r) => r.estado === "cobrado")?.count ?? 0;
-  const enGestionScope = totalProcesosScope - cobradosScope;
+  const finalizadosScope =
+    procesosPorEstadoScope.find((r) => r.estado === "finalizado")?.count ?? 0;
+  const enGestionScope = totalProcesosScope - finalizadosScope;
 
   const ordenEstados = [
     "pendiente",
     "asignado",
-    "notificado",
-    "en_contacto",
+    "facturacion",
+    "acuerdo_pago",
     "en_cobro_coactivo",
-    "cobrado",
+    "finalizado",
   ];
   const procesosPorEstadoOrdenado: { estado: string; count: number }[] = [];
   for (const e of ordenEstados) {
@@ -329,6 +367,32 @@ export default async function ProcesosPage({ searchParams }: Props) {
     if (row) procesosPorEstadoOrdenado.push({ estado: row.estado, count: row.count });
   }
   const procesosPorVigenciaOrdenado = [...procesosPorVigenciaScope].reverse();
+
+  const tieneFiltros =
+    estadoActual != null ||
+    vigenciaNum != null ||
+    antiguedadActual != null ||
+    impuestoIdParam != null ||
+    (asignadoIdNum != null && asignadoIdNum > 0) ||
+    fechaAsignacion != null;
+
+  const impuestoSeleccionadoNombre =
+    impuestoIdParam != null
+      ? impuestosList.find((i) => i.id === impuestoIdParam)?.nombre ?? null
+      : null;
+
+  const descripcionOrden =
+    orderByActual === "fechaLimite"
+      ? "Fecha límite de prescripción (más urgentes primero)"
+      : orderByActual === "creadoEn"
+        ? orderActual === "desc"
+          ? "Fecha de creación (más recientes primero)"
+          : "Fecha de creación (más antiguos primero)"
+        : orderByActual === "montoCop"
+          ? "Monto (mayor a menor)"
+          : orderByActual === "vigencia"
+            ? "Vigencia"
+            : "Estado";
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -339,19 +403,37 @@ export default async function ProcesosPage({ searchParams }: Props) {
             Procesos de cobro
           </h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Suspense fallback={null}>
-            <FiltrosProcesos
-              estadoActual={estadoActual}
-              vigenciaActual={vigenciaNum}
-              antiguedadActual={antiguedadActual}
-              contribuyenteActual={contribuyenteQ}
-              comparendoActual={comparendoQ}
-              usuarios={usuariosList}
-              asignadoIdActual={asignadoIdNum}
-              fechaAsignacionActual={fechaAsignacion}
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Suspense fallback={null}>
+              <FiltrosProcesos
+                estadoActual={estadoActual}
+                vigenciaActual={vigenciaNum}
+                antiguedadActual={antiguedadActual}
+                impuestoIdActual={impuestoIdParam}
+                impuestos={impuestosOptions}
+                usuarios={usuariosList}
+                asignadoIdActual={asignadoIdNum}
+                fechaAsignacionActual={fechaAsignacion}
+              />
+            </Suspense>
+          </div>
+          {tieneFiltros && (
+            <ChipsFiltrosProcesos
+              estado={estadoActual}
+              vigencia={vigenciaNum}
+              antiguedad={antiguedadActual}
+              impuestoId={impuestoIdParam}
+              impuestoNombre={impuestoSeleccionadoNombre}
+              asignadoId={asignadoIdNum}
+              asignadoNombre={asignadoIdNum != null ? usuariosList.find((u) => u.id === asignadoIdNum)?.nombre ?? null : null}
+              fechaAsignacion={fechaAsignacion}
+              orderBy={orderByActual}
+              order={orderActual}
+              perPage={pageSize}
+              page={page}
             />
-          </Suspense>
+          )}
         </div>
         <div className="flex justify-end w-full">
           <Button asChild className="">
@@ -392,12 +474,12 @@ export default async function ProcesosPage({ searchParams }: Props) {
         <Card className="border-l-4 border-l-primary/80 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Cobrados
+              Finalizados
             </CardTitle>
             <CheckCircle className="size-5 text-primary/70" aria-hidden />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-foreground">{cobradosScope}</p>
+            <p className="text-2xl font-bold text-foreground">{finalizadosScope}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Procesos cerrados
             </p>
@@ -450,40 +532,33 @@ export default async function ProcesosPage({ searchParams }: Props) {
         <CardHeader>
           <CardTitle>Listado</CardTitle>
           <CardDescription>
-            Procesos ordenados por fecha de creación (más recientes primero)
-            {(estadoActual != null ||
-              vigenciaNum != null ||
-              contribuyenteQ.length > 0 ||
-              comparendoQ.length > 0 ||
-              asignadoIdNum != null ||
-              fechaAsignacion != null) && " · Filtros aplicados"}
+            {descripcionOrden}
+            {tieneFiltros && " · Filtros aplicados"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <FiltroBusquedaListadoProcesos
-            contribuyenteActual={contribuyenteQ}
-            comparendoActual={comparendoQ}
-            baseParams={{
-              ...(estadoActual ? { estado: estadoActual } : {}),
-              ...(vigenciaNum != null ? { vigencia: String(vigenciaNum) } : {}),
-              ...(antiguedadActual ? { antiguedad: antiguedadActual } : {}),
-              ...(asignadoIdNum != null && asignadoIdNum > 0 ? { asignado: String(asignadoIdNum) } : {}),
-              ...(fechaAsignacion ? { fechaAsignacion } : {}),
-              perPage: String(pageSize),
-            }}
-          />
           {lista.length === 0 ? (
-            <EmptyState
-              icon={FolderOpen}
-              message="No hay procesos. Crea uno desde el botón Nuevo proceso."
-              action={{ href: "/procesos/nuevo", label: "Crear proceso →" }}
-            />
+            tieneFiltros ? (
+              <EmptyState
+                icon={FolderOpen}
+                message="No hay procesos que coincidan con los filtros aplicados."
+                action={{ href: "/procesos", label: "Limpiar filtros →" }}
+              />
+            ) : (
+              <EmptyState
+                icon={FolderOpen}
+                message="No hay procesos. Crea uno desde el botón Nuevo proceso."
+                action={{ href: "/procesos/nuevo", label: "Crear proceso →" }}
+              />
+            )
           ) : (
             <>
               <TablaProcesosConAsignacion
                 lista={lista}
                 usuarios={usuariosList}
                 isAdmin={session?.user?.rol === "admin"}
+                orderBy={orderByActual}
+                order={orderActual}
               />
               {(totalPages > 1 || total > 0) && (
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t pt-4 mt-4">
@@ -496,34 +571,36 @@ export default async function ProcesosPage({ searchParams }: Props) {
                         ...(estadoActual ? { estado: estadoActual } : {}),
                         ...(vigenciaNum != null ? { vigencia: String(vigenciaNum) } : {}),
                         ...(antiguedadActual ? { antiguedad: antiguedadActual } : {}),
-                        ...(contribuyenteQ ? { contribuyente: contribuyenteQ } : {}),
-                        ...(comparendoQ ? { comparendo: comparendoQ } : {}),
+                        ...(impuestoIdParam ? { impuesto: impuestoIdParam } : {}),
                         ...(asignadoIdNum != null && asignadoIdNum > 0 ? { asignado: String(asignadoIdNum) } : {}),
                         ...(fechaAsignacion ? { fechaAsignacion } : {}),
                         perPage: String(pageSize),
+                        orderBy: orderByActual,
+                        order: orderActual,
                       }}
                       perPage={pageSize}
                     />
                   </div>
                   <nav className="flex flex-wrap items-center gap-2" aria-label="Paginación">
                     {page <= 1 ? (
-                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                      <Button variant="outline" size="sm" className="gap-1 max-sm:sr-only" disabled>
                         <ChevronsLeft className="size-4" aria-hidden />
                         Primera
                       </Button>
                     ) : (
-                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                      <Button variant="outline" size="sm" className="gap-1 max-sm:sr-only" asChild>
                         <Link
                           href={buildProcesosUrl({
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             antiguedad: antiguedadActual ?? undefined,
-                            contribuyente: contribuyenteQ || undefined,
-                            comparendo: comparendoQ || undefined,
+                            impuestoId: impuestoIdParam ?? undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
                             perPage: pageSize,
                             page: 1,
+                            orderBy: orderByActual,
+                            order: orderActual,
                           })}
                           scroll={false}
                         >
@@ -544,12 +621,13 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             antiguedad: antiguedadActual ?? undefined,
-                            contribuyente: contribuyenteQ || undefined,
-                            comparendo: comparendoQ || undefined,
+                            impuestoId: impuestoIdParam ?? undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
                             perPage: pageSize,
                             page: page - 1,
+                            orderBy: orderByActual,
+                            order: orderActual,
                           })}
                           scroll={false}
                         >
@@ -573,12 +651,13 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             antiguedad: antiguedadActual ?? undefined,
-                            contribuyente: contribuyenteQ || undefined,
-                            comparendo: comparendoQ || undefined,
+                            impuestoId: impuestoIdParam ?? undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
                             perPage: pageSize,
                             page: page + 1,
+                            orderBy: orderByActual,
+                            order: orderActual,
                           })}
                           scroll={false}
                         >
@@ -588,23 +667,24 @@ export default async function ProcesosPage({ searchParams }: Props) {
                       </Button>
                     )}
                     {page >= totalPages ? (
-                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                      <Button variant="outline" size="sm" className="gap-1 max-sm:sr-only" disabled>
                         Última
                         <ChevronsRight className="size-4" aria-hidden />
                       </Button>
                     ) : (
-                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                      <Button variant="outline" size="sm" className="gap-1 max-sm:sr-only" asChild>
                         <Link
                           href={buildProcesosUrl({
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             antiguedad: antiguedadActual ?? undefined,
-                            contribuyente: contribuyenteQ || undefined,
-                            comparendo: comparendoQ || undefined,
+                            impuestoId: impuestoIdParam ?? undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
                             perPage: pageSize,
                             page: totalPages,
+                            orderBy: orderByActual,
+                            order: orderActual,
                           })}
                           scroll={false}
                         >
@@ -613,15 +693,16 @@ export default async function ProcesosPage({ searchParams }: Props) {
                         </Link>
                       </Button>
                     )}
-                    <form method="GET" action="/procesos" className="flex items-center gap-1.5">
+                    <form method="GET" action="/procesos" className="flex items-center gap-1.5 max-sm:hidden">
                       {estadoActual ? <input type="hidden" name="estado" value={estadoActual} /> : null}
                       {vigenciaNum != null ? <input type="hidden" name="vigencia" value={String(vigenciaNum)} /> : null}
                       {antiguedadActual ? <input type="hidden" name="antiguedad" value={antiguedadActual} /> : null}
-                      {contribuyenteQ ? <input type="hidden" name="contribuyente" value={contribuyenteQ} /> : null}
-                      {comparendoQ ? <input type="hidden" name="comparendo" value={comparendoQ} /> : null}
+                      {impuestoIdParam ? <input type="hidden" name="impuesto" value={impuestoIdParam} /> : null}
                       {asignadoIdNum != null && asignadoIdNum > 0 ? <input type="hidden" name="asignado" value={String(asignadoIdNum)} /> : null}
                       {fechaAsignacion ? <input type="hidden" name="fechaAsignacion" value={fechaAsignacion} /> : null}
                       <input type="hidden" name="perPage" value={String(pageSize)} />
+                      <input type="hidden" name="orderBy" value={orderByActual} />
+                      <input type="hidden" name="order" value={orderActual} />
                       <label htmlFor="procesos-page-go" className="sr-only">
                         Ir a página
                       </label>

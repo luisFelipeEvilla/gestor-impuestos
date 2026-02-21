@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { procesos, historialProceso, contribuyentes, usuarios, documentosProceso, cobrosCoactivos } from "@/lib/db/schema";
 import type { NewHistorialProceso } from "@/lib/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   enviarNotificacionCobroPorEmail,
   crearEvidenciaEnvio,
@@ -50,10 +50,10 @@ function computeFechaLimitePrescripcion(
 const estadoProcesoValues = [
   "pendiente",
   "asignado",
-  "notificado",
-  "en_contacto",
+  "facturacion",
+  "acuerdo_pago",
   "en_cobro_coactivo",
-  "cobrado",
+  "finalizado",
 ] as const;
 
 const schemaCrear = z.object({
@@ -628,6 +628,116 @@ export async function agregarNotaProceso(
   }
 }
 
+export async function eliminarNotaProceso(
+  procesoId: number,
+  historialId: number
+): Promise<EstadoGestionProceso> {
+  if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
+  if (!Number.isInteger(historialId) || historialId < 1) return { error: "Nota inválida." };
+
+  try {
+    const session = await getSession();
+    const [proceso] = await db
+      .select({ id: procesos.id, asignadoAId: procesos.asignadoAId })
+      .from(procesos)
+      .where(eq(procesos.id, procesoId));
+    if (!proceso) return { error: "Proceso no encontrado." };
+    if (!puedeAccederProceso(session?.user?.rol, session?.user?.id, proceso.asignadoAId ?? null)) {
+      return { error: "No tienes permiso para eliminar notas de este proceso." };
+    }
+
+    const [row] = await db
+      .select({
+        id: historialProceso.id,
+        tipoEvento: historialProceso.tipoEvento,
+        usuarioId: historialProceso.usuarioId,
+      })
+      .from(historialProceso)
+      .where(
+        and(eq(historialProceso.id, historialId), eq(historialProceso.procesoId, procesoId))
+      );
+    if (!row || row.tipoEvento !== "nota") {
+      return { error: "La nota no existe o no se puede eliminar." };
+    }
+    const esAdmin = session?.user?.rol === "admin";
+    const esAutor = row.usuarioId != null && session?.user?.id === row.usuarioId;
+    if (!esAdmin && !esAutor) {
+      return { error: "Solo el autor de la nota o un administrador puede eliminarla." };
+    }
+
+    await db
+      .delete(historialProceso)
+      .where(eq(historialProceso.id, historialId));
+
+    revalidatePath(`/procesos/${procesoId}`);
+    revalidatePath("/procesos");
+    return {};
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
+      throw err;
+    }
+    console.error(err);
+    return { error: "Error al eliminar la nota." };
+  }
+}
+
+export async function actualizarNotaProceso(
+  procesoId: number,
+  historialId: number,
+  comentario: string
+): Promise<EstadoGestionProceso> {
+  const comentarioTrim = comentario?.trim() ?? "";
+  if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
+  if (!Number.isInteger(historialId) || historialId < 1) return { error: "Nota inválida." };
+  if (!comentarioTrim) return { error: "El comentario no puede estar vacío." };
+
+  try {
+    const session = await getSession();
+    const [proceso] = await db
+      .select({ id: procesos.id, asignadoAId: procesos.asignadoAId })
+      .from(procesos)
+      .where(eq(procesos.id, procesoId));
+    if (!proceso) return { error: "Proceso no encontrado." };
+    if (!puedeAccederProceso(session?.user?.rol, session?.user?.id, proceso.asignadoAId ?? null)) {
+      return { error: "No tienes permiso para editar notas de este proceso." };
+    }
+
+    const [row] = await db
+      .select({
+        id: historialProceso.id,
+        tipoEvento: historialProceso.tipoEvento,
+        usuarioId: historialProceso.usuarioId,
+      })
+      .from(historialProceso)
+      .where(
+        and(eq(historialProceso.id, historialId), eq(historialProceso.procesoId, procesoId))
+      );
+    if (!row || row.tipoEvento !== "nota") {
+      return { error: "La nota no existe o no se puede editar." };
+    }
+    const esAdmin = session?.user?.rol === "admin";
+    const esAutor = row.usuarioId != null && session?.user?.id === row.usuarioId;
+    if (!esAdmin && !esAutor) {
+      return { error: "Solo el autor de la nota o un administrador puede editarla." };
+    }
+
+    await db
+      .update(historialProceso)
+      .set({ comentario: comentarioTrim })
+      .where(eq(historialProceso.id, historialId));
+
+    revalidatePath(`/procesos/${procesoId}`);
+    revalidatePath("/procesos");
+    return {};
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
+      throw err;
+    }
+    console.error(err);
+    return { error: "Error al actualizar la nota." };
+  }
+}
+
 /** Metadata del evento de notificación en historial: email (envíos) o física (documentoIds). */
 export type MetadataNotificacion =
   | { envios?: unknown[] }
@@ -727,7 +837,7 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
     await db
       .update(procesos)
       .set({
-        estadoActual: "notificado",
+        estadoActual: "facturacion",
         actualizadoEn: new Date(),
       })
       .where(eq(procesos.id, procesoId));
@@ -736,7 +846,7 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
       procesoId,
       tipoEvento: "notificacion",
       estadoAnterior: row.estadoActual as NewHistorialProceso["estadoAnterior"],
-      estadoNuevo: "notificado",
+      estadoNuevo: "facturacion",
       comentario: "Notificación enviada por correo electrónico",
       metadata: { envios: [evidencia] },
     });
@@ -811,7 +921,7 @@ async function registrarNotificacionFisica(
     await db
       .update(procesos)
       .set({
-        estadoActual: "notificado",
+        estadoActual: "facturacion",
         actualizadoEn: new Date(),
       })
       .where(eq(procesos.id, procesoId));
@@ -820,7 +930,7 @@ async function registrarNotificacionFisica(
       procesoId,
       tipoEvento: "notificacion",
       estadoAnterior: row.estadoActual as NewHistorialProceso["estadoAnterior"],
-      estadoNuevo: "notificado",
+      estadoNuevo: "facturacion",
       comentario: "Notificación entregada por vía física",
       metadata: { tipo: "fisica", documentoIds },
     });

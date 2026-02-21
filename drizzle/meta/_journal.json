@@ -288,6 +288,20 @@
       "when": 1771714468293,
       "tag": "0040_green_gorilla_man",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1771714500000,
+      "tag": "0042_estado_proceso_seis_estados",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1771714600000,
+      "tag": "0043_tipo_documento_proceso",
+      "breakpoints": true
     }
   ]
 }

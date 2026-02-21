@@ -19,10 +19,10 @@ import { cn } from "@/lib/utils";
 const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
   { value: "asignado", label: "Asignado" },
-  { value: "notificado", label: "Notificado" },
-  { value: "en_contacto", label: "Cobro persuasivo" },
-  { value: "en_cobro_coactivo", label: "En cobro coactivo" },
-  { value: "cobrado", label: "Cobrado" },
+  { value: "facturacion", label: "Facturación" },
+  { value: "acuerdo_pago", label: "Acuerdo de pago" },
+  { value: "en_cobro_coactivo", label: "Cobro coactivo" },
+  { value: "finalizado", label: "Finalizado" },
 ] as const;
 
 type ContribuyenteOption = { id: number; nit: string; nombreRazonSocial: string };

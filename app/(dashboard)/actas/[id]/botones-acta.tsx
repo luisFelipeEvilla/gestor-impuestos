@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRef, useState } from "react";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { FileDown, Loader2, CheckCircle2 } from "lucide-react";
+import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
 import {
   enviarActaAprobacionAction,
   aprobarActaAction,
@@ -39,6 +41,9 @@ export function BotonesActa({
   const [stateDevolver, formActionDevolver] = useActionState(devolverActaABorradorAction, null);
   const [stateCorreo, formActionCorreo] = useActionState(enviarActaPorCorreoAction, null);
   const [stateEliminar, formActionEliminar] = useActionState(eliminarActaAction, null);
+  const [openEliminar, setOpenEliminar] = useState(false);
+  const formEliminarRef = useRef<HTMLFormElement>(null);
+  const confirmandoEliminarRef = useRef(false);
 
   const error =
     stateEnvio?.error ??
@@ -102,19 +107,35 @@ export function BotonesActa({
         </form>
       )}
       {puedeEliminar && (
-        <form
-          action={formActionEliminar}
-          onSubmit={(e) => {
-            if (!confirm("¿Eliminar este acta? No se puede deshacer.")) {
-              e.preventDefault();
-            }
-          }}
-        >
-          <input type="hidden" name="actaId" value={actaId} />
-          <Button type="submit" variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-            Eliminar
-          </Button>
-        </form>
+        <>
+          <ConfirmarEliminacionModal
+            open={openEliminar}
+            onOpenChange={setOpenEliminar}
+            title="Eliminar acta"
+            description="No se puede deshacer."
+            onConfirm={() => {
+              confirmandoEliminarRef.current = true;
+              formEliminarRef.current?.requestSubmit();
+            }}
+          />
+          <form
+            ref={formEliminarRef}
+            action={formActionEliminar}
+            onSubmit={(e) => {
+              if (!confirmandoEliminarRef.current) {
+                e.preventDefault();
+                setOpenEliminar(true);
+                return;
+              }
+              confirmandoEliminarRef.current = false;
+            }}
+          >
+            <input type="hidden" name="actaId" value={actaId} />
+            <Button type="submit" variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+              Eliminar
+            </Button>
+          </form>
+        </>
       )}
       {error && (
         <p className="text-destructive text-sm w-full" role="alert">
