@@ -23,10 +23,14 @@ export async function obtenerCobroCoactivoPorProceso(procesoId: number) {
   return row ?? null;
 }
 
-export async function crearCobroCoactivo(procesoId: number, fechaInicio: string): Promise<EstadoCobroCoactivo> {
+export async function crearCobroCoactivo(
+  procesoId: number,
+  fechaInicio: string,
+  noCoactivo?: string | null
+): Promise<EstadoCobroCoactivo> {
   if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
   const fecha = fechaInicio?.trim()?.slice(0, 10);
-  if (!fecha) return { error: "La fecha de inicio es obligatoria." };
+  if (!fecha) return { error: "La fecha es obligatoria." };
 
   try {
     const session = await getSession();
@@ -45,6 +49,7 @@ export async function crearCobroCoactivo(procesoId: number, fechaInicio: string)
     await db.insert(cobrosCoactivos).values({
       procesoId,
       fechaInicio: fecha,
+      noCoactivo: noCoactivo?.trim() || null,
     });
 
     revalidatePath(`/procesos/${procesoId}`);
@@ -57,10 +62,14 @@ export async function crearCobroCoactivo(procesoId: number, fechaInicio: string)
   }
 }
 
-export async function actualizarCobroCoactivo(procesoId: number, fechaInicio: string): Promise<EstadoCobroCoactivo> {
+export async function actualizarCobroCoactivo(
+  procesoId: number,
+  fechaInicio: string,
+  noCoactivo?: string | null
+): Promise<EstadoCobroCoactivo> {
   if (!Number.isInteger(procesoId) || procesoId < 1) return { error: "Proceso inválido." };
   const fecha = fechaInicio?.trim()?.slice(0, 10);
-  if (!fecha) return { error: "La fecha de inicio es obligatoria." };
+  if (!fecha) return { error: "La fecha es obligatoria." };
 
   try {
     const session = await getSession();
@@ -75,7 +84,11 @@ export async function actualizarCobroCoactivo(procesoId: number, fechaInicio: st
 
     await db
       .update(cobrosCoactivos)
-      .set({ fechaInicio: fecha, actualizadoEn: new Date() })
+      .set({
+        fechaInicio: fecha,
+        noCoactivo: noCoactivo == null ? null : (noCoactivo.trim() || null),
+        actualizadoEn: new Date(),
+      })
       .where(eq(cobrosCoactivos.procesoId, procesoId));
 
     revalidatePath(`/procesos/${procesoId}`);
@@ -86,6 +99,17 @@ export async function actualizarCobroCoactivo(procesoId: number, fechaInicio: st
     console.error(err);
     return { error: "Error al actualizar el cobro coactivo." };
   }
+}
+
+/** Wrapper para formulario: actualiza No Coactivo y Fecha desde FormData. */
+export async function actualizarDatosCobroCoactivoForm(
+  _prev: EstadoCobroCoactivo | null,
+  formData: FormData
+): Promise<EstadoCobroCoactivo> {
+  const procesoId = Number(formData.get("procesoId"));
+  const fechaInicio = (formData.get("fechaInicio") as string)?.trim() ?? "";
+  const noCoactivo = (formData.get("noCoactivo") as string)?.trim() || null;
+  return actualizarCobroCoactivo(procesoId, fechaInicio, noCoactivo);
 }
 
 export async function eliminarCobroCoactivo(procesoId: number): Promise<EstadoCobroCoactivo> {

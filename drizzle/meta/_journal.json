@@ -232,6 +232,20 @@
       "when": 1771676207777,
       "tag": "0032_milky_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1771677712884,
+      "tag": "0033_cultured_ego",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1771677800000,
+      "tag": "0034_impuestos_id_uuid",
+      "breakpoints": true
     }
   ]
 }

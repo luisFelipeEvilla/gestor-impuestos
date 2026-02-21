@@ -153,7 +153,7 @@ export const clientesMiembros = pgTable("clientes_miembros", {
 
 // Tabla: impuestos (catálogo) – cada impuesto pertenece a un cliente
 export const impuestos = pgTable("impuestos", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
   /** Cliente al que pertenece el impuesto (ej. Secretaría de Tránsito). Nullable para migración desde datos existentes. */
   clienteId: integer("cliente_id").references(() => clientes.id, {
     onDelete: "restrict",
@@ -188,7 +188,7 @@ export const contribuyentes = pgTable("contribuyentes", {
 // Tabla: procesos (trabajo de cobro)
 export const procesos = pgTable("procesos", {
   id: serial("id").primaryKey(),
-  impuestoId: integer("impuesto_id")
+  impuestoId: uuid("impuesto_id")
     .notNull()
     .references(() => impuestos.id, { onDelete: "restrict", onUpdate: "cascade" }),
   contribuyenteId: integer("contribuyente_id")
@@ -289,6 +289,9 @@ export const cobrosCoactivos = pgTable(
     procesoId: integer("proceso_id")
       .notNull()
       .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    /** Número/referencia del cobro coactivo en el sistema externo. */
+    noCoactivo: text("no_coactivo"),
+    /** Fecha del cobro coactivo (sistema externo). */
     fechaInicio: date("fecha_inicio").notNull(),
     creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
     actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),

@@ -45,7 +45,7 @@ function buildProcesosUrl(filtros: {
   contribuyente?: string;
   asignadoId?: number | null;
   fechaAsignacion?: string | null;
-  impuestoId?: number | null;
+  impuestoId?: string | null;
   page?: number;
 }) {
   const search = new URLSearchParams();
@@ -54,7 +54,7 @@ function buildProcesosUrl(filtros: {
   if (filtros.contribuyente?.trim()) search.set("contribuyente", filtros.contribuyente.trim());
   if (filtros.asignadoId != null && filtros.asignadoId > 0) search.set("asignado", String(filtros.asignadoId));
   if (filtros.fechaAsignacion) search.set("fechaAsignacion", filtros.fechaAsignacion);
-  if (filtros.impuestoId != null && filtros.impuestoId > 0) search.set("impuesto", String(filtros.impuestoId));
+  if (filtros.impuestoId) search.set("impuesto", filtros.impuestoId);
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
   const q = search.toString();
   return q ? `/procesos?${q}` : "/procesos";
@@ -85,7 +85,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
       ? parseInt(asignadoParam, 10)
       : null;
   const fechaAsignacionParam = params.fechaAsignacion;
-  const impuestoParam = params.impuesto;
+  const impuestoParam = params.impuesto?.trim();
   const pageParam = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
 
   const estadoActual: (typeof ESTADOS_VALIDOS)[number] | null =
@@ -100,9 +100,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
     fechaAsignacionParam != null && /^\d{4}-\d{2}-\d{2}$/.test(fechaAsignacionParam)
       ? fechaAsignacionParam
       : null;
-  const impuestoIdNum =
-    impuestoParam != null && /^\d+$/.test(impuestoParam)
-      ? parseInt(impuestoParam, 10)
+  const impuestoIdStr =
+    impuestoParam != null && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(impuestoParam)
+      ? impuestoParam
       : null;
 
   let idsConFechaAsignacion: number[] | null = null;
@@ -140,7 +140,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const condiciones = [];
   if (estadoActual != null) condiciones.push(eq(procesos.estadoActual, estadoActual));
   if (vigenciaNum != null) condiciones.push(eq(procesos.vigencia, vigenciaNum));
-  if (impuestoIdNum != null) condiciones.push(eq(procesos.impuestoId, impuestoIdNum));
+  if (impuestoIdStr != null) condiciones.push(eq(procesos.impuestoId, impuestoIdStr));
   if (contribuyenteQ.length > 0) {
     condiciones.push(
       or(
@@ -227,7 +227,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
               asignadoIdActual={asignadoIdNum}
               fechaAsignacionActual={fechaAsignacion}
               impuestos={impuestosConProcesos}
-              impuestoIdActual={impuestoIdNum}
+              impuestoIdActual={impuestoIdStr}
             />
           </Suspense>
         </div>
@@ -247,7 +247,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
               contribuyenteQ.length > 0 ||
               asignadoIdNum != null ||
               fechaAsignacion != null ||
-              impuestoIdNum != null) && " · Filtros aplicados"}
+              impuestoIdStr != null) && " · Filtros aplicados"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -284,7 +284,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             contribuyente: contribuyenteQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
-                            impuestoId: impuestoIdNum ?? undefined,
+                            impuestoId: impuestoIdStr ?? undefined,
                             page: page - 1,
                           })}
                         >
@@ -310,7 +310,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             contribuyente: contribuyenteQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
-                            impuestoId: impuestoIdNum ?? undefined,
+                            impuestoId: impuestoIdStr ?? undefined,
                             page: page + 1,
                           })}
                         >

@@ -152,7 +152,7 @@ function parseCsv(content: string): FilaCsv[] {
   return rows;
 }
 
-async function getOrCreateImpuestoTransito(): Promise<number> {
+async function getOrCreateImpuestoTransito(): Promise<string> {
   const [existente] = await db
     .select({ id: impuestos.id })
     .from(impuestos)
@@ -162,7 +162,7 @@ async function getOrCreateImpuestoTransito(): Promise<number> {
     .insert(impuestos)
     .values({
       nombre: IMPUESTO_NOMBRE_TRANSITO,
-      tipo: "municipal",
+      naturaleza: "no_tributario",
       descripcion: "Comparendos y sanciones de tránsito",
       activo: true,
     })

@@ -25,7 +25,7 @@ const ESTADOS = [
   { value: "cobrado", label: "Cobrado" },
 ] as const;
 
-type ImpuestoOption = { id: number; nombre: string };
+type ImpuestoOption = { id: string; nombre: string };
 type ContribuyenteOption = { id: number; nit: string; nombreRazonSocial: string };
 type UsuarioOption = { id: number; nombre: string };
 

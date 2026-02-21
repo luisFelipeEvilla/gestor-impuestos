@@ -57,7 +57,7 @@ const estadoProcesoValues = [
 ] as const;
 
 const schemaCrear = z.object({
-  impuestoId: z.coerce.number().int().positive("Selecciona un impuesto"),
+  impuestoId: z.string().uuid("Selecciona un impuesto"),
   contribuyenteId: z.coerce.number().int().positive("Selecciona un contribuyente"),
   vigencia: z.coerce.number().int().min(2000, "Vigencia inválida").max(2100),
   periodo: z.string().max(50).optional().or(z.literal("")),

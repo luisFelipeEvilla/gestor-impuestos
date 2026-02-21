@@ -31,7 +31,7 @@ const OPCIONES_VIGENCIA = Array.from(
   (_, i) => AÑO_MIN + i
 ).reverse();
 
-type ImpuestoOption = { id: number; nombre: string };
+type ImpuestoOption = { id: string; nombre: string };
 
 type UsuarioOption = { id: number; nombre: string };
 
@@ -43,7 +43,7 @@ type FiltrosProcesosProps = {
   asignadoIdActual: number | null;
   fechaAsignacionActual: string | null;
   impuestos: ImpuestoOption[];
-  impuestoIdActual: number | null;
+  impuestoIdActual: string | null;
 };
 
 export function FiltrosProcesos({
@@ -71,7 +71,7 @@ export function FiltrosProcesos({
       contribuyente?: string;
       asignadoId?: number | null;
       fechaAsignacion?: string | null;
-      impuestoId?: number | null;
+      impuestoId?: string | null;
     }) => {
       const params = new URLSearchParams(searchParams.toString());
       const estado =
@@ -107,8 +107,8 @@ export function FiltrosProcesos({
       if (asigId != null && asigId > 0) params.set("asignado", String(asigId));
       if (fechaAsig != null && fechaAsig !== "")
         params.set("fechaAsignacion", fechaAsig);
-      if (impId != null && impId > 0)
-        params.set("impuesto", String(impId));
+      if (impId != null && impId !== "")
+        params.set("impuesto", impId);
       return params;
     },
     [
@@ -145,7 +145,7 @@ export function FiltrosProcesos({
   const handleImpuestoChange = useCallback(
     (value: string) => {
       const params = buildParams({
-        impuestoId: value === "todos" ? null : parseInt(value, 10),
+        impuestoId: value === "todos" ? null : value,
       });
       router.push(`/procesos?${params.toString()}`);
     },
@@ -268,7 +268,7 @@ export function FiltrosProcesos({
           Impuesto
         </Label>
         <Select
-          value={impuestoIdActual != null ? String(impuestoIdActual) : "todos"}
+          value={impuestoIdActual != null ? impuestoIdActual : "todos"}
           onValueChange={handleImpuestoChange}
         >
           <SelectTrigger id="filtro-impuesto" className={fieldClass}>

@@ -21,9 +21,9 @@ type Props = { params: Promise<{ id: string }> };
 
 export default async function DetalleImpuestoPage({ params }: Props) {
   unstable_noStore();
-  const { id: idStr } = await params;
-  const id = parseInt(idStr, 10);
-  if (Number.isNaN(id)) notFound();
+  const { id } = await params;
+  const idTrim = id?.trim();
+  if (!idTrim || idTrim.length < 30) notFound();
 
   const [row] = await db
     .select({
@@ -38,7 +38,7 @@ export default async function DetalleImpuestoPage({ params }: Props) {
     })
     .from(impuestos)
     .leftJoin(clientes, eq(impuestos.clienteId, clientes.id))
-    .where(eq(impuestos.id, id));
+    .where(eq(impuestos.id, idTrim));
   if (!row) notFound();
   const impuesto = row;
 

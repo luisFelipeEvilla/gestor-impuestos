@@ -17,6 +17,7 @@ import {
   agregarNotaProceso,
   enviarNotificacion,
 } from "@/lib/actions/procesos";
+import { actualizarDatosCobroCoactivoForm } from "@/lib/actions/cobros-coactivos";
 import type { EvidenciaEnvioEmail } from "@/lib/notificaciones/resend";
 import { cn } from "@/lib/utils";
 import {
@@ -445,6 +446,63 @@ export function AccionEstadoForm({
 const CATEGORIA_EN_CONTACTO: CategoriaNota = "en_contacto";
 const CATEGORIA_COBRO_COACTIVO: CategoriaNota = "cobro_coactivo";
 
+type DatosCobroCoactivoFormProps = {
+  procesoId: number;
+  noCoactivo: string;
+  fechaInicio: Date | string;
+};
+
+function DatosCobroCoactivoForm({
+  procesoId,
+  noCoactivo,
+  fechaInicio,
+}: DatosCobroCoactivoFormProps) {
+  const [state, formAction] = useActionState(actualizarDatosCobroCoactivoForm, null);
+
+  return (
+    <form action={formAction} className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
+      <h4 className="text-sm font-medium">Datos del sistema externo</h4>
+      <input type="hidden" name="procesoId" value={procesoId} />
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="grid gap-1.5">
+          <Label htmlFor="noCoactivo-cc" className="text-xs">
+            No. Coactivo
+          </Label>
+          <Input
+            id="noCoactivo-cc"
+            name="noCoactivo"
+            type="text"
+            placeholder="Ej. 12345"
+            defaultValue={noCoactivo}
+            className="w-40"
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="fechaInicio-cc" className="text-xs">
+            Fecha
+          </Label>
+          <Input
+            id="fechaInicio-cc"
+            name="fechaInicio"
+            type="date"
+            required
+            defaultValue={fechaToInputValue(fechaInicio)}
+            className="w-40"
+          />
+        </div>
+        <Button type="submit" size="sm">
+          Guardar
+        </Button>
+      </div>
+      {state?.error && (
+        <p className="text-destructive text-xs" role="alert">
+          {state.error}
+        </p>
+      )}
+    </form>
+  );
+}
+
 type CardEtapaProps = {
   procesoId: number;
   estadoActual: string;
@@ -452,7 +510,16 @@ type CardEtapaProps = {
   notas: NotaItem[];
 };
 
-type CobroCoactivoEntity = { fechaInicio: Date | string } | null;
+type CobroCoactivoEntity = {
+  fechaInicio: Date | string;
+  noCoactivo?: string | null;
+} | null;
+
+function fechaToInputValue(fecha: Date | string | null | undefined): string {
+  if (fecha == null) return "";
+  const d = typeof fecha === "string" ? new Date(fecha + "T12:00:00") : fecha;
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
 
 export function CardEnContacto({
   procesoId,
@@ -538,6 +605,9 @@ export function CardEnContacto({
   );
 }
 
+/** Estados desde los que se puede pasar a cobro coactivo desde esta card */
+const ESTADOS_PUEDEN_INICIAR_COBRO_COACTIVO = ["notificado", "en_contacto"] as const;
+
 export function CardCobroCoactivo({
   procesoId,
   estadoActual,
@@ -546,6 +616,8 @@ export function CardCobroCoactivo({
   cobroCoactivo = null,
 }: CardEtapaProps & { cobroCoactivo?: CobroCoactivoEntity }) {
   const activo = estadoActual === "en_cobro_coactivo";
+  const puedeIniciar =
+    !activo && ESTADOS_PUEDEN_INICIAR_COBRO_COACTIVO.includes(estadoActual as (typeof ESTADOS_PUEDEN_INICIAR_COBRO_COACTIVO)[number]);
   const fechaInicio = cobroCoactivo?.fechaInicio
     ? new Date(cobroCoactivo.fechaInicio).toLocaleDateString("es-CO")
     : null;
@@ -557,12 +629,19 @@ export function CardCobroCoactivo({
         <CardDescription>
           {fechaInicio
             ? `Cobro activo desde ${fechaInicio}. Documentos y notas de esta etapa. Cuando se efectúe el cobro, regístralo con la acción correspondiente.`
-            : "Etapa independiente del acuerdo de pago. Puede iniciarse desde Cobro persuasivo (sin acuerdo) o desde Acuerdos de pago (por incumplimiento). Documentos y notas de esta etapa."}
+            : "Etapa independiente del acuerdo de pago. Puede iniciarse desde Cobro persuasivo (sin acuerdo) o desde Acuerdos de pago (por incumplimiento). Inicia el cobro coactivo cuando corresponda."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {activo ? (
           <>
+            {cobroCoactivo && (
+              <DatosCobroCoactivoForm
+                procesoId={procesoId}
+                noCoactivo={cobroCoactivo.noCoactivo ?? ""}
+                fechaInicio={cobroCoactivo.fechaInicio}
+              />
+            )}
             <div className="space-y-3">
               <h4 className="text-sm font-medium">Acciones</h4>
               <AccionEstadoForm
@@ -584,12 +663,23 @@ export function CardCobroCoactivo({
             </div>
           </>
         ) : (
-          <p className="text-muted-foreground text-sm">
-            El proceso no está en cobro coactivo (estado actual: {labelEstado(estadoActual)}). Puedes agregar comentarios y documentos de esta sección.
-          </p>
-        )}
-        {!activo && (
           <>
+            {puedeIniciar && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium">Acciones</h4>
+                <AccionEstadoForm
+                  procesoId={procesoId}
+                  estadoDestino="en_cobro_coactivo"
+                  label="Iniciar cobro coactivo"
+                  variant="default"
+                />
+              </div>
+            )}
+            {!puedeIniciar && (
+              <p className="text-muted-foreground text-sm">
+                El proceso no está en cobro coactivo (estado actual: {labelEstado(estadoActual)}). Para iniciar cobro coactivo, el proceso debe estar en Cobro persuasivo o Notificado.
+              </p>
+            )}
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Comentarios (Cobro coactivo)</h4>
               <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_COBRO_COACTIVO} />
