@@ -139,7 +139,7 @@ export function ProcesoForm({
             )}
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="montoCop">Monto (COP)</Label>
+            <Label htmlFor="montoCop">Monto total (COP)</Label>
             <Input
               id="montoCop"
               name="montoCop"
@@ -152,6 +152,38 @@ export function ProcesoForm({
             {state?.errores?.montoCop && (
               <p className="text-destructive text-xs">{state.errores.montoCop[0]}</p>
             )}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="montoMultaCop">Multa (COP, opcional)</Label>
+              <Input
+                id="montoMultaCop"
+                name="montoMultaCop"
+                type="text"
+                inputMode="decimal"
+                defaultValue={initialData?.montoMultaCop ?? ""}
+                placeholder="Ej. 1000000"
+                aria-invalid={!!state?.errores?.montoMultaCop}
+              />
+              {state?.errores?.montoMultaCop && (
+                <p className="text-destructive text-xs">{state.errores.montoMultaCop[0]}</p>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="montoInteresesCop">Intereses (COP, opcional)</Label>
+              <Input
+                id="montoInteresesCop"
+                name="montoInteresesCop"
+                type="text"
+                inputMode="decimal"
+                defaultValue={initialData?.montoInteresesCop ?? ""}
+                placeholder="Ej. 500000"
+                aria-invalid={!!state?.errores?.montoInteresesCop}
+              />
+              {state?.errores?.montoInteresesCop && (
+                <p className="text-destructive text-xs">{state.errores.montoInteresesCop[0]}</p>
+              )}
+            </div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="estadoActual">Estado</Label>
@@ -204,7 +236,7 @@ export function ProcesoForm({
               aria-describedby="fechaLimite-hint"
             />
             <p id="fechaLimite-hint" className="text-muted-foreground text-xs">
-              Se calcula en 5 años desde la fecha de aplicación del impuesto. Si el proceso pasa a cobro coactivo, se recalcula desde esa fecha.
+              Se calcula en 3 años desde la fecha de aplicación del impuesto. Si el proceso pasa a cobro coactivo, se recalcula desde esa fecha.
             </p>
           </div>
           <div className="grid gap-2">
@@ -218,7 +250,7 @@ export function ProcesoForm({
                 aria-describedby="fechaAplicacion-hint"
               />
               <p id="fechaAplicacion-hint" className="text-muted-foreground text-xs">
-                Si se indica, la fecha límite se calcula automáticamente (5 años desde esta fecha).
+                Si se indica, la fecha límite se calcula automáticamente (3 años desde esta fecha).
               </p>
           </div>
           <div className="flex gap-2 pt-2">

@@ -31,11 +31,20 @@ const OPCIONES_VIGENCIA = Array.from(
   (_, i) => AÑO_MIN + i
 ).reverse();
 
+const OPCIONES_ANTIGUEDAD = [
+  { value: "todos", label: "Todas" },
+  { value: "menos_30", label: "Menos de 30 días" },
+  { value: "30_90", label: "30 a 90 días" },
+  { value: "90_180", label: "90 a 180 días" },
+  { value: "mas_180", label: "Más de 180 días" },
+] as const;
+
 type UsuarioOption = { id: number; nombre: string };
 
 type FiltrosProcesosProps = {
   estadoActual: string | null;
   vigenciaActual: number | null;
+  antiguedadActual: string | null;
   contribuyenteActual: string;
   comparendoActual: string;
   usuarios: UsuarioOption[];
@@ -46,6 +55,7 @@ type FiltrosProcesosProps = {
 export function FiltrosProcesos({
   estadoActual,
   vigenciaActual,
+  antiguedadActual,
   contribuyenteActual,
   comparendoActual,
   usuarios: usuariosList,
@@ -68,6 +78,7 @@ export function FiltrosProcesos({
     (updates: {
       estado?: string | null;
       vigencia?: string | number | null;
+      antiguedad?: string | null;
       contribuyente?: string;
       comparendo?: string;
       asignadoId?: number | null;
@@ -78,6 +89,8 @@ export function FiltrosProcesos({
         updates.estado !== undefined ? updates.estado : estadoActual;
       const vigencia =
         updates.vigencia !== undefined ? updates.vigencia : vigenciaActual;
+      const antig =
+        updates.antiguedad !== undefined ? updates.antiguedad : antiguedadActual;
       const contrib =
         updates.contribuyente !== undefined
           ? updates.contribuyente
@@ -95,12 +108,14 @@ export function FiltrosProcesos({
 
       params.delete("estado");
       params.delete("vigencia");
+      params.delete("antiguedad");
       params.delete("contribuyente");
       params.delete("comparendo");
       params.delete("asignado");
       params.delete("fechaAsignacion");
       if (estado != null && estado !== "todos") params.set("estado", estado);
       if (vigencia != null) params.set("vigencia", String(vigencia));
+      if (antig != null && antig !== "todos") params.set("antiguedad", antig);
       if (contrib.trim()) params.set("contribuyente", contrib.trim());
       if (comp.trim()) params.set("comparendo", comp.trim());
       if (asigId != null && asigId > 0) params.set("asignado", String(asigId));
@@ -112,6 +127,7 @@ export function FiltrosProcesos({
       searchParams,
       estadoActual,
       vigenciaActual,
+      antiguedadActual,
       contribuyente,
       comparendo,
       fechaAsignacionActual,
@@ -133,6 +149,16 @@ export function FiltrosProcesos({
     (value: string) => {
       const params = buildParams({
         vigencia: value === "todos" ? null : parseInt(value, 10),
+      });
+      router.push(`/procesos?${params.toString()}`);
+    },
+    [router, buildParams]
+  );
+
+  const handleAntiguedadChange = useCallback(
+    (value: string) => {
+      const params = buildParams({
+        antiguedad: value === "todos" ? null : value,
       });
       router.push(`/procesos?${params.toString()}`);
     },
@@ -177,6 +203,7 @@ export function FiltrosProcesos({
   const tieneFiltros =
     estadoActual != null ||
     vigenciaActual != null ||
+    (antiguedadActual != null && antiguedadActual !== "todos") ||
     contribuyenteActual.length > 0 ||
     comparendoActual.length > 0 ||
     asignadoIdActual != null ||
@@ -305,6 +332,29 @@ export function FiltrosProcesos({
             {OPCIONES_VIGENCIA.map((año) => (
               <SelectItem key={año} value={año.toString()}>
                 {año}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label
+          htmlFor="filtro-antiguedad"
+          className="text-xs text-muted-foreground"
+        >
+          Antigüedad
+        </Label>
+        <Select
+          value={antiguedadActual ?? "todos"}
+          onValueChange={handleAntiguedadChange}
+        >
+          <SelectTrigger id="filtro-antiguedad" className={fieldClass}>
+            <SelectValue placeholder="Todas" />
+          </SelectTrigger>
+          <SelectContent>
+            {OPCIONES_ANTIGUEDAD.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
               </SelectItem>
             ))}
           </SelectContent>

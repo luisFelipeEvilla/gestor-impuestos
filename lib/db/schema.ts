@@ -208,6 +208,10 @@ export const procesos = pgTable("procesos", {
   /** Número de comparendo (opcional). */
   noComparendo: text("no_comparendo"),
   montoCop: numeric("monto_cop", { precision: 15, scale: 2 }).notNull(),
+  /** Valor de la multa (COP), opcional; para trazabilidad cuando el total incluye intereses. */
+  montoMultaCop: numeric("monto_multa_cop", { precision: 15, scale: 2 }),
+  /** Valor de intereses (COP), opcional; para trazabilidad cuando el total incluye intereses. */
+  montoInteresesCop: numeric("monto_intereses_cop", { precision: 15, scale: 2 }),
   estadoActual: estadoProcesoEnum("estado_actual").notNull().default("pendiente"),
   asignadoAId: integer("asignado_a_id").references(() => usuarios.id, {
     onDelete: "set null",

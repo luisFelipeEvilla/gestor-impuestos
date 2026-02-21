@@ -60,9 +60,12 @@ const ESTADOS_VALIDOS = [
 
 const PROCESOS_PAGE_SIZE = 15;
 
+const ANTIGUEDAD_VALIDOS = ["menos_30", "30_90", "90_180", "mas_180"] as const;
+
 function buildProcesosUrl(filtros: {
   estado?: string | null;
   vigencia?: number | null;
+  antiguedad?: string | null;
   contribuyente?: string;
   asignadoId?: number | null;
   fechaAsignacion?: string | null;
@@ -72,6 +75,8 @@ function buildProcesosUrl(filtros: {
   const search = new URLSearchParams();
   if (filtros.estado) search.set("estado", filtros.estado);
   if (filtros.vigencia != null) search.set("vigencia", String(filtros.vigencia));
+  if (filtros.antiguedad && ANTIGUEDAD_VALIDOS.includes(filtros.antiguedad as (typeof ANTIGUEDAD_VALIDOS)[number]))
+    search.set("antiguedad", filtros.antiguedad);
   if (filtros.contribuyente?.trim()) search.set("contribuyente", filtros.contribuyente.trim());
   if (filtros.asignadoId != null && filtros.asignadoId > 0) search.set("asignado", String(filtros.asignadoId));
   if (filtros.fechaAsignacion) search.set("fechaAsignacion", filtros.fechaAsignacion);
@@ -85,6 +90,7 @@ type Props = {
   searchParams: Promise<{
     estado?: string;
     vigencia?: string;
+    antiguedad?: string;
     contribuyente?: string;
     asignado?: string;
     fechaAsignacion?: string;
@@ -120,6 +126,11 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const fechaAsignacion =
     fechaAsignacionParam != null && /^\d{4}-\d{2}-\d{2}$/.test(fechaAsignacionParam)
       ? fechaAsignacionParam
+      : null;
+  const antiguedadParam = params.antiguedad;
+  const antiguedadActual: (typeof ANTIGUEDAD_VALIDOS)[number] | null =
+    antiguedadParam != null && ANTIGUEDAD_VALIDOS.includes(antiguedadParam as (typeof ANTIGUEDAD_VALIDOS)[number])
+      ? (antiguedadParam as (typeof ANTIGUEDAD_VALIDOS)[number])
       : null;
 
   let idsConFechaAsignacion: number[] | null = null;
@@ -175,6 +186,24 @@ export default async function ProcesosPage({ searchParams }: Props) {
   }
   if (idsConFechaAsignacion != null) {
     condiciones.push(inArray(procesos.id, idsConFechaAsignacion));
+  }
+  if (antiguedadActual != null) {
+    switch (antiguedadActual) {
+      case "menos_30":
+        condiciones.push(sql`${procesos.creadoEn} >= (now() - interval '30 days')`);
+        break;
+      case "30_90":
+        condiciones.push(sql`${procesos.creadoEn} < (now() - interval '30 days')`);
+        condiciones.push(sql`${procesos.creadoEn} >= (now() - interval '90 days')`);
+        break;
+      case "90_180":
+        condiciones.push(sql`${procesos.creadoEn} < (now() - interval '90 days')`);
+        condiciones.push(sql`${procesos.creadoEn} >= (now() - interval '180 days')`);
+        break;
+      case "mas_180":
+        condiciones.push(sql`${procesos.creadoEn} < (now() - interval '180 days')`);
+        break;
+    }
   }
   if (session?.user?.rol !== "admin") {
     if (!session?.user?.id) {
@@ -298,6 +327,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
             <FiltrosProcesos
               estadoActual={estadoActual}
               vigenciaActual={vigenciaNum}
+              antiguedadActual={antiguedadActual}
               contribuyenteActual={contribuyenteQ}
               comparendoActual={comparendoQ}
               usuarios={usuariosList}
@@ -443,6 +473,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                           href={buildProcesosUrl({
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
+                            antiguedad: antiguedadActual ?? undefined,
                             contribuyente: contribuyenteQ || undefined,
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
@@ -467,6 +498,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                           href={buildProcesosUrl({
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
+                            antiguedad: antiguedadActual ?? undefined,
                             contribuyente: contribuyenteQ || undefined,
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
@@ -494,6 +526,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                           href={buildProcesosUrl({
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
+                            antiguedad: antiguedadActual ?? undefined,
                             contribuyente: contribuyenteQ || undefined,
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
@@ -518,6 +551,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                           href={buildProcesosUrl({
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
+                            antiguedad: antiguedadActual ?? undefined,
                             contribuyente: contribuyenteQ || undefined,
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,

@@ -111,6 +111,8 @@ export default async function DetalleProcesoPage({ params }: Props) {
       periodo: procesos.periodo,
       noComparendo: procesos.noComparendo,
       montoCop: procesos.montoCop,
+      montoMultaCop: procesos.montoMultaCop,
+      montoInteresesCop: procesos.montoInteresesCop,
       estadoActual: procesos.estadoActual,
       asignadoAId: procesos.asignadoAId,
       fechaLimite: procesos.fechaLimite,
@@ -286,8 +288,19 @@ export default async function DetalleProcesoPage({ params }: Props) {
                   </div>
                 )}
                 <div>
-                  <dt className="text-muted-foreground">Monto (COP)</dt>
+                  <dt className="text-muted-foreground">Monto total (COP)</dt>
                   <dd className="font-medium">{Number(row.montoCop).toLocaleString("es-CO")}</dd>
+                  {(row.montoMultaCop != null || row.montoInteresesCop != null) && (
+                    <dd className="text-muted-foreground text-sm mt-1">
+                      {row.montoMultaCop != null && (
+                        <span>Multa: {Number(row.montoMultaCop).toLocaleString("es-CO")} COP</span>
+                      )}
+                      {row.montoMultaCop != null && row.montoInteresesCop != null && " · "}
+                      {row.montoInteresesCop != null && (
+                        <span>Intereses: {Number(row.montoInteresesCop).toLocaleString("es-CO")} COP</span>
+                      )}
+                    </dd>
+                  )}
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Estado</dt>

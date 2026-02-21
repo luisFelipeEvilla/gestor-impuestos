@@ -15,6 +15,7 @@
     "db:seed-actividades": "tsx scripts/seed-actividades.ts",
     "db:seed-obligaciones": "tsx scripts/seed-obligaciones.ts",
     "db:update-actividades-obligaciones": "tsx scripts/update-actividades-obligaciones.ts",
+    "db:actualizar-fecha-limite-prescripcion": "tsx scripts/actualizar-fecha-limite-prescripcion.ts",
     "db:check": "node scripts/check-db.mjs",
     "db:update-user-password": "node scripts/update-user-password.mjs",
     "import:cartera": "tsx scripts/import-cartera-transito.ts",

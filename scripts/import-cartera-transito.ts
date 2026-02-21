@@ -35,6 +35,10 @@ interface BatchItem {
   periodo: null;
   noComparendo: string | null;
   montoCop: string;
+  /** Valor multa (COP) para trazabilidad; opcional. */
+  montoMultaCop: string | null;
+  /** Valor intereses (COP) para trazabilidad; opcional. */
+  montoInteresesCop: string | null;
   estadoActual: "pendiente" | "en_cobro_coactivo";
   fechaLimite: string | null;
   fechaAplicacionImpuesto: string | null;
@@ -102,7 +106,7 @@ function addYears(isoDate: string, years: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-const AÑOS_PRESCRIPCION = 5;
+const AÑOS_PRESCRIPCION = 3; // 3 años / 36 meses
 
 interface FilaCsv {
   nroComparendo: string;
@@ -338,6 +342,8 @@ async function flushBatch(
             periodo: b.periodo,
             noComparendo: b.noComparendo,
             montoCop: b.montoCop,
+            montoMultaCop: b.montoMultaCop,
+            montoInteresesCop: b.montoInteresesCop,
             estadoActual: b.estadoActual,
             asignadoAId: null,
             fechaLimite: b.fechaLimite,
@@ -536,9 +542,20 @@ async function main(): Promise<void> {
       });
       creados++;
     }
-    const montoStr = fila.valorDeuda || fila.valorMulta || "0";
-    const montoNum = parseFloat(montoStr.replace(/,/g, "."));
-    const montoCop = Number.isNaN(montoNum) || montoNum < 0 ? "0" : montoNum.toFixed(2);
+    const parseMonto = (raw: string): number => {
+      const n = parseFloat((raw || "0").replace(/,/g, "."));
+      return Number.isNaN(n) || n < 0 ? 0 : n;
+    };
+    const multaNum = parseMonto(fila.valorMulta);
+    const interesesNum = parseMonto(fila.valorIntereses);
+    const deudaNum = parseMonto(fila.valorDeuda);
+    const montoTotal =
+      deudaNum > 0 ? deudaNum : (multaNum + interesesNum > 0 ? multaNum + interesesNum : 0);
+    const montoCop = montoTotal.toFixed(2);
+    const montoMultaCop =
+      multaNum > 0 ? multaNum.toFixed(2) : null;
+    const montoInteresesCop =
+      interesesNum > 0 ? interesesNum.toFixed(2) : null;
     const fechaAplicacion =
       fila.fechaComparendo ?? fila.fechaResolucion ?? null;
     const fechaLimite =
@@ -582,6 +599,8 @@ async function main(): Promise<void> {
       periodo: null,
       noComparendo,
       montoCop,
+      montoMultaCop,
+      montoInteresesCop,
       estadoActual,
       fechaLimite,
       fechaAplicacionImpuesto: fechaAplicacion,

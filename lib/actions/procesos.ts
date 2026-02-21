@@ -25,8 +25,8 @@ function puedeAccederProceso(
   return asignadoAId === usuarioId;
 }
 
-/** Años para prescripción: fecha límite = base (aplicación o ingreso a cobro coactivo) + este valor */
-const AÑOS_PRESCRIPCION = 5;
+/** Años para prescripción: fecha límite = base (aplicación o ingreso a cobro coactivo) + este valor (3 años / 36 meses) */
+const AÑOS_PRESCRIPCION = 3;
 
 /** Suma años a una fecha ISO (YYYY-MM-DD) y devuelve YYYY-MM-DD */
 function addYears(isoDate: string, years: number): string {
@@ -36,7 +36,7 @@ function addYears(isoDate: string, years: number): string {
 }
 
 /**
- * Calcula la fecha límite por prescripción: 5 años desde la base.
+ * Calcula la fecha límite por prescripción: 3 años (36 meses) desde la base.
  * Base = fecha de ingreso a cobro coactivo si existe, si no fecha de aplicación del impuesto.
  */
 function computeFechaLimitePrescripcion(
@@ -65,6 +65,24 @@ const schemaCrear = z.object({
     (v) => /^\d+(\.\d{1,2})?$/.test(v) && Number(v) >= 0,
     "Monto debe ser un número positivo (ej. 1500000.50)"
   ),
+  montoMultaCop: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v))
+    .refine(
+      (v) => v === undefined || (/^\d+(\.\d{1,2})?$/.test(v) && Number(v) >= 0),
+      "Multa debe ser un número positivo"
+    ),
+  montoInteresesCop: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v))
+    .refine(
+      (v) => v === undefined || (/^\d+(\.\d{1,2})?$/.test(v) && Number(v) >= 0),
+      "Intereses debe ser un número positivo"
+    ),
   estadoActual: z.enum(estadoProcesoValues).default("pendiente"),
   asignadoAId: z
     .string()
@@ -101,6 +119,8 @@ export async function crearProceso(
     periodo: formData.get("periodo") || undefined,
     noComparendo: formData.get("noComparendo") || undefined,
     montoCop: formData.get("montoCop"),
+    montoMultaCop: formData.get("montoMultaCop") || undefined,
+    montoInteresesCop: formData.get("montoInteresesCop") || undefined,
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
@@ -123,6 +143,8 @@ export async function crearProceso(
     periodo,
     noComparendo,
     montoCop,
+    montoMultaCop,
+    montoInteresesCop,
     estadoActual: estadoForm,
     asignadoAId,
     fechaLimite,
@@ -146,6 +168,8 @@ export async function crearProceso(
         periodo: periodo?.trim() || null,
         noComparendo: noComparendo?.trim() || null,
         montoCop,
+        montoMultaCop: montoMultaCop ?? null,
+        montoInteresesCop: montoInteresesCop ?? null,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
         fechaLimite: fechaLimiteCalculada,
@@ -198,6 +222,8 @@ export async function actualizarProceso(
     periodo: formData.get("periodo") || undefined,
     noComparendo: formData.get("noComparendo") || undefined,
     montoCop: formData.get("montoCop"),
+    montoMultaCop: formData.get("montoMultaCop") || undefined,
+    montoInteresesCop: formData.get("montoInteresesCop") || undefined,
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
@@ -220,6 +246,8 @@ export async function actualizarProceso(
     periodo,
     noComparendo,
     montoCop,
+    montoMultaCop,
+    montoInteresesCop,
     estadoActual,
     asignadoAId,
     fechaLimite,
@@ -256,6 +284,8 @@ export async function actualizarProceso(
         periodo: periodo?.trim() || null,
         noComparendo: noComparendo?.trim() || null,
         montoCop,
+        montoMultaCop: montoMultaCop ?? null,
+        montoInteresesCop: montoInteresesCop ?? null,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
         fechaLimite: fechaLimiteFinal,
