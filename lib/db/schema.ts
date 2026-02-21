@@ -196,6 +196,8 @@ export const procesos = pgTable("procesos", {
     .references(() => contribuyentes.id, { onDelete: "restrict", onUpdate: "cascade" }),
   vigencia: integer("vigencia").notNull(),
   periodo: text("periodo"),
+  /** Número de comparendo (opcional). */
+  noComparendo: text("no_comparendo"),
   montoCop: numeric("monto_cop", { precision: 15, scale: 2 }).notNull(),
   estadoActual: estadoProcesoEnum("estado_actual").notNull().default("pendiente"),
   asignadoAId: integer("asignado_a_id").references(() => usuarios.id, {

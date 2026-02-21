@@ -152,6 +152,19 @@ export function ProcesoForm({
             </div>
           </div>
           <div className="grid gap-2">
+            <Label htmlFor="noComparendo">No. comparendo (opcional)</Label>
+            <Input
+              id="noComparendo"
+              name="noComparendo"
+              defaultValue={initialData?.noComparendo ?? ""}
+              placeholder="Ej. 123456789"
+              aria-invalid={!!state?.errores?.noComparendo}
+            />
+            {state?.errores?.noComparendo && (
+              <p className="text-destructive text-xs">{state.errores.noComparendo[0]}</p>
+            )}
+          </div>
+          <div className="grid gap-2">
             <Label htmlFor="montoCop">Monto (COP)</Label>
             <Input
               id="montoCop"

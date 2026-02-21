@@ -33,11 +33,14 @@ const OPCIONES_VIGENCIA = Array.from(
 
 type ImpuestoOption = { id: number; nombre: string };
 
+type UsuarioOption = { id: number; nombre: string };
+
 type FiltrosProcesosProps = {
   estadoActual: string | null;
   vigenciaActual: number | null;
   contribuyenteActual: string;
-  asignadoActual: string;
+  usuarios: UsuarioOption[];
+  asignadoIdActual: number | null;
   fechaAsignacionActual: string | null;
   impuestos: ImpuestoOption[];
   impuestoIdActual: number | null;
@@ -47,7 +50,8 @@ export function FiltrosProcesos({
   estadoActual,
   vigenciaActual,
   contribuyenteActual,
-  asignadoActual,
+  usuarios: usuariosList,
+  asignadoIdActual,
   fechaAsignacionActual,
   impuestos: impuestosList,
   impuestoIdActual,
@@ -55,22 +59,17 @@ export function FiltrosProcesos({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [contribuyente, setContribuyente] = useState(contribuyenteActual);
-  const [asignado, setAsignado] = useState(asignadoActual);
 
   useEffect(() => {
     setContribuyente(contribuyenteActual);
   }, [contribuyenteActual]);
-
-  useEffect(() => {
-    setAsignado(asignadoActual);
-  }, [asignadoActual]);
 
   const buildParams = useCallback(
     (updates: {
       estado?: string | null;
       vigencia?: string | number | null;
       contribuyente?: string;
-      asignado?: string;
+      asignadoId?: number | null;
       fechaAsignacion?: string | null;
       impuestoId?: number | null;
     }) => {
@@ -83,8 +82,10 @@ export function FiltrosProcesos({
         updates.contribuyente !== undefined
           ? updates.contribuyente
           : contribuyente;
-      const asig =
-        updates.asignado !== undefined ? updates.asignado : asignado;
+      const asigId =
+        updates.asignadoId !== undefined
+          ? updates.asignadoId
+          : asignadoIdActual;
       const fechaAsig =
         updates.fechaAsignacion !== undefined
           ? updates.fechaAsignacion
@@ -103,7 +104,7 @@ export function FiltrosProcesos({
       if (estado != null && estado !== "todos") params.set("estado", estado);
       if (vigencia != null) params.set("vigencia", String(vigencia));
       if (contrib.trim()) params.set("contribuyente", contrib.trim());
-      if (asig.trim()) params.set("asignado", asig.trim());
+      if (asigId != null && asigId > 0) params.set("asignado", String(asigId));
       if (fechaAsig != null && fechaAsig !== "")
         params.set("fechaAsignacion", fechaAsig);
       if (impId != null && impId > 0)
@@ -115,8 +116,8 @@ export function FiltrosProcesos({
       estadoActual,
       vigenciaActual,
       contribuyente,
-      asignado,
       fechaAsignacionActual,
+      asignadoIdActual,
       impuestoIdActual,
     ]
   );
@@ -151,6 +152,16 @@ export function FiltrosProcesos({
     [router, buildParams]
   );
 
+  const handleAsignadoChange = useCallback(
+    (value: string) => {
+      const params = buildParams({
+        asignadoId: value === "todos" ? null : parseInt(value, 10),
+      });
+      router.push(`/procesos?${params.toString()}`);
+    },
+    [router, buildParams]
+  );
+
   const handleFechaAsignacionChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value || null;
@@ -165,11 +176,10 @@ export function FiltrosProcesos({
       e.preventDefault();
       const params = buildParams({
         contribuyente: contribuyente.trim(),
-        asignado: asignado.trim(),
       });
       router.push(`/procesos?${params.toString()}`);
     },
-    [router, buildParams, contribuyente, asignado]
+    [router, buildParams, contribuyente]
   );
 
   const handleLimpiar = useCallback(() => {
@@ -180,7 +190,7 @@ export function FiltrosProcesos({
     estadoActual != null ||
     vigenciaActual != null ||
     contribuyenteActual.length > 0 ||
-    asignadoActual.length > 0 ||
+    asignadoIdActual != null ||
     fechaAsignacionActual != null ||
     impuestoIdActual != null;
 
@@ -217,15 +227,22 @@ export function FiltrosProcesos({
         >
           Persona asignada
         </Label>
-        <Input
-          id="filtro-asignado"
-          type="search"
-          placeholder="Nombre o email..."
-          value={asignado}
-          onChange={(e) => setAsignado(e.target.value)}
-          className={fieldClass}
-          aria-label="Buscar por nombre o email de la persona asignada"
-        />
+        <Select
+          value={asignadoIdActual != null ? String(asignadoIdActual) : "todos"}
+          onValueChange={handleAsignadoChange}
+        >
+          <SelectTrigger id="filtro-asignado" className={fieldClass}>
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            {usuariosList.map((u) => (
+              <SelectItem key={u.id} value={String(u.id)}>
+                {u.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label

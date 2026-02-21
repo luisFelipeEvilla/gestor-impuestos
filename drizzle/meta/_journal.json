@@ -225,6 +225,13 @@
       "when": 1771608771044,
       "tag": "0031_dapper_sage",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1771676207777,
+      "tag": "0032_milky_ironclad",
+      "breakpoints": true
     }
   ]
 }

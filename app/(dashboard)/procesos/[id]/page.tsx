@@ -109,6 +109,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
       id: procesos.id,
       vigencia: procesos.vigencia,
       periodo: procesos.periodo,
+      noComparendo: procesos.noComparendo,
       montoCop: procesos.montoCop,
       estadoActual: procesos.estadoActual,
       asignadoAId: procesos.asignadoAId,
@@ -275,6 +276,12 @@ export default async function DetalleProcesoPage({ params }: Props) {
                     {row.periodo ? ` · ${row.periodo}` : ""}
                   </dd>
                 </div>
+                {row.noComparendo != null && row.noComparendo !== "" && (
+                  <div>
+                    <dt className="text-muted-foreground">No. comparendo</dt>
+                    <dd className="font-medium">{row.noComparendo}</dd>
+                  </div>
+                )}
                 <div>
                   <dt className="text-muted-foreground">Monto (COP)</dt>
                   <dd className="font-medium">{Number(row.montoCop).toLocaleString("es-CO")}</dd>
@@ -453,6 +460,8 @@ export default async function DetalleProcesoPage({ params }: Props) {
             <ListaNotas notas={notasPorCategoria.general} />
           </CardContent>
         </Card>
+
+        <CardOrdenResolucion procesoId={row.id} orden={ordenResolucion} />
       </div>
 
       <div className="space-y-6">
@@ -480,8 +489,6 @@ export default async function DetalleProcesoPage({ params }: Props) {
           documentos={documentosPorCategoria.en_contacto}
           notas={notasPorCategoria.en_contacto}
         />
-
-        <CardOrdenResolucion procesoId={row.id} orden={ordenResolucion} />
 
         <CardAcuerdosPagoList
           procesoId={row.id}

@@ -10,7 +10,7 @@ import {
   historialProceso,
   ordenesResolucion,
 } from "@/lib/db/schema";
-import { desc, eq, and, or, ilike, inArray, sql, count } from "drizzle-orm";
+import { asc, desc, eq, and, or, ilike, inArray, sql, count } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import {
   Card,
@@ -52,7 +52,7 @@ function buildProcesosUrl(filtros: {
   estado?: string | null;
   vigencia?: number | null;
   contribuyente?: string;
-  asignado?: string;
+  asignadoId?: number | null;
   fechaAsignacion?: string | null;
   impuestoId?: number | null;
   page?: number;
@@ -61,7 +61,7 @@ function buildProcesosUrl(filtros: {
   if (filtros.estado) search.set("estado", filtros.estado);
   if (filtros.vigencia != null) search.set("vigencia", String(filtros.vigencia));
   if (filtros.contribuyente?.trim()) search.set("contribuyente", filtros.contribuyente.trim());
-  if (filtros.asignado?.trim()) search.set("asignado", filtros.asignado.trim());
+  if (filtros.asignadoId != null && filtros.asignadoId > 0) search.set("asignado", String(filtros.asignadoId));
   if (filtros.fechaAsignacion) search.set("fechaAsignacion", filtros.fechaAsignacion);
   if (filtros.impuestoId != null && filtros.impuestoId > 0) search.set("impuesto", String(filtros.impuestoId));
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
@@ -88,7 +88,11 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const estadoParam = params.estado;
   const vigenciaParam = params.vigencia;
   const contribuyenteQ = (params.contribuyente ?? "").trim();
-  const asignadoQ = (params.asignado ?? "").trim();
+  const asignadoParam = params.asignado;
+  const asignadoIdNum =
+    asignadoParam != null && /^\d+$/.test(asignadoParam)
+      ? parseInt(asignadoParam, 10)
+      : null;
   const fechaAsignacionParam = params.fechaAsignacion;
   const impuestoParam = params.impuesto;
   const pageParam = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
@@ -136,6 +140,12 @@ export default async function ProcesosPage({ searchParams }: Props) {
       ? await impuestosQuery.where(eq(procesos.asignadoAId, session.user.id)).orderBy(impuestos.nombre)
       : await impuestosQuery.orderBy(impuestos.nombre);
 
+  const usuariosList = await db
+    .select({ id: usuarios.id, nombre: usuarios.nombre })
+    .from(usuarios)
+    .where(eq(usuarios.activo, true))
+    .orderBy(usuarios.nombre);
+
   const condiciones = [];
   if (estadoActual != null) condiciones.push(eq(procesos.estadoActual, estadoActual));
   if (vigenciaNum != null) condiciones.push(eq(procesos.vigencia, vigenciaNum));
@@ -148,13 +158,8 @@ export default async function ProcesosPage({ searchParams }: Props) {
       )
     );
   }
-  if (asignadoQ.length > 0) {
-    condiciones.push(
-      or(
-        ilike(usuarios.nombre, `%${asignadoQ}%`),
-        ilike(usuarios.email, `%${asignadoQ}%`)
-      )
-    );
+  if (asignadoIdNum != null) {
+    condiciones.push(eq(procesos.asignadoAId, asignadoIdNum));
   }
   if (idsConFechaAsignacion != null) {
     condiciones.push(inArray(procesos.id, idsConFechaAsignacion));
@@ -177,6 +182,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
       id: procesos.id,
       vigencia: procesos.vigencia,
       periodo: procesos.periodo,
+      noComparendo: procesos.noComparendo,
       montoCop: procesos.montoCop,
       estadoActual: procesos.estadoActual,
       numeroResolucion: ordenesResolucion.numeroResolucion,
@@ -202,7 +208,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const [countResult, lista] = await Promise.all([
     whereCond ? countQuery.where(whereCond) : countQuery,
     (whereCond ? baseQuery.where(whereCond) : baseQuery)
-      .orderBy(desc(procesos.creadoEn))
+      .orderBy(asc(procesos.fechaLimite), desc(procesos.creadoEn))
       .limit(pageSize)
       .offset(offset),
   ]);
@@ -226,7 +232,8 @@ export default async function ProcesosPage({ searchParams }: Props) {
               estadoActual={estadoActual}
               vigenciaActual={vigenciaNum}
               contribuyenteActual={contribuyenteQ}
-              asignadoActual={asignadoQ}
+              usuarios={usuariosList}
+              asignadoIdActual={asignadoIdNum}
               fechaAsignacionActual={fechaAsignacion}
               impuestos={impuestosConProcesos}
               impuestoIdActual={impuestoIdNum}
@@ -247,7 +254,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
             {(estadoActual != null ||
               vigenciaNum != null ||
               contribuyenteQ.length > 0 ||
-              asignadoQ.length > 0 ||
+              asignadoIdNum != null ||
               fechaAsignacion != null ||
               impuestoIdNum != null) && " · Filtros aplicados"}
           </CardDescription>
@@ -264,10 +271,10 @@ export default async function ProcesosPage({ searchParams }: Props) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
                     <TableHead>Impuesto</TableHead>
-                    <TableHead>Contribuyente</TableHead>
+                    <TableHead className="max-w-[200px] w-[200px]">Contribuyente</TableHead>
                     <TableHead>Vigencia</TableHead>
+                    <TableHead>No. comparendo</TableHead>
                     <TableHead>Nº resolución</TableHead>
                     <TableHead>Monto (COP)</TableHead>
                     <TableHead>Estado</TableHead>
@@ -279,17 +286,22 @@ export default async function ProcesosPage({ searchParams }: Props) {
                 <TableBody>
                   {lista.map((p) => (
                     <TableRow key={p.id}>
-                      <TableCell>{p.id}</TableCell>
                       <TableCell className="font-medium">
                         {p.impuestoNombre}
                       </TableCell>
-                      <TableCell>
-                        {p.contribuyenteNombre}
-                        <span className="text-muted-foreground ml-1 text-xs">
-                          ({p.contribuyenteNit})
+                      <TableCell className="max-w-[200px] w-[200px]">
+                        <span
+                          className="block truncate"
+                          title={`${p.contribuyenteNombre} (${p.contribuyenteNit})`}
+                        >
+                          {p.contribuyenteNombre}
+                          <span className="text-muted-foreground ml-1 text-xs">({p.contribuyenteNit})</span>
                         </span>
                       </TableCell>
                       <TableCell>{p.vigencia}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">
+                        {p.noComparendo ?? "—"}
+                      </TableCell>
                       <TableCell className="text-muted-foreground text-sm">
                         {p.numeroResolucion ?? "—"}
                       </TableCell>
@@ -338,7 +350,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             contribuyente: contribuyenteQ || undefined,
-                            asignado: asignadoQ || undefined,
+                            asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
                             impuestoId: impuestoIdNum ?? undefined,
                             page: page - 1,
@@ -364,7 +376,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             contribuyente: contribuyenteQ || undefined,
-                            asignado: asignadoQ || undefined,
+                            asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
                             impuestoId: impuestoIdNum ?? undefined,
                             page: page + 1,
