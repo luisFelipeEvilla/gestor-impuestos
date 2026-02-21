@@ -8,6 +8,9 @@ import {
   usuarios,
   historialProceso,
   documentosProceso,
+  ordenesResolucion,
+  acuerdosPago,
+  cobrosCoactivos,
 } from "@/lib/db/schema";
 import { eq, desc, asc } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
@@ -25,7 +28,6 @@ import {
   AsignarProcesoForm,
   BotonesNotificacion,
   CardEnContacto,
-  CardAcuerdoDePago,
   CardCobroCoactivo,
   ListaNotas,
 } from "@/components/procesos/acciones-gestion";
@@ -33,9 +35,13 @@ import {
   ListaDocumentos,
   SubirDocumentoForm,
 } from "@/components/procesos/documentos-proceso";
+import { CardOrdenResolucion } from "@/components/procesos/card-orden-resolucion";
+import { CardAcuerdosPagoList } from "@/components/procesos/card-acuerdos-pago-list";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { DetalleConHistorial } from "./detalle-con-historial";
 import { unstable_noStore } from "next/cache";
+import { labelEstado } from "@/lib/estados-proceso";
+import type { EvidenciaEnvioEmail } from "@/lib/notificaciones/resend";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -61,7 +67,7 @@ function formatDateTime(value: Date | string | null | undefined): string {
 
 const LABEL_CATEGORIA: Record<string, string> = {
   general: "General",
-  en_contacto: "En contacto",
+  en_contacto: "Cobro persuasivo",
   acuerdo_pago: "Acuerdo de pago",
   cobro_coactivo: "Cobro coactivo",
 };
@@ -101,16 +107,15 @@ export default async function DetalleProcesoPage({ params }: Props) {
   const [row] = await db
     .select({
       id: procesos.id,
+      contribuyenteId: procesos.contribuyenteId,
       vigencia: procesos.vigencia,
       periodo: procesos.periodo,
+      noComparendo: procesos.noComparendo,
       montoCop: procesos.montoCop,
       estadoActual: procesos.estadoActual,
       asignadoAId: procesos.asignadoAId,
       fechaLimite: procesos.fechaLimite,
-      numeroResolucion: procesos.numeroResolucion,
-      fechaResolucion: procesos.fechaResolucion,
       fechaAplicacionImpuesto: procesos.fechaAplicacionImpuesto,
-      fechaInicioCobroCoactivo: procesos.fechaInicioCobroCoactivo,
       creadoEn: procesos.creadoEn,
       impuestoNombre: impuestos.nombre,
       contribuyenteNit: contribuyentes.nit,
@@ -132,7 +137,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
     }
   }
 
-  const [historialRows, usuariosList, documentosRows] = await Promise.all([
+  const [historialRows, usuariosList, documentosRows, ordenResolucion, acuerdosPagoList, cobroCoactivo] = await Promise.all([
     db
       .select({
         id: historialProceso.id,
@@ -164,12 +169,19 @@ export default async function DetalleProcesoPage({ params }: Props) {
       .from(documentosProceso)
       .where(eq(documentosProceso.procesoId, id))
       .orderBy(desc(documentosProceso.creadoEn)),
+    db.select().from(ordenesResolucion).where(eq(ordenesResolucion.procesoId, id)).then((r) => r[0] ?? null),
+    db.select().from(acuerdosPago).where(eq(acuerdosPago.procesoId, id)).orderBy(desc(acuerdosPago.creadoEn)),
+    db.select().from(cobrosCoactivos).where(eq(cobrosCoactivos.procesoId, id)).then((r) => r[0] ?? null),
   ]);
 
   const notificacionEvent = historialRows.find((h) => h.tipoEvento === "notificacion");
   const yaNotificado = !!notificacionEvent;
   const fechaNotificacion = notificacionEvent?.fecha ?? null;
-  const notificacionMetadata = (notificacionEvent?.metadata as { tipo?: string; documentoIds?: number[] } | null) ?? null;
+  const notificacionMetadata = (notificacionEvent?.metadata as {
+    tipo?: string;
+    documentoIds?: number[];
+    envios?: EvidenciaEnvioEmail[];
+  } | null) ?? null;
   const notifDocIds = notificacionMetadata && notificacionMetadata.tipo === "fisica" && Array.isArray(notificacionMetadata.documentoIds)
     ? notificacionMetadata.documentoIds
     : [];
@@ -235,13 +247,19 @@ export default async function DetalleProcesoPage({ params }: Props) {
           <Card className="w-full">
             <CardHeader>
               <CardTitle>
-                Proceso #{row.id} · {row.impuestoNombre} – {row.contribuyenteNombre}
+                Proceso #{row.id} · {row.impuestoNombre} –{" "}
+                <Link
+                  href={`/contribuyentes/${row.contribuyenteId}`}
+                  className="text-primary hover:underline"
+                >
+                  {row.contribuyenteNombre}
+                </Link>
               </CardTitle>
               <CardDescription>
                 Vigencia {row.vigencia}
                 {row.periodo ? ` · Período ${row.periodo}` : ""}
                 {" · "}
-                Estado: <span className="capitalize">{row.estadoActual?.replace(/_/g, " ")}</span>
+                Estado: <span>{labelEstado(row.estadoActual)}</span>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -255,7 +273,12 @@ export default async function DetalleProcesoPage({ params }: Props) {
                 <div>
                   <dt className="text-muted-foreground">Contribuyente</dt>
                   <dd className="font-medium">
-                    {row.contribuyenteNit} – {row.contribuyenteNombre}
+                    <Link
+                      href={`/contribuyentes/${row.contribuyenteId}`}
+                      className="text-primary hover:underline"
+                    >
+                      {row.contribuyenteNit} – {row.contribuyenteNombre}
+                    </Link>
                   </dd>
                 </div>
                 <div>
@@ -265,13 +288,19 @@ export default async function DetalleProcesoPage({ params }: Props) {
                     {row.periodo ? ` · ${row.periodo}` : ""}
                   </dd>
                 </div>
+                {row.noComparendo != null && row.noComparendo !== "" && (
+                  <div>
+                    <dt className="text-muted-foreground">No. comparendo</dt>
+                    <dd className="font-medium">{row.noComparendo}</dd>
+                  </div>
+                )}
                 <div>
                   <dt className="text-muted-foreground">Monto (COP)</dt>
                   <dd className="font-medium">{Number(row.montoCop).toLocaleString("es-CO")}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Estado</dt>
-                  <dd className="capitalize">{row.estadoActual?.replace(/_/g, " ")}</dd>
+                  <dd>{labelEstado(row.estadoActual)}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Asignado a</dt>
@@ -287,23 +316,9 @@ export default async function DetalleProcesoPage({ params }: Props) {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Nº de resolución</dt>
-                  <dd>{row.numeroResolucion ?? "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Fecha de resolución</dt>
-                  <dd>{formatDate(row.fechaResolucion)}</dd>
-                </div>
-                <div>
                   <dt className="text-muted-foreground">Fecha creación/aplicación del impuesto</dt>
                   <dd>{formatDate(row.fechaAplicacionImpuesto)}</dd>
                 </div>
-                {row.fechaInicioCobroCoactivo != null && (
-                  <div>
-                    <dt className="text-muted-foreground">Fecha inicio cobro coactivo</dt>
-                    <dd>{formatDate(row.fechaInicioCobroCoactivo)}</dd>
-                  </div>
-                )}
                 <div>
                   <dt className="text-muted-foreground">Creado en el sistema</dt>
                   <dd>{formatDate(row.creadoEn)}</dd>
@@ -364,11 +379,11 @@ export default async function DetalleProcesoPage({ params }: Props) {
                         {(h.estadoAnterior != null || h.estadoNuevo != null) && (
                           <p className="text-muted-foreground text-xs">
                             {h.estadoAnterior != null && (
-                              <span>De: {h.estadoAnterior.replace(/_/g, " ")}</span>
+                              <span>De: {labelEstado(h.estadoAnterior)}</span>
                             )}
                             {h.estadoAnterior != null && h.estadoNuevo != null && " → "}
                             {h.estadoNuevo != null && (
-                              <span>A: {h.estadoNuevo.replace(/_/g, " ")}</span>
+                              <span>A: {labelEstado(h.estadoNuevo)}</span>
                             )}
                           </p>
                         )}
@@ -457,6 +472,8 @@ export default async function DetalleProcesoPage({ params }: Props) {
             <ListaNotas notas={notasPorCategoria.general} />
           </CardContent>
         </Card>
+
+        <CardOrdenResolucion procesoId={row.id} orden={ordenResolucion} />
       </div>
 
       <div className="space-y-6">
@@ -484,25 +501,21 @@ export default async function DetalleProcesoPage({ params }: Props) {
           documentos={documentosPorCategoria.en_contacto}
           notas={notasPorCategoria.en_contacto}
         />
-        {(row.estadoActual === "en_negociacion" ||
-          documentosPorCategoria.acuerdo_pago.length > 0 ||
-          notasPorCategoria.acuerdo_pago.length > 0) && (
-          <CardAcuerdoDePago
-            procesoId={row.id}
-            estadoActual={row.estadoActual ?? ""}
-            documentos={documentosPorCategoria.acuerdo_pago}
-            notas={notasPorCategoria.acuerdo_pago}
-          />
-        )}
-        {(row.estadoActual === "en_cobro_coactivo" ||
-          row.fechaInicioCobroCoactivo != null) && (
-          <CardCobroCoactivo
-            procesoId={row.id}
-            estadoActual={row.estadoActual ?? ""}
-            documentos={documentosPorCategoria.cobro_coactivo}
-            notas={notasPorCategoria.cobro_coactivo}
-          />
-        )}
+
+        <CardAcuerdosPagoList
+          procesoId={row.id}
+          acuerdos={acuerdosPagoList}
+          estadoActual={row.estadoActual ?? ""}
+          documentos={documentosPorCategoria.acuerdo_pago}
+          notas={notasPorCategoria.acuerdo_pago}
+        />
+        <CardCobroCoactivo
+          procesoId={row.id}
+          estadoActual={row.estadoActual ?? ""}
+          documentos={documentosPorCategoria.cobro_coactivo}
+          notas={notasPorCategoria.cobro_coactivo}
+          cobroCoactivo={cobroCoactivo}
+        />
       </div>
     </div>
   );

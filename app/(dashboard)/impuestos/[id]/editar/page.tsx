@@ -15,11 +15,11 @@ type Props = { params: Promise<{ id: string }> };
 
 export default async function EditarImpuestoPage({ params }: Props) {
   unstable_noStore();
-  const { id: idStr } = await params;
-  const id = parseInt(idStr, 10);
-  if (Number.isNaN(id)) notFound();
+  const { id } = await params;
+  const idTrim = id?.trim();
+  if (!idTrim || idTrim.length < 30) notFound();
 
-  const [impuesto] = await db.select().from(impuestos).where(eq(impuestos.id, id));
+  const [impuesto] = await db.select().from(impuestos).where(eq(impuestos.id, idTrim));
   if (!impuesto) notFound();
 
   const clientesList = await db

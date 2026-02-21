@@ -2,33 +2,48 @@
  * Script para cargar el reporte de cartera de tránsito (CSV) al sistema.
  * Crea contribuyentes únicos por documento y procesos asociados al impuesto Tránsito.
  *
- * Uso: pnpm run import:cartera
- * Requiere: DATABASE_URL en .env y archivo ReporteCarteraActual-Table 1.csv en la raíz del proyecto.
+ * Uso: pnpm run import:cartera [ruta-opcional.csv]
+ * Ruta por defecto: ReporteCarteraActual.csv (o CARTERA_CSV_PATH en .env).
+ * Requiere: DATABASE_URL en .env.
  */
 import "dotenv/config";
 import { readFileSync } from "fs";
 import { resolve } from "path";
+import type { TipoDocumento } from "../lib/constants/tipo-documento";
 import { db } from "../lib/db";
 import {
   contribuyentes,
   impuestos,
   procesos,
   historialProceso,
+  ordenesResolucion,
+  cobrosCoactivos,
 } from "../lib/db/schema";
 import { eq } from "drizzle-orm";
 
-const CSV_PATH = resolve(
-  process.cwd(),
-  "ReporteCarteraActual-Table 1.csv"
-);
+const CSV_PATH =
+  process.env.CARTERA_CSV_PATH ||
+  (process.argv[2] ? resolve(process.cwd(), process.argv[2]) : resolve(process.cwd(), "ReporteCarteraActual.csv"));
 
 const IMPUESTO_NOMBRE_TRANSITO = "Comparendos de tránsito";
 
-type TipoDocumentoCsv = "Cedula" | "Tarjeta Identidad";
-const TIPO_DOC_MAP: Record<TipoDocumentoCsv, "cedula" | "nit"> = {
-  Cedula: "cedula",
-  "Tarjeta Identidad": "cedula",
-};
+/** Normaliza texto del CSV para comparación (quitar tildes, minúsculas). */
+function normalizarTipoDocCsv(val: string): string {
+  return val
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+/** Mapea valor "Tipo Documento" del CSV al enum de BD. Desconocidos → cedula. */
+function mapTipoDocumentoCsv(raw: string): TipoDocumento {
+  const n = normalizarTipoDocCsv(raw);
+  if (n === "cedula venezolana") return "cedula_venezolana";
+  if (n === "tarjeta identidad" || n === "tarjeta de identidad") return "tarjeta_identidad";
+  if (n === "cedula" || n === "cedula ciudadania" || n.includes("cedula")) return "cedula";
+  return "cedula";
+}
 
 /** Parsea fecha d/m/yyyy o d/m/yy a YYYY-MM-DD */
 function parseFechaCsv(value: string): string | null {
@@ -71,7 +86,7 @@ interface FilaCsv {
   fechaComparendo: string | null;
   nroResolucion: string;
   fechaResolucion: string | null;
-  tipoDocumento: "cedula" | "nit";
+  tipoDocumento: TipoDocumento;
   identificacion: string;
   nombreInfractor: string;
   codigoInfraccion: string;
@@ -90,6 +105,37 @@ function limpia(val: string): string {
   return val.replace(/^'/, "").trim();
 }
 
+/** Deriva estado del proceso desde "Estado Cartera" del CSV. */
+function estadoActualDesdeCartera(estadoCartera: string): "pendiente" | "en_cobro_coactivo" {
+  const n = estadoCartera
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+  if (n.includes("cobro") && n.includes("coactivo")) return "en_cobro_coactivo";
+  return "pendiente";
+}
+
+/** Deriva tipo_resolucion desde "Tipo Resolución" del CSV. */
+function tipoResolucionDesdeCsv(tipoResolucion: string): "sancion" | "resumen_ap" | null {
+  const n = tipoResolucion
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+  if (n.includes("resumen")) return "resumen_ap";
+  if (n.includes("sancion")) return "sancion";
+  return null;
+}
+
+/** Quita tildes/acentos para normalizar cabeceras (Nro Resolución → Nro Resolucion) */
+function normalizarHeader(header: string): string {
+  return header
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim();
+}
+
 /** Parsea una línea del CSV (separador ;, fila puede estar entre comillas simples) */
 function parseLine(line: string): string[] {
   const raw = line.trim().replace(/^'|';?\s*$/g, "");
@@ -99,7 +145,8 @@ function parseLine(line: string): string[] {
 function parseCsv(content: string): FilaCsv[] {
   const lines = content.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
-  const header = parseLine(lines[0]!);
+  const headerRaw = parseLine(lines[0]!);
+  const header = headerRaw.map((cell) => normalizarHeader(cell));
   const rows: FilaCsv[] = [];
   const idx = {
     nroComparendo: header.indexOf("Nro Comparendo"),
@@ -125,9 +172,7 @@ function parseCsv(content: string): FilaCsv[] {
       const i = idx[key];
       return i >= 0 && cells[i] !== undefined ? cells[i]! : "";
     };
-    const tipoDocRaw = get("tipoDocumento");
-    const tipoDocumento =
-      TIPO_DOC_MAP[tipoDocRaw as TipoDocumentoCsv] ?? "cedula";
+    const tipoDocumento = mapTipoDocumentoCsv(get("tipoDocumento"));
     rows.push({
       nroComparendo: get("nroComparendo"),
       fechaComparendo: parseFechaCsv(get("fechaComparendo")) ?? null,
@@ -150,7 +195,7 @@ function parseCsv(content: string): FilaCsv[] {
   return rows;
 }
 
-async function getOrCreateImpuestoTransito(): Promise<number> {
+async function getOrCreateImpuestoTransito(): Promise<string> {
   const [existente] = await db
     .select({ id: impuestos.id })
     .from(impuestos)
@@ -160,7 +205,7 @@ async function getOrCreateImpuestoTransito(): Promise<number> {
     .insert(impuestos)
     .values({
       nombre: IMPUESTO_NOMBRE_TRANSITO,
-      tipo: "municipal",
+      naturaleza: "no_tributario",
       descripcion: "Comparendos y sanciones de tránsito",
       activo: true,
     })
@@ -170,7 +215,7 @@ async function getOrCreateImpuestoTransito(): Promise<number> {
 }
 
 /** Clave única del contribuyente para deduplicar */
-function contribuyenteKey(tipoDoc: "cedula" | "nit", nit: string): string {
+function contribuyenteKey(tipoDoc: TipoDocumento, nit: string): string {
   return `${tipoDoc}:${nit}`;
 }
 
@@ -196,7 +241,7 @@ async function main(): Promise<void> {
   console.log(`📌 Impuesto Tránsito (id=${impuestoId})`);
   const contribuyentesByKey = new Map<
     string,
-    { id: number; tipoDocumento: "cedula" | "nit"; nit: string; nombre: string }
+    { id: number; tipoDocumento: TipoDocumento; nit: string; nombre: string }
   >();
   const contribuyentesExistentes = await db
     .select({
@@ -279,6 +324,8 @@ async function main(): Promise<void> {
       procesosOmitidos++;
       continue;
     }
+    const estadoActual = estadoActualDesdeCartera(fila.estadoCartera);
+    const noComparendo = fila.nroComparendo?.trim() ? limpia(fila.nroComparendo) : null;
     try {
       const [inserted] = await db
         .insert(procesos)
@@ -287,14 +334,12 @@ async function main(): Promise<void> {
           contribuyenteId: contribId,
           vigencia,
           periodo: null,
+          noComparendo,
           montoCop,
-          estadoActual: "pendiente",
+          estadoActual,
           asignadoAId: null,
           fechaLimite,
-          numeroResolucion,
-          fechaResolucion: fila.fechaResolucion,
           fechaAplicacionImpuesto: fechaAplicacion,
-          fechaInicioCobroCoactivo: fila.polca === "S" ? fila.fechaCoactivo : null,
         })
         .returning({ id: procesos.id });
       if (inserted) {
@@ -302,9 +347,25 @@ async function main(): Promise<void> {
           procesoId: inserted.id,
           tipoEvento: "cambio_estado",
           estadoAnterior: null,
-          estadoNuevo: "pendiente",
+          estadoNuevo: estadoActual,
           comentario: "Proceso creado desde importación cartera tránsito",
         });
+        if (numeroResolucion) {
+          await db.insert(ordenesResolucion).values({
+            procesoId: inserted.id,
+            numeroResolucion,
+            fechaResolucion: fila.fechaResolucion ?? null,
+            codigoInfraccion: fila.codigoInfraccion?.trim() || null,
+            tipoResolucion: tipoResolucionDesdeCsv(fila.tipoResolucion),
+          });
+        }
+        if (fila.polca === "S" && fila.fechaCoactivo) {
+          await db.insert(cobrosCoactivos).values({
+            procesoId: inserted.id,
+            noCoactivo: fila.nroCoactivo?.trim() ? limpia(fila.nroCoactivo) : null,
+            fechaInicio: fila.fechaCoactivo,
+          });
+        }
         procesosCreados++;
         if (idempotenciaKey) numeroResolucionUsados.add(idempotenciaKey);
       }

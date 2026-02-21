@@ -9,6 +9,7 @@ import {
   Font,
 } from "@react-pdf/renderer";
 import type { ActaDetalle } from "@/lib/actions/actas-types";
+import { getTipoDocumentoLabel } from "@/lib/constants/tipo-documento";
 import { stripHtml } from "./strip-html";
 
 Font.registerHyphenationCallback((word: string) => [word]);
@@ -549,6 +550,7 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
             <View style={styles.footerRow}>
               <View>
                 <Text>{empresa.nombre}</Text>
+                <Text>{getTipoDocumentoLabel(empresa.tipoDocumento)}: {empresa.numeroDocumento}</Text>
                 {empresa.direccion ? <Text>{empresa.direccion}</Text> : null}
               </View>
               <View style={{ alignItems: "flex-end" }}>

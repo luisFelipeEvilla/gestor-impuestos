@@ -1,6 +1,16 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { FolderOpen, ChevronRight, ChevronLeft } from "lucide-react";
+import {
+  FolderOpen,
+  ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
+  ClipboardList,
+  Wallet,
+  CheckCircle,
+  Loader2,
+} from "lucide-react";
 import { db } from "@/lib/db";
 import {
   procesos,
@@ -8,8 +18,9 @@ import {
   contribuyentes,
   usuarios,
   historialProceso,
+  ordenesResolucion,
 } from "@/lib/db/schema";
-import { desc, eq, and, or, ilike, inArray, sql, count } from "drizzle-orm";
+import { asc, desc, eq, and, or, ilike, inArray, sql, count, notInArray } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import {
   Card,
@@ -19,18 +30,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
-import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
+import { TablaProcesosConAsignacion } from "@/components/procesos/tabla-procesos-con-asignacion";
 import { FiltrosProcesos } from "./filtros-procesos";
+import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafico-estados";
+import { GraficoProcesosPorVigencia } from "@/components/procesos/grafico-procesos-por-vigencia";
 import { unstable_noStore } from "next/cache";
+
+function formatMonto(value: string | number): string {
+  const n = typeof value === "string" ? Number(value) : value;
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -40,14 +55,9 @@ const ESTADOS_VALIDOS = [
   "asignado",
   "notificado",
   "en_contacto",
-  "en_negociacion",
-  "cobrado",
-  "incobrable",
   "en_cobro_coactivo",
-  "suspendido",
+  "cobrado",
 ] as const;
-
-const TIPOS_IMPUESTO = ["nacional", "municipal"] as const;
 
 const PROCESOS_PAGE_SIZE = 15;
 
@@ -55,18 +65,18 @@ function buildProcesosUrl(filtros: {
   estado?: string | null;
   vigencia?: number | null;
   contribuyente?: string;
-  asignado?: string;
+  asignadoId?: number | null;
   fechaAsignacion?: string | null;
-  tipoImpuesto?: string | null;
+  impuestoId?: string | null;
   page?: number;
 }) {
   const search = new URLSearchParams();
   if (filtros.estado) search.set("estado", filtros.estado);
   if (filtros.vigencia != null) search.set("vigencia", String(filtros.vigencia));
   if (filtros.contribuyente?.trim()) search.set("contribuyente", filtros.contribuyente.trim());
-  if (filtros.asignado?.trim()) search.set("asignado", filtros.asignado.trim());
+  if (filtros.asignadoId != null && filtros.asignadoId > 0) search.set("asignado", String(filtros.asignadoId));
   if (filtros.fechaAsignacion) search.set("fechaAsignacion", filtros.fechaAsignacion);
-  if (filtros.tipoImpuesto) search.set("tipoImpuesto", filtros.tipoImpuesto);
+  if (filtros.impuestoId) search.set("impuesto", filtros.impuestoId);
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
   const q = search.toString();
   return q ? `/procesos?${q}` : "/procesos";
@@ -79,7 +89,7 @@ type Props = {
     contribuyente?: string;
     asignado?: string;
     fechaAsignacion?: string;
-    tipoImpuesto?: string;
+    impuesto?: string;
     page?: string;
   }>;
 };
@@ -91,9 +101,13 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const estadoParam = params.estado;
   const vigenciaParam = params.vigencia;
   const contribuyenteQ = (params.contribuyente ?? "").trim();
-  const asignadoQ = (params.asignado ?? "").trim();
+  const asignadoParam = params.asignado;
+  const asignadoIdNum =
+    asignadoParam != null && /^\d+$/.test(asignadoParam)
+      ? parseInt(asignadoParam, 10)
+      : null;
   const fechaAsignacionParam = params.fechaAsignacion;
-  const tipoImpuestoParam = params.tipoImpuesto;
+  const impuestoParam = params.impuesto?.trim();
   const pageParam = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
 
   const estadoActual: (typeof ESTADOS_VALIDOS)[number] | null =
@@ -108,9 +122,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
     fechaAsignacionParam != null && /^\d{4}-\d{2}-\d{2}$/.test(fechaAsignacionParam)
       ? fechaAsignacionParam
       : null;
-  const tipoImpuesto: (typeof TIPOS_IMPUESTO)[number] | null =
-    tipoImpuestoParam != null && TIPOS_IMPUESTO.includes(tipoImpuestoParam as (typeof TIPOS_IMPUESTO)[number])
-      ? (tipoImpuestoParam as (typeof TIPOS_IMPUESTO)[number])
+  const impuestoIdStr =
+    impuestoParam != null && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(impuestoParam)
+      ? impuestoParam
       : null;
 
   let idsConFechaAsignacion: number[] | null = null;
@@ -130,10 +144,36 @@ export default async function ProcesosPage({ searchParams }: Props) {
     }
   }
 
+  const impuestosQuery = db
+    .selectDistinct({ id: impuestos.id, nombre: impuestos.nombre })
+    .from(impuestos)
+    .innerJoin(procesos, eq(procesos.impuestoId, impuestos.id));
+  const impuestosConProcesos =
+    session?.user?.rol !== "admin" && session?.user?.id != null
+      ? await impuestosQuery.where(eq(procesos.asignadoAId, session.user.id)).orderBy(impuestos.nombre)
+      : await impuestosQuery.orderBy(impuestos.nombre);
+
+  const usuariosList = await db
+    .select({ id: usuarios.id, nombre: usuarios.nombre })
+    .from(usuarios)
+    .where(eq(usuarios.activo, true))
+    .orderBy(usuarios.nombre);
+
+  const condicionesSoloPermisos: ReturnType<typeof eq>[] = [];
+  if (session?.user?.rol !== "admin") {
+    if (!session?.user?.id) {
+      condicionesSoloPermisos.push(eq(procesos.id, -1));
+    } else {
+      condicionesSoloPermisos.push(eq(procesos.asignadoAId, session.user.id));
+    }
+  }
+  const whereSoloPermisos =
+    condicionesSoloPermisos.length > 0 ? and(...condicionesSoloPermisos) : undefined;
+
   const condiciones = [];
   if (estadoActual != null) condiciones.push(eq(procesos.estadoActual, estadoActual));
   if (vigenciaNum != null) condiciones.push(eq(procesos.vigencia, vigenciaNum));
-  if (tipoImpuesto != null) condiciones.push(eq(impuestos.tipo, tipoImpuesto));
+  if (impuestoIdStr != null) condiciones.push(eq(procesos.impuestoId, impuestoIdStr));
   if (contribuyenteQ.length > 0) {
     condiciones.push(
       or(
@@ -142,13 +182,8 @@ export default async function ProcesosPage({ searchParams }: Props) {
       )
     );
   }
-  if (asignadoQ.length > 0) {
-    condiciones.push(
-      or(
-        ilike(usuarios.nombre, `%${asignadoQ}%`),
-        ilike(usuarios.email, `%${asignadoQ}%`)
-      )
-    );
+  if (asignadoIdNum != null) {
+    condiciones.push(eq(procesos.asignadoAId, asignadoIdNum));
   }
   if (idsConFechaAsignacion != null) {
     condiciones.push(inArray(procesos.id, idsConFechaAsignacion));
@@ -169,11 +204,13 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const baseQuery = db
     .select({
       id: procesos.id,
+      contribuyenteId: procesos.contribuyenteId,
       vigencia: procesos.vigencia,
       periodo: procesos.periodo,
+      noComparendo: procesos.noComparendo,
       montoCop: procesos.montoCop,
       estadoActual: procesos.estadoActual,
-      numeroResolucion: procesos.numeroResolucion,
+      numeroResolucion: ordenesResolucion.numeroResolucion,
       fechaLimite: procesos.fechaLimite,
       impuestoNombre: impuestos.nombre,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
@@ -183,7 +220,8 @@ export default async function ProcesosPage({ searchParams }: Props) {
     .from(procesos)
     .innerJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
-    .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id));
+    .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
+    .leftJoin(ordenesResolucion, eq(procesos.id, ordenesResolucion.procesoId));
 
   const countQuery = db
     .select({ total: count(procesos.id) })
@@ -192,17 +230,74 @@ export default async function ProcesosPage({ searchParams }: Props) {
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id));
 
-  const [countResult, lista] = await Promise.all([
+  const totalScopeQuery = db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(procesos)
+    .where(whereSoloPermisos);
+  const porEstadoScopeQuery = db
+    .select({ estado: procesos.estadoActual, count: sql<number>`count(*)::int` })
+    .from(procesos)
+    .where(whereSoloPermisos)
+    .groupBy(procesos.estadoActual);
+  const porVigenciaScopeQuery = db
+    .select({ vigencia: procesos.vigencia, count: sql<number>`count(*)::int` })
+    .from(procesos)
+    .where(whereSoloPermisos)
+    .groupBy(procesos.vigencia)
+    .orderBy(desc(procesos.vigencia))
+    .limit(8);
+  const montoEnGestionScopeQuery = db
+    .select({ total: sql<string>`coalesce(sum(${procesos.montoCop}), 0)::text` })
+    .from(procesos)
+    .where(
+      whereSoloPermisos
+        ? and(whereSoloPermisos, notInArray(procesos.estadoActual, ["cobrado"]))
+        : notInArray(procesos.estadoActual, ["cobrado"])
+    );
+
+  const [
+    countResult,
+    lista,
+    totalScopeResult,
+    procesosPorEstadoScope,
+    procesosPorVigenciaScope,
+    montoEnGestionResult,
+  ] = await Promise.all([
     whereCond ? countQuery.where(whereCond) : countQuery,
     (whereCond ? baseQuery.where(whereCond) : baseQuery)
-      .orderBy(desc(procesos.creadoEn))
+      .orderBy(asc(procesos.fechaLimite), desc(procesos.creadoEn))
       .limit(pageSize)
       .offset(offset),
+    totalScopeQuery,
+    porEstadoScopeQuery,
+    porVigenciaScopeQuery,
+    montoEnGestionScopeQuery,
   ]);
 
   const total = Number(countResult[0]?.total ?? 0);
   const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
   const page = pageParam;
+
+  const totalProcesosScope = totalScopeResult[0]?.count ?? 0;
+  const montoEnGestionScope = montoEnGestionResult[0]?.total ?? "0";
+  const cobradosScope =
+    procesosPorEstadoScope.find((r) => r.estado === "cobrado")?.count ?? 0;
+  const enGestionScope = totalProcesosScope - cobradosScope;
+
+  const ordenEstados = [
+    "pendiente",
+    "asignado",
+    "notificado",
+    "en_contacto",
+    "en_cobro_coactivo",
+    "cobrado",
+  ];
+  const procesosPorEstadoOrdenado: { estado: string; count: number }[] = [];
+  for (const e of ordenEstados) {
+    const row = procesosPorEstadoScope.find((r) => r.estado === e);
+    if (row) procesosPorEstadoOrdenado.push({ estado: row.estado, count: row.count });
+  }
+  const procesosPorVigenciaOrdenado = [...procesosPorVigenciaScope].reverse();
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -219,9 +314,11 @@ export default async function ProcesosPage({ searchParams }: Props) {
               estadoActual={estadoActual}
               vigenciaActual={vigenciaNum}
               contribuyenteActual={contribuyenteQ}
-              asignadoActual={asignadoQ}
+              usuarios={usuariosList}
+              asignadoIdActual={asignadoIdNum}
               fechaAsignacionActual={fechaAsignacion}
-              tipoImpuestoActual={tipoImpuesto}
+              impuestos={impuestosConProcesos}
+              impuestoIdActual={impuestoIdStr}
             />
           </Suspense>
         </div>
@@ -231,6 +328,93 @@ export default async function ProcesosPage({ searchParams }: Props) {
           </Button>
         </div>
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-l-4 border-l-primary/80 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total procesos
+            </CardTitle>
+            <ClipboardList className="size-5 text-primary/70" aria-hidden />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">{totalProcesosScope}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              En tu ámbito de visibilidad
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-primary/80 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              En gestión
+            </CardTitle>
+            <Loader2 className="size-5 text-primary/70" aria-hidden />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">{enGestionScope}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Pendientes de cobro
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-primary/80 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Cobrados
+            </CardTitle>
+            <CheckCircle className="size-5 text-primary/70" aria-hidden />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-foreground">{cobradosScope}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Procesos cerrados
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-primary/80 transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Monto en gestión
+            </CardTitle>
+            <Wallet className="size-5 text-primary/70" aria-hidden />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold text-primary">
+              {formatMonto(montoEnGestionScope)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Suma de procesos no cobrados (COP)
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Procesos por estado</CardTitle>
+            <CardDescription>
+              Distribución por etapa del flujo de cobro
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DashboardGraficoEstados data={procesosPorEstadoOrdenado} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Procesos por vigencia</CardTitle>
+            <CardDescription>
+              Cantidad por año (últimas 8 vigencias)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GraficoProcesosPorVigencia data={procesosPorVigenciaOrdenado} />
+          </CardContent>
+        </Card>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Listado</CardTitle>
@@ -239,9 +423,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
             {(estadoActual != null ||
               vigenciaNum != null ||
               contribuyenteQ.length > 0 ||
-              asignadoQ.length > 0 ||
+              asignadoIdNum != null ||
               fechaAsignacion != null ||
-              tipoImpuesto != null) && " · Filtros aplicados"}
+              impuestoIdStr != null) && " · Filtros aplicados"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -253,71 +437,40 @@ export default async function ProcesosPage({ searchParams }: Props) {
             />
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Impuesto</TableHead>
-                    <TableHead>Contribuyente</TableHead>
-                    <TableHead>Vigencia</TableHead>
-                    <TableHead>Nº resolución</TableHead>
-                    <TableHead>Monto (COP)</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-center">Fecha límite</TableHead>
-                    <TableHead>Asignado</TableHead>
-                    <TableHead className="w-[80px]">Acción</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lista.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell>{p.id}</TableCell>
-                      <TableCell className="font-medium">
-                        {p.impuestoNombre}
-                      </TableCell>
-                      <TableCell>
-                        {p.contribuyenteNombre}
-                        <span className="text-muted-foreground ml-1 text-xs">
-                          ({p.contribuyenteNit})
-                        </span>
-                      </TableCell>
-                      <TableCell>{p.vigencia}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {p.numeroResolucion ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        {Number(p.montoCop).toLocaleString("es-CO")}
-                      </TableCell>
-                      <TableCell className="capitalize">
-                        {p.estadoActual?.replace(/_/g, " ")}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <SemaforoFechaLimite
-                          fechaLimite={p.fechaLimite}
-                          variant="pill"
-                          className="justify-center"
-                        />
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {p.asignadoNombre ?? "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
-                          <Link href={`/procesos/${p.id}`}>
-                            Ver <ChevronRight className="size-4" aria-hidden />
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <TablaProcesosConAsignacion
+                lista={lista}
+                usuarios={usuariosList}
+                isAdmin={session?.user?.rol === "admin"}
+              />
               {totalPages > 1 && (
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t pt-4 mt-4">
                   <p className="text-sm text-muted-foreground">
                     Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} de {total}
                   </p>
-                  <nav className="flex items-center gap-1" aria-label="Paginación">
+                  <nav className="flex flex-wrap items-center gap-2" aria-label="Paginación">
+                    {page <= 1 ? (
+                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                        <ChevronsLeft className="size-4" aria-hidden />
+                        Primera
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                        <Link
+                          href={buildProcesosUrl({
+                            estado: estadoActual ?? undefined,
+                            vigencia: vigenciaNum,
+                            contribuyente: contribuyenteQ || undefined,
+                            asignadoId: asignadoIdNum ?? undefined,
+                            fechaAsignacion: fechaAsignacion ?? undefined,
+                            impuestoId: impuestoIdStr ?? undefined,
+                            page: 1,
+                          })}
+                        >
+                          <ChevronsLeft className="size-4" aria-hidden />
+                          Primera
+                        </Link>
+                      </Button>
+                    )}
                     {page <= 1 ? (
                       <Button variant="outline" size="sm" className="gap-1" disabled>
                         <ChevronLeft className="size-4" aria-hidden />
@@ -330,9 +483,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             contribuyente: contribuyenteQ || undefined,
-                            asignado: asignadoQ || undefined,
+                            asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
-                            tipoImpuesto: tipoImpuesto ?? undefined,
+                            impuestoId: impuestoIdStr ?? undefined,
                             page: page - 1,
                           })}
                         >
@@ -356,9 +509,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             estado: estadoActual ?? undefined,
                             vigencia: vigenciaNum,
                             contribuyente: contribuyenteQ || undefined,
-                            asignado: asignadoQ || undefined,
+                            asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
-                            tipoImpuesto: tipoImpuesto ?? undefined,
+                            impuestoId: impuestoIdStr ?? undefined,
                             page: page + 1,
                           })}
                         >
@@ -367,6 +520,53 @@ export default async function ProcesosPage({ searchParams }: Props) {
                         </Link>
                       </Button>
                     )}
+                    {page >= totalPages ? (
+                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                        Última
+                        <ChevronsRight className="size-4" aria-hidden />
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                        <Link
+                          href={buildProcesosUrl({
+                            estado: estadoActual ?? undefined,
+                            vigencia: vigenciaNum,
+                            contribuyente: contribuyenteQ || undefined,
+                            asignadoId: asignadoIdNum ?? undefined,
+                            fechaAsignacion: fechaAsignacion ?? undefined,
+                            impuestoId: impuestoIdStr ?? undefined,
+                            page: totalPages,
+                          })}
+                        >
+                          Última
+                          <ChevronsRight className="size-4" aria-hidden />
+                        </Link>
+                      </Button>
+                    )}
+                    <form method="GET" action="/procesos" className="flex items-center gap-1.5">
+                      {estadoActual ? <input type="hidden" name="estado" value={estadoActual} /> : null}
+                      {vigenciaNum != null ? <input type="hidden" name="vigencia" value={String(vigenciaNum)} /> : null}
+                      {contribuyenteQ ? <input type="hidden" name="contribuyente" value={contribuyenteQ} /> : null}
+                      {asignadoIdNum != null && asignadoIdNum > 0 ? <input type="hidden" name="asignado" value={String(asignadoIdNum)} /> : null}
+                      {fechaAsignacion ? <input type="hidden" name="fechaAsignacion" value={fechaAsignacion} /> : null}
+                      {impuestoIdStr ? <input type="hidden" name="impuesto" value={impuestoIdStr} /> : null}
+                      <label htmlFor="procesos-page-go" className="sr-only">
+                        Ir a página
+                      </label>
+                      <Input
+                        id="procesos-page-go"
+                        type="number"
+                        name="page"
+                        min={1}
+                        max={totalPages}
+                        defaultValue={page}
+                        className="w-16 h-8 text-center text-sm"
+                        aria-label="Número de página"
+                      />
+                      <Button type="submit" variant="secondary" size="sm">
+                        Ir
+                      </Button>
+                    </form>
                   </nav>
                 </div>
               )}

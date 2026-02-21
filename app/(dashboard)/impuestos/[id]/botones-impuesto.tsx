@@ -15,7 +15,7 @@ const activarAction = async (formData: FormData) => {
   await activarImpuesto(formData);
 };
 
-export function EliminarImpuestoButton({ id }: { id: number }) {
+export function EliminarImpuestoButton({ id }: { id: string }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     if (!confirm("¿Eliminar este impuesto? No se puede deshacer. Si hay procesos asociados, la acción fallará.")) {
       e.preventDefault();
@@ -32,7 +32,7 @@ export function EliminarImpuestoButton({ id }: { id: number }) {
   );
 }
 
-export function DesactivarImpuestoButton({ id }: { id: number }) {
+export function DesactivarImpuestoButton({ id }: { id: string }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     if (!confirm("¿Desactivar este impuesto? No aparecerá en el listado de activos ni en nuevos procesos.")) {
       e.preventDefault();
@@ -49,7 +49,7 @@ export function DesactivarImpuestoButton({ id }: { id: number }) {
   );
 }
 
-export function ActivarImpuestoButton({ id }: { id: number }) {
+export function ActivarImpuestoButton({ id }: { id: string }) {
   return (
     <form action={activarAction}>
       <input type="hidden" name="id" value={id} />

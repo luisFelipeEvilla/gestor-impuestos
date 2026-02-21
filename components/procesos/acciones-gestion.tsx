@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { CardSectionAccordion } from "@/components/ui/card-accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -17,26 +18,23 @@ import {
   agregarNotaProceso,
   enviarNotificacion,
 } from "@/lib/actions/procesos";
+import { actualizarDatosCobroCoactivoForm } from "@/lib/actions/cobros-coactivos";
+import type { EvidenciaEnvioEmail } from "@/lib/notificaciones/resend";
 import { cn } from "@/lib/utils";
 import {
   ListaDocumentos,
   SubirDocumentoForm,
 } from "@/components/procesos/documentos-proceso";
+import { labelEstado } from "@/lib/estados-proceso";
 
 const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
   { value: "asignado", label: "Asignado" },
   { value: "notificado", label: "Notificado" },
-  { value: "en_contacto", label: "En contacto" },
-  { value: "en_negociacion", label: "En negociación" },
-  { value: "cobrado", label: "Cobrado" },
-  { value: "incobrable", label: "Incobrable" },
+  { value: "en_contacto", label: "Cobro persuasivo" },
   { value: "en_cobro_coactivo", label: "En cobro coactivo" },
-  { value: "suspendido", label: "Suspendido" },
+  { value: "cobrado", label: "Cobrado" },
 ] as const;
-
-/** Desde estos estados no se puede pasar a Cobrado (solo desde En contacto se marca pago). */
-const ESTADOS_SIN_COBRADO = ["en_negociacion", "en_cobro_coactivo"];
 
 type UsuarioOption = { id: number; nombre: string };
 
@@ -47,10 +45,6 @@ type CambiarEstadoFormProps = {
 
 export function CambiarEstadoForm({ procesoId, estadoActual }: CambiarEstadoFormProps) {
   const [state, formAction] = useActionState(cambiarEstadoProceso, null);
-  const noPuedeCobrado = ESTADOS_SIN_COBRADO.includes(estadoActual);
-  const opcionesEstado = noPuedeCobrado
-    ? ESTADOS.filter((e) => e.value !== "cobrado")
-    : ESTADOS;
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-2">
@@ -68,7 +62,7 @@ export function CambiarEstadoForm({ procesoId, estadoActual }: CambiarEstadoForm
           )}
           aria-label="Seleccionar nuevo estado"
         >
-          {opcionesEstado.map((e) => (
+          {ESTADOS.map((e) => (
             <option key={e.value} value={e.value}>
               {e.label}
             </option>
@@ -197,8 +191,12 @@ type BotonesNotificacionProps = {
   procesoId: number;
   yaNotificado: boolean;
   fechaNotificacion?: Date | string | null;
-  /** Metadata del evento de notificación (tipo "fisica" | email) y documentoIds si es física */
-  notificacionMetadata?: { tipo?: string; documentoIds?: number[] } | null;
+  /** Metadata del evento de notificación (tipo "fisica" | email), documentoIds si es física, envios si es email */
+  notificacionMetadata?: {
+    tipo?: string;
+    documentoIds?: number[];
+    envios?: EvidenciaEnvioEmail[];
+  } | null;
   /** Documentos de evidencia cuando la notificación fue física (para mostrar enlaces) */
   documentosEvidencia?: DocumentoEvidenciaItem[];
 };
@@ -230,10 +228,11 @@ export function BotonesNotificacion({
   if (yaNotificado) {
     const esFisica =
       notificacionMetadata &&
-      (notificacionMetadata as { tipo?: string }).tipo === "fisica" &&
-      Array.isArray((notificacionMetadata as { documentoIds?: number[] }).documentoIds) &&
-      (notificacionMetadata as { documentoIds?: number[] }).documentoIds!.length > 0;
+      notificacionMetadata.tipo === "fisica" &&
+      Array.isArray(notificacionMetadata.documentoIds) &&
+      notificacionMetadata.documentoIds.length > 0;
     const docs = documentosEvidencia ?? [];
+    const enviosEmail = notificacionMetadata?.envios ?? [];
 
     return (
       <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-200">
@@ -260,6 +259,24 @@ export function BotonesNotificacion({
               </li>
             ))}
           </ul>
+        )}
+        {!esFisica && enviosEmail.length > 0 && (
+          <div className="mt-2 text-xs">
+            <p className="font-medium text-foreground">Evidencia de envío</p>
+            <ul className="mt-1 space-y-0.5 text-muted-foreground">
+              {enviosEmail.map((envio, i) => (
+                <li key={i}>
+                  {envio.to}
+                  {" · "}
+                  {new Date(envio.sentAt).toLocaleString("es-CO", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                  })}
+                  {envio.resendId && ` · ID: ${envio.resendId}`}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         <p className="text-muted-foreground text-xs mt-0.5">
           Solo se puede notificar una vez por proceso.
@@ -396,7 +413,7 @@ type AccionEstadoFormProps = {
   variant?: "default" | "outline" | "secondary" | "destructive";
 };
 
-function AccionEstadoForm({
+export function AccionEstadoForm({
   procesoId,
   estadoDestino,
   label,
@@ -428,8 +445,64 @@ function AccionEstadoForm({
 }
 
 const CATEGORIA_EN_CONTACTO: CategoriaNota = "en_contacto";
-const CATEGORIA_ACUERDO_PAGO: CategoriaNota = "acuerdo_pago";
 const CATEGORIA_COBRO_COACTIVO: CategoriaNota = "cobro_coactivo";
+
+type DatosCobroCoactivoFormProps = {
+  procesoId: number;
+  noCoactivo: string;
+  fechaInicio: Date | string;
+};
+
+function DatosCobroCoactivoForm({
+  procesoId,
+  noCoactivo,
+  fechaInicio,
+}: DatosCobroCoactivoFormProps) {
+  const [state, formAction] = useActionState(actualizarDatosCobroCoactivoForm, null);
+
+  return (
+    <form action={formAction} className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
+      <h4 className="text-sm font-medium">Datos del sistema externo</h4>
+      <input type="hidden" name="procesoId" value={procesoId} />
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="grid gap-1.5">
+          <Label htmlFor="noCoactivo-cc" className="text-xs">
+            No. Coactivo
+          </Label>
+          <Input
+            id="noCoactivo-cc"
+            name="noCoactivo"
+            type="text"
+            placeholder="Ej. 12345"
+            defaultValue={noCoactivo}
+            className="w-40"
+          />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="fechaInicio-cc" className="text-xs">
+            Fecha
+          </Label>
+          <Input
+            id="fechaInicio-cc"
+            name="fechaInicio"
+            type="date"
+            required
+            defaultValue={fechaToInputValue(fechaInicio)}
+            className="w-40"
+          />
+        </div>
+        <Button type="submit" size="sm">
+          Guardar
+        </Button>
+      </div>
+      {state?.error && (
+        <p className="text-destructive text-xs" role="alert">
+          {state.error}
+        </p>
+      )}
+    </form>
+  );
+}
 
 type CardEtapaProps = {
   procesoId: number;
@@ -437,6 +510,20 @@ type CardEtapaProps = {
   documentos: DocumentoItem[];
   notas: NotaItem[];
 };
+
+type CobroCoactivoEntity = {
+  fechaInicio: Date | string;
+  noCoactivo?: string | null;
+} | null;
+
+function fechaToInputValue(fecha: Date | string | null | undefined): string {
+  if (fecha == null) return "";
+  const d = typeof fecha === "string" ? new Date(fecha + "T12:00:00") : fecha;
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
+
+const DESCRIPCION_EN_CONTACTO =
+  "Gestión del pago con el contribuyente tras la notificación. Agrega comentarios y documentos de esta etapa. Puedes pasar a acuerdo de pago, a cobro coactivo (sin necesidad de acuerdo previo) o registrar pago. Cuando haya resultado, usa una de las acciones.";
 
 export function CardEnContacto({
   procesoId,
@@ -447,14 +534,10 @@ export function CardEnContacto({
   const activo = estadoActual === "notificado" || estadoActual === "en_contacto";
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>En contacto</CardTitle>
-        <CardDescription>
-          El empleado gestiona el pago con el contribuyente. Agrega comentarios y documentos de esta etapa. Cuando haya resultado, usa una de las acciones.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <CardSectionAccordion
+      title="Cobro persuasivo"
+      description={DESCRIPCION_EN_CONTACTO}
+    >
         {activo ? (
           <>
             <div className="space-y-3">
@@ -463,7 +546,7 @@ export function CardEnContacto({
                 <AccionEstadoForm
                   procesoId={procesoId}
                   estadoDestino="en_contacto"
-                  label="Pasar a En contacto"
+                  label="Pasar a Cobro persuasivo"
                 />
               )}
               {estadoActual === "en_contacto" && (
@@ -478,146 +561,90 @@ export function CardEnContacto({
                     />
                   </div>
                   <div>
-                    <p className="text-muted-foreground text-xs mb-1">Se genera acuerdo de pago</p>
-                    <AccionEstadoForm
-                      procesoId={procesoId}
-                      estadoDestino="en_negociacion"
-                      label="Generar acuerdo de pago"
-                    />
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-1">Se inicia cobro coactivo</p>
+                    <p className="text-muted-foreground text-xs mb-1">Se inicia cobro coactivo (sin acuerdo de pago)</p>
                     <AccionEstadoForm
                       procesoId={procesoId}
                       estadoDestino="en_cobro_coactivo"
-                      label="Generar cobro coactivo"
+                      label="Pasar a cobro coactivo"
                     />
                   </div>
                 </div>
               )}
             </div>
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Comentarios (En contacto)</h4>
+              <h4 className="text-sm font-medium">Comentarios (Cobro persuasivo)</h4>
               <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} />
               <ListaNotas notas={notas} />
             </div>
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Documentos (En contacto)</h4>
+              <h4 className="text-sm font-medium">Documentos (Cobro persuasivo)</h4>
               <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} />
               <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
             </div>
           </>
         ) : (
           <p className="text-muted-foreground text-sm">
-            El proceso no está en esta etapa (estado actual: {estadoActual.replace(/_/g, " ")}). Puedes agregar comentarios y documentos de esta sección igualmente.
+            El proceso no está en esta etapa (estado actual: {labelEstado(estadoActual)}). Puedes agregar comentarios y documentos de esta sección igualmente.
           </p>
         )}
         {!activo && (
           <>
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Comentarios (En contacto)</h4>
+              <h4 className="text-sm font-medium">Comentarios (Cobro persuasivo)</h4>
               <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} />
               <ListaNotas notas={notas} />
             </div>
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Documentos (En contacto)</h4>
+              <h4 className="text-sm font-medium">Documentos (Cobro persuasivo)</h4>
               <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
             </div>
           </>
         )}
-      </CardContent>
-    </Card>
+    </CardSectionAccordion>
   );
 }
 
-export function CardAcuerdoDePago({
-  procesoId,
-  estadoActual,
-  documentos,
-  notas,
-}: CardEtapaProps) {
-  const activo = estadoActual === "en_negociacion";
+/** Estados desde los que se puede pasar a cobro coactivo desde esta card */
+const ESTADOS_PUEDEN_INICIAR_COBRO_COACTIVO = ["notificado", "en_contacto"] as const;
 
-  return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Acuerdo de pago</CardTitle>
-        <CardDescription>
-          Proceso con acuerdo de pago (En negociación). Si el contribuyente incumple, pasa a cobro coactivo. Documentos y notas asociados al acuerdo.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {activo ? (
-          <>
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Acciones</h4>
-              <AccionEstadoForm
-                procesoId={procesoId}
-                estadoDestino="en_cobro_coactivo"
-                label="Incumplimiento del acuerdo → Pasar a cobro coactivo"
-                variant="destructive"
-              />
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Comentarios (Acuerdo de pago)</h4>
-              <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_ACUERDO_PAGO} />
-              <ListaNotas notas={notas} />
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Documentos (Acuerdo de pago)</h4>
-              <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_ACUERDO_PAGO} />
-              <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
-            </div>
-          </>
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            El proceso no está en acuerdo de pago (estado actual: {estadoActual.replace(/_/g, " ")}). Puedes agregar comentarios y documentos de esta sección.
-          </p>
-        )}
-        {!activo && (
-          <>
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Comentarios (Acuerdo de pago)</h4>
-              <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_ACUERDO_PAGO} />
-              <ListaNotas notas={notas} />
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Documentos (Acuerdo de pago)</h4>
-              <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+const DESCRIPCION_COBRO_COACTIVO_INACTIVO =
+  "Etapa independiente del acuerdo de pago. Puede iniciarse desde Cobro persuasivo (sin acuerdo) o desde Acuerdos de pago (por incumplimiento). Inicia el cobro coactivo cuando corresponda.";
 
 export function CardCobroCoactivo({
   procesoId,
   estadoActual,
   documentos,
   notas,
-}: CardEtapaProps) {
+  cobroCoactivo = null,
+}: CardEtapaProps & { cobroCoactivo?: CobroCoactivoEntity }) {
   const activo = estadoActual === "en_cobro_coactivo";
+  const puedeIniciar =
+    !activo && ESTADOS_PUEDEN_INICIAR_COBRO_COACTIVO.includes(estadoActual as (typeof ESTADOS_PUEDEN_INICIAR_COBRO_COACTIVO)[number]);
+  const fechaInicio = cobroCoactivo?.fechaInicio
+    ? new Date(cobroCoactivo.fechaInicio).toLocaleDateString("es-CO")
+    : null;
+  const descripcion = fechaInicio
+    ? `Cobro activo desde ${fechaInicio}. Documentos y notas de esta etapa. Cuando se efectúe el cobro, regístralo con la acción correspondiente.`
+    : DESCRIPCION_COBRO_COACTIVO_INACTIVO;
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Cobro coactivo</CardTitle>
-        <CardDescription>
-          Proceso en cobro coactivo. Documentos y notas de esta etapa. Si se determina que es incobrable, se puede marcar como tal.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
+    <CardSectionAccordion title="Cobro coactivo" description={descripcion}>
         {activo ? (
           <>
+            {cobroCoactivo && (
+              <DatosCobroCoactivoForm
+                procesoId={procesoId}
+                noCoactivo={cobroCoactivo.noCoactivo ?? ""}
+                fechaInicio={cobroCoactivo.fechaInicio}
+              />
+            )}
             <div className="space-y-3">
               <h4 className="text-sm font-medium">Acciones</h4>
               <AccionEstadoForm
                 procesoId={procesoId}
-                estadoDestino="incobrable"
-                label="Marcar como incobrable"
-                variant="secondary"
+                estadoDestino="cobrado"
+                label="Registrar cobro"
+                variant="default"
               />
             </div>
             <div className="space-y-2">
@@ -632,12 +659,23 @@ export function CardCobroCoactivo({
             </div>
           </>
         ) : (
-          <p className="text-muted-foreground text-sm">
-            El proceso no está en cobro coactivo (estado actual: {estadoActual.replace(/_/g, " ")}). Puedes agregar comentarios y documentos de esta sección.
-          </p>
-        )}
-        {!activo && (
           <>
+            {puedeIniciar && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium">Acciones</h4>
+                <AccionEstadoForm
+                  procesoId={procesoId}
+                  estadoDestino="en_cobro_coactivo"
+                  label="Iniciar cobro coactivo"
+                  variant="default"
+                />
+              </div>
+            )}
+            {!puedeIniciar && (
+              <p className="text-muted-foreground text-sm">
+                El proceso no está en cobro coactivo (estado actual: {labelEstado(estadoActual)}). Para iniciar cobro coactivo, el proceso debe estar en Cobro persuasivo o Notificado.
+              </p>
+            )}
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Comentarios (Cobro coactivo)</h4>
               <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_COBRO_COACTIVO} />
@@ -649,7 +687,6 @@ export function CardCobroCoactivo({
             </div>
           </>
         )}
-      </CardContent>
-    </Card>
+    </CardSectionAccordion>
   );
 }

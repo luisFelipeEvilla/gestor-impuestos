@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { TIPO_DOCUMENTO_VALUES_ZOD, type TipoDocumento } from "@/lib/constants/tipo-documento";
 import { db } from "@/lib/db";
 import { empresa } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -11,7 +12,7 @@ const schemaEmpresa = z.object({
     .string()
     .transform((s) => (typeof s === "string" ? s.trim() : ""))
     .pipe(z.string().min(1, "El nombre es obligatorio").max(300)),
-  tipoDocumento: z.enum(["nit", "cedula"], {
+  tipoDocumento: z.enum(TIPO_DOCUMENTO_VALUES_ZOD, {
     message: "Selecciona un tipo de documento.",
   }),
   numeroDocumento: z
@@ -46,7 +47,7 @@ function isConnectionError(err: unknown): boolean {
 export async function getEmpresa(): Promise<{
   id: number;
   nombre: string;
-  tipoDocumento: "nit" | "cedula";
+  tipoDocumento: TipoDocumento;
   numeroDocumento: string;
   direccion: string | null;
   telefonoContacto: string | null;

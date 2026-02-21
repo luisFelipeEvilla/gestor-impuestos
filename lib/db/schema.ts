@@ -17,10 +17,18 @@ import { relations } from "drizzle-orm";
 
 // Enums según definición del proyecto (Colombia)
 export const rolUsuarioEnum = pgEnum("rol_usuario", ["admin", "empleado"]);
-export const tipoImpuestoEnum = pgEnum("tipo_impuesto", ["nacional", "municipal"]);
 /** Naturaleza del impuesto: tributario (tributos) o no tributario (tasas, multas, etc.). */
 export const naturalezaImpuestoEnum = pgEnum("naturaleza_impuesto", ["tributario", "no_tributario"]);
-export const tipoDocumentoEnum = pgEnum("tipo_documento", ["nit", "cedula"]);
+export const tipoDocumentoEnum = pgEnum("tipo_documento", [
+  "nit",
+  "cedula",
+  "cedula_ecuatoriana",
+  "cedula_venezolana",
+  "cedula_extranjeria",
+  "pasaporte",
+  "permiso_proteccion_temporal",
+  "tarjeta_identidad",
+]);
 export const estadoProcesoEnum = pgEnum("estado_proceso", [
   "pendiente",
   "asignado",
@@ -79,6 +87,9 @@ export const estadoCompromisoActaEnum = pgEnum("estado_compromiso_acta", [
   "cumplido",
   "no_cumplido",
 ]);
+
+/** Tipo de resolución: Sanción o Resumen AP */
+export const tipoResolucionEnum = pgEnum("tipo_resolucion", ["sancion", "resumen_ap"]);
 
 // Tabla: usuarios
 export const usuarios = pgTable("usuarios", {
@@ -154,14 +165,13 @@ export const clientesMiembros = pgTable("clientes_miembros", {
 
 // Tabla: impuestos (catálogo) – cada impuesto pertenece a un cliente
 export const impuestos = pgTable("impuestos", {
-  id: serial("id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
   /** Cliente al que pertenece el impuesto (ej. Secretaría de Tránsito). Nullable para migración desde datos existentes. */
   clienteId: integer("cliente_id").references(() => clientes.id, {
     onDelete: "restrict",
     onUpdate: "cascade",
   }),
   nombre: text("nombre").notNull(),
-  tipo: tipoImpuestoEnum("tipo").notNull(),
   /** Tributario (tributos) o No tributario (tasas, multas, contribuciones no tributarias). */
   naturaleza: naturalezaImpuestoEnum("naturaleza").notNull().default("tributario"),
   /** Tiempo de prescripción en meses (opcional). */
@@ -190,7 +200,7 @@ export const contribuyentes = pgTable("contribuyentes", {
 // Tabla: procesos (trabajo de cobro)
 export const procesos = pgTable("procesos", {
   id: serial("id").primaryKey(),
-  impuestoId: integer("impuesto_id")
+  impuestoId: uuid("impuesto_id")
     .notNull()
     .references(() => impuestos.id, { onDelete: "restrict", onUpdate: "cascade" }),
   contribuyenteId: integer("contribuyente_id")
@@ -198,6 +208,8 @@ export const procesos = pgTable("procesos", {
     .references(() => contribuyentes.id, { onDelete: "restrict", onUpdate: "cascade" }),
   vigencia: integer("vigencia").notNull(),
   periodo: text("periodo"),
+  /** Número de comparendo (opcional). */
+  noComparendo: text("no_comparendo"),
   montoCop: numeric("monto_cop", { precision: 15, scale: 2 }).notNull(),
   estadoActual: estadoProcesoEnum("estado_actual").notNull().default("pendiente"),
   asignadoAId: integer("asignado_a_id").references(() => usuarios.id, {
@@ -205,14 +217,8 @@ export const procesos = pgTable("procesos", {
     onUpdate: "cascade",
   }),
   fechaLimite: date("fecha_limite"),
-  /** Número de resolución que origina el proceso de cobro */
-  numeroResolucion: text("numero_resolucion"),
-  /** Fecha de la resolución */
-  fechaResolucion: date("fecha_resolucion"),
   /** Fecha de creación o aplicación del impuesto (origen del proceso) */
   fechaAplicacionImpuesto: date("fecha_aplicacion_impuesto"),
-  /** Fecha de ingreso a cobro coactivo; si está definida, la prescripción de 5 años se cuenta desde aquí */
-  fechaInicioCobroCoactivo: date("fecha_inicio_cobro_coactivo"),
   /** Fecha de creación del registro en el sistema */
   creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
@@ -252,6 +258,62 @@ export const documentosProceso = pgTable("documentos_proceso", {
   tamano: integer("tamano").notNull(),
   creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// Tabla: ordenes_resolucion (1:1 con proceso; número + documento adjunto)
+export const ordenesResolucion = pgTable(
+  "ordenes_resolucion",
+  {
+    id: serial("id").primaryKey(),
+    procesoId: integer("proceso_id")
+      .notNull()
+      .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    numeroResolucion: text("numero_resolucion").notNull(),
+    fechaResolucion: date("fecha_resolucion"),
+    /** Código de la infracción asociada a la resolución. */
+    codigoInfraccion: text("codigo_infraccion"),
+    /** Tipo de resolución: Sanción o Resumen AP. */
+    tipoResolucion: tipoResolucionEnum("tipo_resolucion"),
+    rutaArchivo: text("ruta_archivo"),
+    nombreOriginal: text("nombre_original"),
+    mimeType: text("mime_type"),
+    tamano: integer("tamano"),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+    actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.procesoId)]
+);
+
+// Tabla: acuerdos_pago (N:1 con proceso; un proceso puede tener varios acuerdos)
+export const acuerdosPago = pgTable("acuerdos_pago", {
+  id: serial("id").primaryKey(),
+  procesoId: integer("proceso_id")
+    .notNull()
+    .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  numeroAcuerdo: text("numero_acuerdo").notNull(),
+  fechaAcuerdo: date("fecha_acuerdo"),
+  fechaInicio: date("fecha_inicio"),
+  cuotas: integer("cuotas"),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Tabla: cobros_coactivos (1:1 con proceso)
+export const cobrosCoactivos = pgTable(
+  "cobros_coactivos",
+  {
+    id: serial("id").primaryKey(),
+    procesoId: integer("proceso_id")
+      .notNull()
+      .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    /** Número/referencia del cobro coactivo en el sistema externo. */
+    noCoactivo: text("no_coactivo"),
+    /** Fecha del cobro coactivo (sistema externo). */
+    fechaInicio: date("fecha_inicio").notNull(),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+    actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.procesoId)]
+);
 
 // Tabla: actas_reunion
 export const actasReunion = pgTable("actas_reunion", {
@@ -505,6 +567,9 @@ export const procesosRelations = relations(procesos, ({ one, many }) => ({
   asignadoA: one(usuarios),
   historial: many(historialProceso),
   documentos: many(documentosProceso),
+  ordenResolucion: one(ordenesResolucion),
+  acuerdosPago: many(acuerdosPago),
+  cobroCoactivo: one(cobrosCoactivos),
 }));
 
 export const historialProcesoRelations = relations(historialProceso, ({ one }) => ({
@@ -513,6 +578,18 @@ export const historialProcesoRelations = relations(historialProceso, ({ one }) =
 }));
 
 export const documentosProcesoRelations = relations(documentosProceso, ({ one }) => ({
+  proceso: one(procesos),
+}));
+
+export const ordenesResolucionRelations = relations(ordenesResolucion, ({ one }) => ({
+  proceso: one(procesos),
+}));
+
+export const acuerdosPagoRelations = relations(acuerdosPago, ({ one }) => ({
+  proceso: one(procesos),
+}));
+
+export const cobrosCoactivosRelations = relations(cobrosCoactivos, ({ one }) => ({
   proceso: one(procesos),
 }));
 
@@ -610,6 +687,12 @@ export type HistorialProceso = typeof historialProceso.$inferSelect;
 export type NewHistorialProceso = typeof historialProceso.$inferInsert;
 export type DocumentoProceso = typeof documentosProceso.$inferSelect;
 export type NewDocumentoProceso = typeof documentosProceso.$inferInsert;
+export type OrdenResolucion = typeof ordenesResolucion.$inferSelect;
+export type NewOrdenResolucion = typeof ordenesResolucion.$inferInsert;
+export type AcuerdoPago = typeof acuerdosPago.$inferSelect;
+export type NewAcuerdoPago = typeof acuerdosPago.$inferInsert;
+export type CobroCoactivo = typeof cobrosCoactivos.$inferSelect;
+export type NewCobroCoactivo = typeof cobrosCoactivos.$inferInsert;
 export type ActaReunion = typeof actasReunion.$inferSelect;
 export type NewActaReunion = typeof actasReunion.$inferInsert;
 export type ActaIntegrante = typeof actasIntegrantes.$inferSelect;

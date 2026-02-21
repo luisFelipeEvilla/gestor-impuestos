@@ -21,15 +21,14 @@ type Props = { params: Promise<{ id: string }> };
 
 export default async function DetalleImpuestoPage({ params }: Props) {
   unstable_noStore();
-  const { id: idStr } = await params;
-  const id = parseInt(idStr, 10);
-  if (Number.isNaN(id)) notFound();
+  const { id } = await params;
+  const idTrim = id?.trim();
+  if (!idTrim || idTrim.length < 30) notFound();
 
   const [row] = await db
     .select({
       id: impuestos.id,
       nombre: impuestos.nombre,
-      tipo: impuestos.tipo,
       naturaleza: impuestos.naturaleza,
       prescripcionMeses: impuestos.prescripcionMeses,
       descripcion: impuestos.descripcion,
@@ -39,7 +38,7 @@ export default async function DetalleImpuestoPage({ params }: Props) {
     })
     .from(impuestos)
     .leftJoin(clientes, eq(impuestos.clienteId, clientes.id))
-    .where(eq(impuestos.id, id));
+    .where(eq(impuestos.id, idTrim));
   if (!row) notFound();
   const impuesto = row;
 
@@ -66,8 +65,6 @@ export default async function DetalleImpuestoPage({ params }: Props) {
           <CardTitle>{impuesto.nombre}</CardTitle>
           <CardDescription className="flex flex-wrap items-center gap-2">
             <span>Naturaleza: {impuesto.naturaleza === "no_tributario" ? "No tributario" : "Tributario"}</span>
-            <span>·</span>
-            <span>Ámbito: {impuesto.tipo === "nacional" ? "Nacional" : "Municipal"}</span>
             {impuesto.clienteNombre && (
               <>
                 <span>·</span>
@@ -106,10 +103,6 @@ export default async function DetalleImpuestoPage({ params }: Props) {
             <div>
               <dt className="text-muted-foreground">Naturaleza</dt>
               <dd className="font-medium">{impuesto.naturaleza === "no_tributario" ? "No tributario" : "Tributario"}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Ámbito (tipo)</dt>
-              <dd className="font-medium capitalize">{impuesto.tipo}</dd>
             </div>
             {impuesto.descripcion && (
               <div>

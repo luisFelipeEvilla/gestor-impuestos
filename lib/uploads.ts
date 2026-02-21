@@ -60,6 +60,15 @@ export function getRelativePath(procesoId: number, storedFileName: string): stri
   return path.join("procesos", String(procesoId), storedFileName);
 }
 
+/** Ruta relativa para el documento de orden de resolución (procesos/{id}/orden-resolucion/{file}). */
+export function getOrdenResolucionRelativePath(procesoId: number, storedFileName: string): string {
+  return path.join("procesos", String(procesoId), "orden-resolucion", storedFileName).replace(/\\/g, "/");
+}
+
+export function getOrdenResolucionUploadDir(procesoId: number): string {
+  return path.join(getUploadRoot(), "procesos", String(procesoId), "orden-resolucion");
+}
+
 export function getActaUploadDir(actaId: string): string {
   return path.join(getUploadRoot(), "actas", String(actaId));
 }
@@ -254,6 +263,38 @@ export async function saveProcesoDocument(
   const fullPath = path.join(getUploadRoot(), rutaRelativa);
   await writeFile(fullPath, buffer);
   return storedFileName;
+}
+
+/**
+ * Guarda el documento de orden de resolución. Retorna la ruta relativa para guardar en BD.
+ */
+export async function saveOrdenResolucionDocument(
+  procesoId: number,
+  buffer: Buffer,
+  nombreOriginal: string,
+  mimeType: string
+): Promise<string> {
+  const ext = getSafeExtension(nombreOriginal);
+  const storedFileName = `${randomUUID()}${ext ? `.${ext.replace(/^\./, "")}` : ""}`;
+  const rutaRelativa = getOrdenResolucionRelativePath(procesoId, storedFileName);
+
+  if (useS3()) {
+    await getS3Client().send(
+      new PutObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+        Body: buffer,
+        ContentType: mimeType,
+      })
+    );
+    return rutaRelativa;
+  }
+
+  const dir = getOrdenResolucionUploadDir(procesoId);
+  await ensureDir(dir);
+  const fullPath = path.join(getUploadRoot(), rutaRelativa);
+  await writeFile(fullPath, buffer);
+  return rutaRelativa;
 }
 
 /**

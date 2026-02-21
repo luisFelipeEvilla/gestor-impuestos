@@ -3,15 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { TIPO_DOCUMENTO_VALUES_ZOD } from "@/lib/constants/tipo-documento";
 import { db } from "@/lib/db";
 import { contribuyentes } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
-const tipoDocumentoValues = ["nit", "cedula"] as const;
-
 const schemaCrear = z.object({
   nit: z.string().min(1, "El NIT o documento es obligatorio").max(20),
-  tipoDocumento: z.enum(tipoDocumentoValues).default("nit"),
+  tipoDocumento: z.enum(TIPO_DOCUMENTO_VALUES_ZOD).default("nit"),
   nombreRazonSocial: z.string().min(1, "El nombre o razón social es obligatorio").max(300),
   telefono: z.string().max(30).optional().or(z.literal("")),
   email: z

@@ -25,7 +25,7 @@ const navItemsMain: {
   { href: "/procesos", label: "Procesos", icon: FolderOpen },
   { href: "/contribuyentes", label: "Contribuyentes", icon: Building2 },
   { href: "/clientes", label: "Clientes", icon: Briefcase },
-  { href: "/impuestos", label: "Impuestos", icon: Receipt },
+  { href: "/impuestos", label: "Tipo de procesos", icon: Receipt },
   { href: "/actas", label: "Actas", icon: FileText },
 ];
 

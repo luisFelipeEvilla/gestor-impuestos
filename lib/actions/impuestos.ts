@@ -7,13 +7,11 @@ import { db } from "@/lib/db";
 import { impuestos } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
-const tipoImpuestoValues = ["nacional", "municipal"] as const;
 const naturalezaImpuestoValues = ["tributario", "no_tributario"] as const;
 
 const schemaCrear = z.object({
   clienteId: z.coerce.number().int().positive("Selecciona un cliente"),
   nombre: z.string().min(1, "El nombre es obligatorio").max(200),
-  tipo: z.enum(tipoImpuestoValues),
   naturaleza: z.enum(naturalezaImpuestoValues),
   prescripcionMeses: z
     .union([z.string(), z.number()])
@@ -28,7 +26,7 @@ const schemaCrear = z.object({
 });
 
 const schemaActualizar = schemaCrear.extend({
-  id: z.number().int().positive(),
+  id: z.string().uuid("ID de impuesto inválido"),
 }).extend({
   clienteId: z.coerce.number().int().positive().optional().nullable(),
 });
@@ -45,7 +43,6 @@ export async function crearImpuesto(
   const raw = {
     clienteId: formData.get("clienteId"),
     nombre: formData.get("nombre"),
-    tipo: formData.get("tipo"),
     naturaleza: formData.get("naturaleza"),
     prescripcionMeses: formData.get("prescripcionMeses"),
     descripcion: formData.get("descripcion") || undefined,
@@ -62,7 +59,7 @@ export async function crearImpuesto(
     };
   }
 
-  const { clienteId, nombre, tipo, naturaleza, prescripcionMeses, descripcion, activo } = parsed.data;
+  const { clienteId, nombre, naturaleza, prescripcionMeses, descripcion, activo } = parsed.data;
 
   try {
     const [inserted] = await db
@@ -70,7 +67,6 @@ export async function crearImpuesto(
       .values({
         clienteId,
         nombre,
-        tipo,
         naturaleza,
         prescripcionMeses,
         descripcion: descripcion?.trim() || null,
@@ -96,12 +92,11 @@ export async function actualizarImpuesto(
   formData: FormData
 ): Promise<EstadoFormImpuesto> {
   const idRaw = formData.get("id");
-  const id = typeof idRaw === "string" ? parseInt(idRaw, 10) : Number(idRaw);
+  const id = typeof idRaw === "string" ? idRaw.trim() : String(idRaw ?? "");
   const raw = {
-    id: Number.isNaN(id) ? undefined : id,
+    id: id || undefined,
     clienteId: formData.get("clienteId"),
     nombre: formData.get("nombre"),
-    tipo: formData.get("tipo"),
     naturaleza: formData.get("naturaleza"),
     prescripcionMeses: formData.get("prescripcionMeses"),
     descripcion: formData.get("descripcion") || undefined,
@@ -118,7 +113,7 @@ export async function actualizarImpuesto(
     };
   }
 
-  const { clienteId, nombre, tipo, naturaleza, prescripcionMeses, descripcion, activo } = parsed.data;
+  const { clienteId, nombre, naturaleza, prescripcionMeses, descripcion, activo } = parsed.data;
 
   try {
     const [updated] = await db
@@ -126,7 +121,6 @@ export async function actualizarImpuesto(
       .set({
         clienteId: clienteId ?? null,
         nombre,
-        tipo,
         naturaleza,
         prescripcionMeses,
         descripcion: descripcion?.trim() || null,
@@ -154,8 +148,8 @@ export async function actualizarImpuesto(
 }
 
 export async function desactivarImpuesto(formData: FormData): Promise<EstadoFormImpuesto> {
-  const id = Number(formData.get("id"));
-  if (!Number.isInteger(id) || id < 1) return { error: "ID inválido." };
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id || !z.string().uuid().safeParse(id).success) return { error: "ID inválido." };
   try {
     const [updated] = await db
       .update(impuestos)
@@ -178,8 +172,8 @@ export async function desactivarImpuesto(formData: FormData): Promise<EstadoForm
 }
 
 export async function activarImpuesto(formData: FormData): Promise<EstadoFormImpuesto> {
-  const id = Number(formData.get("id"));
-  if (!Number.isInteger(id) || id < 1) return { error: "ID inválido." };
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id || !z.string().uuid().safeParse(id).success) return { error: "ID inválido." };
   try {
     const [updated] = await db
       .update(impuestos)
@@ -202,8 +196,8 @@ export async function activarImpuesto(formData: FormData): Promise<EstadoFormImp
 }
 
 export async function eliminarImpuesto(formData: FormData): Promise<EstadoFormImpuesto> {
-  const id = Number(formData.get("id"));
-  if (!Number.isInteger(id) || id < 1) return { error: "ID inválido." };
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id || !z.string().uuid().safeParse(id).success) return { error: "ID inválido." };
   try {
     const [deleted] = await db.delete(impuestos).where(eq(impuestos.id, id)).returning({ id: impuestos.id });
     if (!deleted) return { error: "Impuesto no encontrado." };

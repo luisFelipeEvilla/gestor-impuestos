@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/table";
 import { ListChecks } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
-import { FormEstadoCompromiso } from "@/components/actas/form-estado-compromiso";
 import { FiltrosCompromisosForm } from "./filtros-compromisos-form";
 import { unstable_noStore } from "next/cache";
 
@@ -111,7 +110,6 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                     <TableHead>Clientes</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead>Detalle / actualización</TableHead>
-                    <TableHead className="w-[280px]">Actualizar estado</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -122,7 +120,7 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                           href={`/actas/${c.actaId}`}
                           className="text-primary hover:underline font-medium"
                         >
-                          Acta #{c.actaId}
+                          Acta #{c.actaSerial}
                         </Link>
                         <span className="text-muted-foreground text-xs block">
                           {new Date(c.actaFecha).toLocaleDateString("es-CO", {
@@ -197,13 +195,6 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                         ) : (
                           "—"
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <FormEstadoCompromiso
-                          compromisoId={c.id}
-                          estadoActual={c.estado}
-                          detalleActual={c.detalleActualizacion}
-                        />
                       </TableCell>
                     </TableRow>
                   ))}

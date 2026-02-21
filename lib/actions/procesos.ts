@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { procesos, historialProceso, impuestos, contribuyentes, usuarios, documentosProceso } from "@/lib/db/schema";
+import { procesos, historialProceso, impuestos, contribuyentes, usuarios, documentosProceso, cobrosCoactivos } from "@/lib/db/schema";
 import type { NewHistorialProceso } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   enviarNotificacionCobroPorEmail,
   crearEvidenciaEnvio,
@@ -52,24 +52,16 @@ const estadoProcesoValues = [
   "asignado",
   "notificado",
   "en_contacto",
-  "en_negociacion",
-  "cobrado",
-  "incobrable",
   "en_cobro_coactivo",
-  "suspendido",
+  "cobrado",
 ] as const;
 
-/** No se puede pasar de acuerdo de pago (en_negociacion) o cobro coactivo a cobrado. */
-const ESTADOS_PROHIBIDOS_COBRADO: (typeof estadoProcesoValues)[number][] = [
-  "en_negociacion",
-  "en_cobro_coactivo",
-];
-
 const schemaCrear = z.object({
-  impuestoId: z.coerce.number().int().positive("Selecciona un impuesto"),
+  impuestoId: z.string().uuid("Selecciona un impuesto"),
   contribuyenteId: z.coerce.number().int().positive("Selecciona un contribuyente"),
   vigencia: z.coerce.number().int().min(2000, "Vigencia inválida").max(2100),
   periodo: z.string().max(50).optional().or(z.literal("")),
+  noComparendo: z.string().max(100).optional().or(z.literal("")),
   montoCop: z.string().min(1, "El monto es obligatorio").refine(
     (v) => /^\d+(\.\d{1,2})?$/.test(v) && Number(v) >= 0,
     "Monto debe ser un número positivo (ej. 1500000.50)"
@@ -81,8 +73,6 @@ const schemaCrear = z.object({
     .transform((v) => (v === "" || v === undefined ? undefined : parseInt(v, 10)))
     .refine((v) => v === undefined || (Number.isInteger(v) && v! > 0), "Usuario inválido"),
   fechaLimite: z.string().optional().or(z.literal("")),
-  numeroResolucion: z.string().max(100).optional().or(z.literal("")),
-  fechaResolucion: z.string().optional().or(z.literal("")),
   fechaAplicacionImpuesto: z.string().optional().or(z.literal("")),
 });
 
@@ -111,12 +101,11 @@ export async function crearProceso(
     contribuyenteId: formData.get("contribuyenteId"),
     vigencia: formData.get("vigencia"),
     periodo: formData.get("periodo") || undefined,
+    noComparendo: formData.get("noComparendo") || undefined,
     montoCop: formData.get("montoCop"),
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
-    numeroResolucion: formData.get("numeroResolucion") || undefined,
-    fechaResolucion: formData.get("fechaResolucion") || undefined,
     fechaAplicacionImpuesto: formData.get("fechaAplicacionImpuesto") || undefined,
   };
 
@@ -135,12 +124,11 @@ export async function crearProceso(
     contribuyenteId,
     vigencia,
     periodo,
+    noComparendo,
     montoCop,
     estadoActual: estadoForm,
     asignadoAId,
     fechaLimite,
-    numeroResolucion,
-    fechaResolucion,
     fechaAplicacionImpuesto,
   } = parsed.data;
 
@@ -160,14 +148,12 @@ export async function crearProceso(
         contribuyenteId,
         vigencia,
         periodo: periodo?.trim() || null,
+        noComparendo: noComparendo?.trim() || null,
         montoCop,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
         fechaLimite: fechaLimiteCalculada,
-        numeroResolucion: numeroResolucion?.trim() || null,
-        fechaResolucion: parseFecha(fechaResolucion),
         fechaAplicacionImpuesto: fechaAplicacion,
-        fechaInicioCobroCoactivo: null,
       })
       .returning({ id: procesos.id });
 
@@ -215,12 +201,11 @@ export async function actualizarProceso(
     contribuyenteId: formData.get("contribuyenteId"),
     vigencia: formData.get("vigencia"),
     periodo: formData.get("periodo") || undefined,
+    noComparendo: formData.get("noComparendo") || undefined,
     montoCop: formData.get("montoCop"),
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
-    numeroResolucion: formData.get("numeroResolucion") || undefined,
-    fechaResolucion: formData.get("fechaResolucion") || undefined,
     fechaAplicacionImpuesto: formData.get("fechaAplicacionImpuesto") || undefined,
   };
 
@@ -239,12 +224,11 @@ export async function actualizarProceso(
     contribuyenteId,
     vigencia,
     periodo,
+    noComparendo,
     montoCop,
     estadoActual,
     asignadoAId,
     fechaLimite,
-    numeroResolucion,
-    fechaResolucion,
     fechaAplicacionImpuesto,
   } = parsed.data;
 
@@ -277,24 +261,34 @@ export async function actualizarProceso(
         contribuyenteId,
         vigencia,
         periodo: periodo?.trim() || null,
+        noComparendo: noComparendo?.trim() || null,
         montoCop,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
         fechaLimite: fechaLimiteFinal,
-        numeroResolucion: numeroResolucion?.trim() || null,
-        fechaResolucion: parseFecha(fechaResolucion),
         fechaAplicacionImpuesto: fechaAplicacion,
-        ...(entraCobroCoactivo
-          ? {
-              fechaInicioCobroCoactivo: hoyStr,
-            }
-          : {}),
         actualizadoEn: new Date(),
       })
       .where(eq(procesos.id, parsed.data.id))
       .returning({ id: procesos.id });
 
     if (!updated) return { error: "Proceso no encontrado." };
+
+    if (entraCobroCoactivo) {
+      await db
+        .insert(cobrosCoactivos)
+        .values({
+          procesoId: parsed.data.id,
+          fechaInicio: hoyStr,
+        })
+        .onConflictDoUpdate({
+          target: cobrosCoactivos.procesoId,
+          set: {
+            fechaInicio: hoyStr,
+            actualizadoEn: new Date(),
+          },
+        });
+    }
 
     const cambiaEstado = existing.estadoActual !== estadoActual;
     const cambiaAsignacion = (existing.asignadoAId ?? null) !== (asignadoAId ?? null);
@@ -381,16 +375,6 @@ export async function cambiarEstadoProceso(
       return { error: "No tienes permiso para modificar este proceso." };
     }
 
-    if (
-      nuevoEstado === "cobrado" &&
-      ESTADOS_PROHIBIDOS_COBRADO.includes(proceso.estadoActual as (typeof estadoProcesoValues)[number])
-    ) {
-      return {
-        error:
-          "No se puede pasar a Cobrado desde En negociación o En cobro coactivo. Solo se marca Cobrado cuando el contribuyente realiza el pago desde En contacto.",
-      };
-    }
-
     const entraCobroCoactivo = nuevoEstado === "en_cobro_coactivo";
     const hoyStr = new Date().toISOString().slice(0, 10);
     await db
@@ -400,12 +384,27 @@ export async function cambiarEstadoProceso(
         actualizadoEn: new Date(),
         ...(entraCobroCoactivo
           ? {
-              fechaInicioCobroCoactivo: hoyStr,
               fechaLimite: addYears(hoyStr, AÑOS_PRESCRIPCION),
             }
           : {}),
       })
       .where(eq(procesos.id, procesoId));
+
+    if (entraCobroCoactivo) {
+      await db
+        .insert(cobrosCoactivos)
+        .values({
+          procesoId,
+          fechaInicio: hoyStr,
+        })
+        .onConflictDoUpdate({
+          target: cobrosCoactivos.procesoId,
+          set: {
+            fechaInicio: hoyStr,
+            actualizadoEn: new Date(),
+          },
+        });
+    }
 
     await db.insert(historialProceso).values({
       procesoId,
@@ -494,6 +493,67 @@ export async function asignarProceso(
     }
     console.error(err);
     return { error: "Error al asignar el proceso." };
+  }
+}
+
+/** Asigna en lote varios procesos a un usuario. Solo administradores. */
+export async function asignarProcesosEnLote(
+  procesoIds: number[],
+  asignadoAId: number
+): Promise<{ error?: string }> {
+  const ids = procesoIds.filter((id) => Number.isInteger(id) && id > 0);
+  if (ids.length === 0) return { error: "Selecciona al menos un proceso." };
+  if (!Number.isInteger(asignadoAId) || asignadoAId < 1) return { error: "Usuario inválido." };
+
+  try {
+    const session = await getSession();
+    if (session?.user?.rol !== "admin") {
+      return { error: "Solo un administrador puede asignar procesos en lote." };
+    }
+
+    const filas = await db
+      .select({ id: procesos.id, asignadoAId: procesos.asignadoAId, estadoActual: procesos.estadoActual })
+      .from(procesos)
+      .where(inArray(procesos.id, ids));
+
+    for (const row of filas) {
+      const pasabaDeSinAsignarAAsignado = row.asignadoAId == null && asignadoAId != null;
+      const nuevoEstado = pasabaDeSinAsignarAAsignado ? ("asignado" as const) : row.estadoActual;
+
+      await db
+        .update(procesos)
+        .set({
+          asignadoAId,
+          estadoActual: nuevoEstado,
+          actualizadoEn: new Date(),
+        })
+        .where(eq(procesos.id, row.id));
+
+      await db.insert(historialProceso).values({
+        procesoId: row.id,
+        tipoEvento: "asignacion",
+        comentario: "Proceso asignado",
+      });
+      if (pasabaDeSinAsignarAAsignado) {
+        await db.insert(historialProceso).values({
+          procesoId: row.id,
+          tipoEvento: "cambio_estado",
+          estadoAnterior: row.estadoActual,
+          estadoNuevo: "asignado",
+          comentario: "Estado actualizado al asignar responsable",
+        });
+      }
+    }
+
+    for (const id of ids) revalidatePath(`/procesos/${id}`);
+    revalidatePath("/procesos");
+    return {};
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
+      throw err;
+    }
+    console.error(err);
+    return { error: "Error al asignar los procesos." };
   }
 }
 

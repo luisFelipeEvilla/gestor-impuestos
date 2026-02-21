@@ -52,11 +52,11 @@ export function AppSidebar({ className, session }: AppSidebarProps) {
               <Image
                 src="/logo_rr.png"
                 alt="RR Consultorías"
-                width={collapsed ? 36 : 128}
-                height={collapsed ? 36 : 52}
+                width={collapsed ? 36 : 102.4}
+                height={collapsed ? 36 : 38.4}
                 className={cn(
                   "object-contain",
-                  collapsed ? "h-9 w-9" : "h-24 w-auto max-w-[200px]"
+                  collapsed ? "h-9 w-9" : "h-16 w-auto max-w-[160px]"
                 )}
               />
             </span>

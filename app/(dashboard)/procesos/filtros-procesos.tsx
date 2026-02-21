@@ -19,17 +19,9 @@ const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
   { value: "asignado", label: "Asignado" },
   { value: "notificado", label: "Notificado" },
-  { value: "en_contacto", label: "En contacto" },
-  { value: "en_negociacion", label: "En negociación" },
+  { value: "en_contacto", label: "Cobro persuasivo" },
   { value: "en_cobro_coactivo", label: "En cobro coactivo" },
   { value: "cobrado", label: "Cobrado" },
-  { value: "incobrable", label: "Incobrable" },
-  { value: "suspendido", label: "Suspendido" },
-] as const;
-
-const TIPOS_IMPUESTO = [
-  { value: "nacional", label: "Nacional" },
-  { value: "municipal", label: "Municipal" },
 ] as const;
 
 const AÑO_MIN = 2000;
@@ -39,44 +31,47 @@ const OPCIONES_VIGENCIA = Array.from(
   (_, i) => AÑO_MIN + i
 ).reverse();
 
+type ImpuestoOption = { id: string; nombre: string };
+
+type UsuarioOption = { id: number; nombre: string };
+
 type FiltrosProcesosProps = {
   estadoActual: string | null;
   vigenciaActual: number | null;
   contribuyenteActual: string;
-  asignadoActual: string;
+  usuarios: UsuarioOption[];
+  asignadoIdActual: number | null;
   fechaAsignacionActual: string | null;
-  tipoImpuestoActual: string | null;
+  impuestos: ImpuestoOption[];
+  impuestoIdActual: string | null;
 };
 
 export function FiltrosProcesos({
   estadoActual,
   vigenciaActual,
   contribuyenteActual,
-  asignadoActual,
+  usuarios: usuariosList,
+  asignadoIdActual,
   fechaAsignacionActual,
-  tipoImpuestoActual,
+  impuestos: impuestosList,
+  impuestoIdActual,
 }: FiltrosProcesosProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [contribuyente, setContribuyente] = useState(contribuyenteActual);
-  const [asignado, setAsignado] = useState(asignadoActual);
 
   useEffect(() => {
     setContribuyente(contribuyenteActual);
   }, [contribuyenteActual]);
-
-  useEffect(() => {
-    setAsignado(asignadoActual);
-  }, [asignadoActual]);
 
   const buildParams = useCallback(
     (updates: {
       estado?: string | null;
       vigencia?: string | number | null;
       contribuyente?: string;
-      asignado?: string;
+      asignadoId?: number | null;
       fechaAsignacion?: string | null;
-      tipoImpuesto?: string | null;
+      impuestoId?: string | null;
     }) => {
       const params = new URLSearchParams(searchParams.toString());
       const estado =
@@ -87,31 +82,33 @@ export function FiltrosProcesos({
         updates.contribuyente !== undefined
           ? updates.contribuyente
           : contribuyente;
-      const asig =
-        updates.asignado !== undefined ? updates.asignado : asignado;
+      const asigId =
+        updates.asignadoId !== undefined
+          ? updates.asignadoId
+          : asignadoIdActual;
       const fechaAsig =
         updates.fechaAsignacion !== undefined
           ? updates.fechaAsignacion
           : fechaAsignacionActual;
-      const tipoImp =
-        updates.tipoImpuesto !== undefined
-          ? updates.tipoImpuesto
-          : tipoImpuestoActual;
+      const impId =
+        updates.impuestoId !== undefined
+          ? updates.impuestoId
+          : impuestoIdActual;
 
       params.delete("estado");
       params.delete("vigencia");
       params.delete("contribuyente");
       params.delete("asignado");
       params.delete("fechaAsignacion");
-      params.delete("tipoImpuesto");
+      params.delete("impuesto");
       if (estado != null && estado !== "todos") params.set("estado", estado);
       if (vigencia != null) params.set("vigencia", String(vigencia));
       if (contrib.trim()) params.set("contribuyente", contrib.trim());
-      if (asig.trim()) params.set("asignado", asig.trim());
+      if (asigId != null && asigId > 0) params.set("asignado", String(asigId));
       if (fechaAsig != null && fechaAsig !== "")
         params.set("fechaAsignacion", fechaAsig);
-      if (tipoImp != null && tipoImp !== "todos")
-        params.set("tipoImpuesto", tipoImp);
+      if (impId != null && impId !== "")
+        params.set("impuesto", impId);
       return params;
     },
     [
@@ -119,9 +116,9 @@ export function FiltrosProcesos({
       estadoActual,
       vigenciaActual,
       contribuyente,
-      asignado,
       fechaAsignacionActual,
-      tipoImpuestoActual,
+      asignadoIdActual,
+      impuestoIdActual,
     ]
   );
 
@@ -145,10 +142,20 @@ export function FiltrosProcesos({
     [router, buildParams]
   );
 
-  const handleTipoImpuestoChange = useCallback(
+  const handleImpuestoChange = useCallback(
     (value: string) => {
       const params = buildParams({
-        tipoImpuesto: value === "todos" ? null : value,
+        impuestoId: value === "todos" ? null : value,
+      });
+      router.push(`/procesos?${params.toString()}`);
+    },
+    [router, buildParams]
+  );
+
+  const handleAsignadoChange = useCallback(
+    (value: string) => {
+      const params = buildParams({
+        asignadoId: value === "todos" ? null : parseInt(value, 10),
       });
       router.push(`/procesos?${params.toString()}`);
     },
@@ -169,11 +176,10 @@ export function FiltrosProcesos({
       e.preventDefault();
       const params = buildParams({
         contribuyente: contribuyente.trim(),
-        asignado: asignado.trim(),
       });
       router.push(`/procesos?${params.toString()}`);
     },
-    [router, buildParams, contribuyente, asignado]
+    [router, buildParams, contribuyente]
   );
 
   const handleLimpiar = useCallback(() => {
@@ -184,9 +190,9 @@ export function FiltrosProcesos({
     estadoActual != null ||
     vigenciaActual != null ||
     contribuyenteActual.length > 0 ||
-    asignadoActual.length > 0 ||
+    asignadoIdActual != null ||
     fechaAsignacionActual != null ||
-    tipoImpuestoActual != null;
+    impuestoIdActual != null;
 
   const fieldClass = "min-w-0 w-full h-10";
 
@@ -221,15 +227,22 @@ export function FiltrosProcesos({
         >
           Persona asignada
         </Label>
-        <Input
-          id="filtro-asignado"
-          type="search"
-          placeholder="Nombre o email..."
-          value={asignado}
-          onChange={(e) => setAsignado(e.target.value)}
-          className={fieldClass}
-          aria-label="Buscar por nombre o email de la persona asignada"
-        />
+        <Select
+          value={asignadoIdActual != null ? String(asignadoIdActual) : "todos"}
+          onValueChange={handleAsignadoChange}
+        >
+          <SelectTrigger id="filtro-asignado" className={fieldClass}>
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            {usuariosList.map((u) => (
+              <SelectItem key={u.id} value={String(u.id)}>
+                {u.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label
@@ -249,23 +262,23 @@ export function FiltrosProcesos({
       </div>
       <div className="flex flex-col gap-1.5">
         <Label
-          htmlFor="filtro-tipo-impuesto"
+          htmlFor="filtro-impuesto"
           className="text-xs text-muted-foreground"
         >
-          Tipo impuesto
+          Impuesto
         </Label>
         <Select
-          value={tipoImpuestoActual ?? "todos"}
-          onValueChange={handleTipoImpuestoChange}
+          value={impuestoIdActual != null ? impuestoIdActual : "todos"}
+          onValueChange={handleImpuestoChange}
         >
-          <SelectTrigger id="filtro-tipo-impuesto" className={fieldClass}>
+          <SelectTrigger id="filtro-impuesto" className={fieldClass}>
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos</SelectItem>
-            {TIPOS_IMPUESTO.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                {t.label}
+            {impuestosList.map((i) => (
+              <SelectItem key={i.id} value={String(i.id)}>
+                {i.nombre}
               </SelectItem>
             ))}
           </SelectContent>

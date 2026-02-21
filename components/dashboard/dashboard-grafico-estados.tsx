@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { labelEstado } from "@/lib/estados-proceso";
 
 export type DatumEstados = { estado: string; count: number };
 
@@ -21,10 +22,6 @@ const COLORS = [
   "var(--chart-5)",
 ];
 
-function formatEstado(estado: string): string {
-  return (estado ?? "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 interface DashboardGraficoEstadosProps {
   data: DatumEstados[];
 }
@@ -32,7 +29,7 @@ interface DashboardGraficoEstadosProps {
 export function DashboardGraficoEstados({ data }: DashboardGraficoEstadosProps) {
   const chartData = data.map((d) => ({
     ...d,
-    label: formatEstado(d.estado),
+    label: labelEstado(d.estado),
   }));
 
   if (chartData.length === 0) {
@@ -75,7 +72,7 @@ export function DashboardGraficoEstados({ data }: DashboardGraficoEstadosProps) 
               borderRadius: "var(--radius)",
             }}
             labelFormatter={(_, payload) =>
-              payload?.[0] ? formatEstado(payload[0].payload.estado) : ""
+              payload?.[0] ? labelEstado(payload[0].payload.estado) : ""
             }
             formatter={(value: number | undefined) => [value ?? 0, "Procesos"]}
           />

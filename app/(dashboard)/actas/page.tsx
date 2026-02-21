@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText, ChevronRight, ChevronLeft } from "lucide-react";
+import { FileText, ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { obtenerActas, obtenerUsuariosParaFiltroActas, obtenerAsistentesExternosParaFiltro } from "@/lib/actions/actas";
 import { obtenerClientesActivos } from "@/lib/actions/clientes";
 import {
@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -272,7 +273,20 @@ export default async function ActasPage({ searchParams }: Props) {
                   Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} de {total}
                 </p>
                 {totalPages > 1 ? (
-                  <nav className="flex items-center gap-1" aria-label="Paginación">
+                  <nav className="flex flex-wrap items-center gap-2" aria-label="Paginación">
+                    {page <= 1 ? (
+                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                        <ChevronsLeft className="size-4" aria-hidden />
+                        Primera
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                        <Link href={buildActasUrl({ ...urlParams, page: 1 })}>
+                          <ChevronsLeft className="size-4" aria-hidden />
+                          Primera
+                        </Link>
+                      </Button>
+                    )}
                     {page <= 1 ? (
                       <Button variant="outline" size="sm" className="gap-1" disabled>
                         <ChevronLeft className="size-4" aria-hidden />
@@ -302,6 +316,44 @@ export default async function ActasPage({ searchParams }: Props) {
                         </Link>
                       </Button>
                     )}
+                    {page >= totalPages ? (
+                      <Button variant="outline" size="sm" className="gap-1" disabled>
+                        Última
+                        <ChevronsRight className="size-4" aria-hidden />
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="gap-1" asChild>
+                        <Link href={buildActasUrl({ ...urlParams, page: totalPages })}>
+                          Última
+                          <ChevronsRight className="size-4" aria-hidden />
+                        </Link>
+                      </Button>
+                    )}
+                    <form method="GET" action="/actas" className="flex items-center gap-1.5">
+                      {urlParams.estado ? <input type="hidden" name="estado" value={urlParams.estado} /> : null}
+                      {urlParams.cliente ? <input type="hidden" name="cliente" value={urlParams.cliente} /> : null}
+                      {urlParams.creador ? <input type="hidden" name="creador" value={urlParams.creador} /> : null}
+                      {urlParams.fechaDesde ? <input type="hidden" name="fechaDesde" value={urlParams.fechaDesde} /> : null}
+                      {urlParams.fechaHasta ? <input type="hidden" name="fechaHasta" value={urlParams.fechaHasta} /> : null}
+                      {urlParams.asistenteInterno ? <input type="hidden" name="asistenteInterno" value={urlParams.asistenteInterno} /> : null}
+                      {urlParams.asistenteExterno ? <input type="hidden" name="asistenteExterno" value={urlParams.asistenteExterno} /> : null}
+                      <label htmlFor="actas-page-go" className="sr-only">
+                        Ir a página
+                      </label>
+                      <Input
+                        id="actas-page-go"
+                        type="number"
+                        name="page"
+                        min={1}
+                        max={totalPages}
+                        defaultValue={page}
+                        className="w-16 h-8 text-center text-sm"
+                        aria-label="Número de página"
+                      />
+                      <Button type="submit" variant="secondary" size="sm">
+                        Ir
+                      </Button>
+                    </form>
                   </nav>
                 ) : null}
               </div>
