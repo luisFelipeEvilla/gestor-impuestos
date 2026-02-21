@@ -333,7 +333,6 @@ async function flushBatch(
         .insert(procesos)
         .values(
           batch.map((b) => ({
-            impuestoId: null,
             contribuyenteId: b.contribuyenteId,
             vigencia: b.vigencia,
             periodo: b.periodo,
