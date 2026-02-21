@@ -4,7 +4,7 @@ import { useActionState, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
-import { Input } from "@/components/ui/input";
+import { FileInputDropzone } from "@/components/ui/file-input-dropzone";
 import { Label } from "@/components/ui/label";
 import {
   subirDocumentoActa,
@@ -108,14 +108,13 @@ export function SubirDocumentoActaForm({ actaId }: SubirDocumentoActaFormProps) 
     <form action={formAction} onSubmit={handleSubmit} className="space-y-2">
       <input type="hidden" name="actaId" value={actaId} />
       <div className="flex flex-wrap items-end gap-2">
-        <div className="grid flex-1 min-w-[200px] gap-1.5">
+        <div className="grid min-w-[200px] flex-1 gap-1.5">
           <Label htmlFor="archivo-acta" className="text-xs">
             Archivo (PDF, imágenes, Word, Excel; hasta {MAX_S3_MB} MB con S3)
           </Label>
-          <Input
+          <FileInputDropzone
             id="archivo-acta"
             name="archivo"
-            type="file"
             accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv"
             aria-invalid={!!(state?.error || submitError)}
             disabled={loading}

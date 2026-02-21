@@ -23,6 +23,7 @@ import {
 import {
   TIPOS_DOCUMENTO_PROCESO,
   type TipoDocumentoProceso,
+  isTipoPermitidoParaCategoria,
 } from "@/lib/tipos-documento-proceso";
 
 const TIPOS_DOCUMENTO_VALIDOS = new Set(TIPOS_DOCUMENTO_PROCESO.map((t) => t.value));
@@ -88,6 +89,9 @@ export async function registrarDocumentoProceso(
   if (!rutaArchivo?.trim() || !nombreOriginal?.trim()) return { error: "Datos del archivo incompletos." };
   if (!CATEGORIAS_DOCUMENTO_NOTA.includes(categoria)) return { error: "Categoría inválida." };
   if (!TIPOS_DOCUMENTO_VALIDOS.has(tipoDocumento)) return { error: "Tipo de documento inválido." };
+  if (!isTipoPermitidoParaCategoria(categoria, tipoDocumento)) {
+    return { error: "Este tipo de documento no está permitido en esta etapa." };
+  }
   if (!isAllowedMime(mimeType)) return { error: "Tipo de archivo no permitido." };
 
   try {
@@ -152,6 +156,9 @@ export async function subirDocumentoProceso(
   }
   const categoria = categoriaRaw as CategoriaDocumentoNota;
   const tipoDocumento = tipoDocumentoRaw as TipoDocumentoProceso;
+  if (!isTipoPermitidoParaCategoria(categoria, tipoDocumento)) {
+    return { error: "Este tipo de documento no está permitido en esta etapa." };
+  }
   if (!file || file.size === 0) {
     return { error: "Selecciona un archivo." };
   }

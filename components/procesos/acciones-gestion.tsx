@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +31,14 @@ import {
 } from "@/components/procesos/documentos-proceso";
 import { labelEstado } from "@/lib/estados-proceso";
 import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
-import { Pencil, Trash2 } from "lucide-react";
+import { FileInputDropzone } from "@/components/ui/file-input-dropzone";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Pencil, Trash2, Mail } from "lucide-react";
 
 const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
@@ -218,6 +225,61 @@ function formatFechaNotificacion(value: Date | string | null | undefined): strin
 const ACCEPT_ARCHIVOS =
   ".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv";
 
+function EvidenciaEnvioEmailBlock({ envios }: { envios: EvidenciaEnvioEmail[] }) {
+  const [verContenidoEnvio, setVerContenidoEnvio] = useState<EvidenciaEnvioEmail | null>(null);
+
+  return (
+    <div className="mt-2 text-xs">
+      <p className="font-medium text-foreground">Evidencia de envío</p>
+      <ul className="mt-1 space-y-1.5 text-muted-foreground">
+        {envios.map((envio, i) => (
+          <li key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>
+              {envio.to}
+              {" · "}
+              {new Date(envio.sentAt).toLocaleString("es-CO", {
+                dateStyle: "short",
+                timeStyle: "short",
+              })}
+              {envio.resendId && ` · ID: ${envio.resendId}`}
+            </span>
+            {envio.bodyHtml && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 gap-1 px-1.5 text-xs"
+                onClick={() => setVerContenidoEnvio(envio)}
+                aria-label="Ver contenido del correo enviado"
+              >
+                <Mail className="size-3" aria-hidden />
+                Ver contenido del correo
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <Dialog open={verContenidoEnvio != null} onOpenChange={(open) => !open && setVerContenidoEnvio(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              {verContenidoEnvio?.subject ?? "Contenido del correo"}
+            </DialogTitle>
+          </DialogHeader>
+          {verContenidoEnvio?.bodyHtml && (
+            <div className="min-h-0 flex-1 overflow-auto rounded-md border border-border/80 bg-white dark:bg-muted/20 p-4">
+              <div
+                className="max-w-full [&_table]:max-w-full"
+                dangerouslySetInnerHTML={{ __html: verContenidoEnvio.bodyHtml }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export function BotonesNotificacion({
   procesoId,
   yaNotificado,
@@ -226,6 +288,8 @@ export function BotonesNotificacion({
   documentosEvidencia = [],
 }: BotonesNotificacionProps) {
   const [tipoNotificacion, setTipoNotificacion] = useState<"email" | "fisica">("email");
+  const [confirmarEmailOpen, setConfirmarEmailOpen] = useState(false);
+  const formEmailRef = useRef<HTMLFormElement>(null);
   const [state, formAction] = useActionState(
     (_prev: { error?: string } | null, formData: FormData) => enviarNotificacion(formData),
     null
@@ -267,22 +331,7 @@ export function BotonesNotificacion({
           </ul>
         )}
         {!esFisica && enviosEmail.length > 0 && (
-          <div className="mt-2 text-xs">
-            <p className="font-medium text-foreground">Evidencia de envío</p>
-            <ul className="mt-1 space-y-0.5 text-muted-foreground">
-              {enviosEmail.map((envio, i) => (
-                <li key={i}>
-                  {envio.to}
-                  {" · "}
-                  {new Date(envio.sentAt).toLocaleString("es-CO", {
-                    dateStyle: "short",
-                    timeStyle: "short",
-                  })}
-                  {envio.resendId && ` · ID: ${envio.resendId}`}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <EvidenciaEnvioEmailBlock envios={enviosEmail} />
         )}
         <p className="text-muted-foreground text-xs mt-0.5">
           Solo se puede notificar una vez por proceso.
@@ -322,13 +371,30 @@ export function BotonesNotificacion({
       </div>
 
       {tipoNotificacion === "email" ? (
-        <form action={formAction} className="space-y-2">
-          <input type="hidden" name="procesoId" value={procesoId} />
-          <input type="hidden" name="tipoNotificacion" value="email" />
-          <Button type="submit" size="sm" variant="outline" aria-label="Enviar por email">
-            Enviar por email
-          </Button>
-        </form>
+        <>
+          <form ref={formEmailRef} action={formAction} className="space-y-2">
+            <input type="hidden" name="procesoId" value={procesoId} />
+            <input type="hidden" name="tipoNotificacion" value="email" />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label="Enviar por email"
+              onClick={() => setConfirmarEmailOpen(true)}
+            >
+              Enviar por email
+            </Button>
+          </form>
+          <ConfirmarEliminacionModal
+            open={confirmarEmailOpen}
+            onOpenChange={setConfirmarEmailOpen}
+            title="¿Enviar notificación por email?"
+            description="Se enviará el correo al contribuyente. ¿Desea continuar?"
+            confirmLabel="Enviar por email"
+            cancelLabel="Cancelar"
+            onConfirm={() => formEmailRef.current?.requestSubmit()}
+          />
+        </>
       ) : (
         <form
           action={formAction}
@@ -341,10 +407,9 @@ export function BotonesNotificacion({
             <Label htmlFor="archivo-notificacion" className="text-xs">
               Evidencia (adjunte al menos un archivo)
             </Label>
-            <Input
+            <FileInputDropzone
               id="archivo-notificacion"
               name="archivo"
-              type="file"
               multiple
               accept={ACCEPT_ARCHIVOS}
               aria-invalid={!!state?.error}
@@ -816,70 +881,114 @@ export function CardCobroCoactivo({
   const fechaInicio = cobroCoactivo?.fechaInicio
     ? new Date(cobroCoactivo.fechaInicio).toLocaleDateString("es-CO")
     : null;
-  const descripcion = fechaInicio
-    ? `${CONTEXTO_COBRO_COACTIVO} Cobro activo desde ${fechaInicio}. Documentos y notas de esta etapa. Cuando se efectúe el cobro, regístralo con la acción correspondiente.`
-    : `${CONTEXTO_COBRO_COACTIVO} ${DESCRIPCION_COBRO_COACTIVO_INACTIVO}`;
 
   return (
-    <CardSectionAccordion title="Cobro coactivo" description={descripcion}>
-        {activo ? (
-          <>
-            {cobroCoactivo && (
-              <DatosCobroCoactivoForm
-                procesoId={procesoId}
-                noCoactivo={cobroCoactivo.noCoactivo ?? ""}
-                fechaInicio={cobroCoactivo.fechaInicio}
-              />
+    <div className="w-full space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Cobro coactivo</CardTitle>
+          <CardDescription className="space-y-1.5">
+            {CONTEXTO_COBRO_COACTIVO}
+            {fechaInicio && (
+              <span className="block font-medium text-foreground/90">Cobro activo desde {fechaInicio}.</span>
             )}
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Acciones</h4>
-              <AccionEstadoForm
-                procesoId={procesoId}
-                estadoDestino="finalizado"
-                label="Registrar cobro"
-                variant="default"
-              />
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Comentarios (Cobro coactivo)</h4>
-              <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_COBRO_COACTIVO} />
-              <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Documentos (Cobro coactivo)</h4>
-              <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_COBRO_COACTIVO} />
-              <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
-            </div>
-          </>
-        ) : (
-          <>
-            {puedeIniciar && (
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium">Acciones</h4>
-                <AccionEstadoForm
-                  procesoId={procesoId}
-                  estadoDestino="en_cobro_coactivo"
-                  label="Iniciar cobro coactivo"
-                  variant="default"
-                />
-              </div>
+            {!activo && puedeIniciar && (
+              <span className="block">{DESCRIPCION_COBRO_COACTIVO_INACTIVO}</span>
             )}
             {!puedeIniciar && estadoActual === "finalizado" && (
-              <p className="text-muted-foreground text-sm">
-                El proceso ya está finalizado. No es posible iniciar cobro coactivo.
-              </p>
+              <span className="block text-muted-foreground">El proceso ya está finalizado. No es posible iniciar cobro coactivo.</span>
             )}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Comentarios (Cobro coactivo)</h4>
-              <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_COBRO_COACTIVO} />
-              <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Documentos (Cobro coactivo)</h4>
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+      {activo && cobroCoactivo && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Datos del expediente</CardTitle>
+            <CardDescription>
+              Número de coactivo y fecha alineados al sistema donde se tramita el cobro.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DatosCobroCoactivoForm
+              procesoId={procesoId}
+              noCoactivo={cobroCoactivo.noCoactivo ?? ""}
+              fechaInicio={cobroCoactivo.fechaInicio}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {activo && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Acciones</CardTitle>
+            <CardDescription>
+              Cuando se efectúe el cobro, regístralo para finalizar el proceso.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AccionEstadoForm
+              procesoId={procesoId}
+              estadoDestino="finalizado"
+              label="Registrar cobro"
+              variant="default"
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {puedeIniciar && !activo && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Iniciar cobro coactivo</CardTitle>
+            <CardDescription>
+              Crea el registro de cobro coactivo y pasa el proceso a esta etapa.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AccionEstadoForm
+              procesoId={procesoId}
+              estadoDestino="en_cobro_coactivo"
+              label="Iniciar cobro coactivo"
+              variant="default"
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Documentos</CardTitle>
+          <CardDescription>
+            Mandamiento de pago, medidas cautelares, resoluciones y constancias de esta etapa.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {activo ? (
+            <>
+              <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_COBRO_COACTIVO} />
               <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
-            </div>
-          </>
-        )}
-    </CardSectionAccordion>
+            </>
+          ) : (
+            <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Comentarios</CardTitle>
+          <CardDescription>
+            Notas y seguimiento del cobro coactivo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_COBRO_COACTIVO} />
+          <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
+        </CardContent>
+      </Card>
+    </div>
   );
 }

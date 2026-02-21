@@ -192,13 +192,16 @@ export type EvidenciaEnvioEmail = {
   resendId: string;
   sentAt: string;
   templateId: string;
+  /** HTML del cuerpo del correo enviado, para mostrar en la UI. */
+  bodyHtml?: string;
 };
 
 /** Arma el objeto de evidencia para guardar en metadata del historial. */
 export function crearEvidenciaEnvio(
   to: string,
   resendId: string,
-  templateId: string = "notificacion-cobro"
+  templateId: string = "notificacion-cobro",
+  bodyHtml?: string
 ): EvidenciaEnvioEmail {
   return {
     canal: "email",
@@ -207,5 +210,6 @@ export function crearEvidenciaEnvio(
     resendId,
     sentAt: new Date().toISOString(),
     templateId,
+    ...(bodyHtml != null && bodyHtml !== "" ? { bodyHtml } : {}),
   };
 }

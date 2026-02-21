@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CardSectionAccordion } from "@/components/ui/card-accordion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { FileInputDropzone } from "@/components/ui/file-input-dropzone";
 import { Label } from "@/components/ui/label";
 import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
 import {
@@ -226,7 +226,11 @@ export function CardOrdenResolucion({ procesoId, orden }: CardOrdenResolucionPro
               <Label htmlFor="archivo-orden">
                 {orden?.rutaArchivo ? "Reemplazar documento (opcional)" : "Documento adjunto (opcional)"}
               </Label>
-              <Input id="archivo-orden" name="archivo" type="file" accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,text/plain" />
+              <FileInputDropzone
+                id="archivo-orden"
+                name="archivo"
+                accept=".pdf,image/*,.doc,.docx,.xls,.xlsx,text/plain"
+              />
             </div>
             <div className="flex gap-2">
               <Button type="submit">{orden ? "Guardar" : "Crear orden"}</Button>

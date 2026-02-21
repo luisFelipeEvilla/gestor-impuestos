@@ -11,6 +11,7 @@ import {
   enviarNotificacionCobroPorEmail,
   crearEvidenciaEnvio,
 } from "@/lib/notificaciones/resend";
+import { renderTemplateNotificacionCobro } from "@/lib/notificaciones/template-notificacion-cobro";
 import { getSession } from "@/lib/auth-server";
 import { saveProcesoDocument, isAllowedMime, isAllowedSize } from "@/lib/uploads";
 
@@ -818,7 +819,7 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
       maximumFractionDigits: 2,
     }).format(Number(row.montoCop));
 
-    const resultado = await enviarNotificacionCobroPorEmail(email, {
+    const datosEmail = {
       nombreContribuyente: row.contribuyenteNombre,
       impuestoNombre: "Proceso de cobro",
       impuestoCodigo: "Proceso de cobro",
@@ -826,13 +827,16 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
       vigencia: row.vigencia,
       periodo: row.periodo,
       procesoId,
-    });
+    };
+
+    const resultado = await enviarNotificacionCobroPorEmail(email, datosEmail);
 
     if (!resultado.ok) {
       return { error: resultado.error };
     }
 
-    const evidencia = crearEvidenciaEnvio(email, resultado.resendId);
+    const bodyHtml = renderTemplateNotificacionCobro(datosEmail);
+    const evidencia = crearEvidenciaEnvio(email, resultado.resendId, "notificacion-cobro", bodyHtml);
 
     await db
       .update(procesos)

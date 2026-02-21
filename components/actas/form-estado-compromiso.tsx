@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { FileInputDropzone } from "@/components/ui/file-input-dropzone";
 import { Label } from "@/components/ui/label";
 import { actualizarEstadoCompromisoAction } from "@/lib/actions/compromisos-acta";
 
@@ -78,13 +78,11 @@ export function FormEstadoCompromiso({
         <Label htmlFor={`archivos-${compromisoId}`} className="text-xs">
           Adjuntar documentos (opcional)
         </Label>
-        <Input
+        <FileInputDropzone
           id={`archivos-${compromisoId}`}
           name="archivos"
-          type="file"
           multiple
           accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv"
-          className="text-sm"
           aria-label="Archivos a adjuntar a esta actualización"
         />
         <p className="text-muted-foreground text-xs">

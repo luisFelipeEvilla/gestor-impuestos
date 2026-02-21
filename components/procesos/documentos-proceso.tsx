@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
-import { Input } from "@/components/ui/input";
+import { FileInputDropzone } from "@/components/ui/file-input-dropzone";
 import { Label } from "@/components/ui/label";
 import {
   Table,
@@ -25,7 +25,10 @@ import {
   type CategoriaDocumentoNota,
   type EstadoDocumentoProceso,
 } from "@/lib/proceso-categorias";
-import { TIPOS_DOCUMENTO_PROCESO, labelTipoDocumentoProceso } from "@/lib/tipos-documento-proceso";
+import {
+  getTiposDocumentoPorCategoria,
+  labelTipoDocumentoProceso,
+} from "@/lib/tipos-documento-proceso";
 
 export type DocumentoItem = {
   id: number;
@@ -139,50 +142,49 @@ export function SubirDocumentoForm({ procesoId, categoria }: SubirDocumentoFormP
   }
 
   return (
-    <form action={formAction} onSubmit={handleSubmit} className="space-y-2">
+    <form action={formAction} onSubmit={handleSubmit} className="space-y-4">
       <input type="hidden" name="procesoId" value={procesoId} />
       <input type="hidden" name="categoria" value={categoria} />
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="grid gap-1.5 min-w-[180px]">
-          <Label htmlFor="tipoDocumento-subir" className="text-xs">
-            Tipo de documento
-          </Label>
-          <select
+      <div className="grid gap-1.5">
+        <Label htmlFor="tipoDocumento-subir" className="text-xs font-medium">
+          Tipo de documento
+        </Label>
+        <select
             id="tipoDocumento-subir"
             name="tipoDocumento"
             required
-            className="border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+            className="border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-10 w-full rounded-xl border px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2"
             aria-label="Tipo de documento"
           >
-            {TIPOS_DOCUMENTO_PROCESO.map((t) => (
+            {getTiposDocumentoPorCategoria(categoria).map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
               </option>
             ))}
           </select>
-        </div>
-        <div className="grid flex-1 min-w-[200px] gap-1.5">
-          <Label htmlFor="archivo" className="text-xs">
-            Archivo (PDF, imágenes, Word, Excel; hasta {MAX_S3_MB} MB con S3)
-          </Label>
-          <Input
-            id="archivo"
-            name="archivo"
-            type="file"
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv"
-            aria-invalid={!!(state?.error || submitError)}
-            disabled={loading}
-          />
-        </div>
+      </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor="archivo" className="text-xs font-medium">
+          Archivo (PDF, imágenes, Word, Excel; hasta {MAX_S3_MB} MB con S3)
+        </Label>
+        <FileInputDropzone
+          id="archivo"
+          name="archivo"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv"
+          aria-invalid={!!(state?.error || submitError)}
+          disabled={loading}
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" size="sm" disabled={loading}>
           {loading ? "Subiendo…" : "Adjuntar"}
         </Button>
+        {(state?.error || submitError) && (
+          <p className="text-destructive text-xs" role="alert">
+            {submitError ?? state?.error}
+          </p>
+        )}
       </div>
-      {(state?.error || submitError) && (
-        <p className="text-destructive text-xs" role="alert">
-          {submitError ?? state?.error}
-        </p>
-      )}
     </form>
   );
 }

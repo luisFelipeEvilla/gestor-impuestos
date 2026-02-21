@@ -2,7 +2,13 @@
 
 import { useActionState, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { CardSectionAccordion } from "@/components/ui/card-accordion";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -126,25 +132,27 @@ export function CardAcuerdosPagoList({
   );
 
   const descripcion =
-    "Registro de acuerdos del proceso: número, fechas, porcentaje de cuota inicial, número de cuotas y día del mes de cobro. Acuerdo de pago y cobro coactivo son etapas independientes. Documentos y notas asociados al acuerdo.";
+    "Registro de acuerdos del proceso: número, fechas, porcentaje de cuota inicial, número de cuotas y día del mes de cobro. Acuerdo de pago y cobro coactivo son etapas independientes.";
   const montoFormateado =
     montoTotalCop != null && montoTotalCop !== ""
       ? Number(montoTotalCop).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
       : null;
 
   return (
-    <CardSectionAccordion
-      title="Acuerdos de pago"
-      description={
-        <span className="block space-y-1">
-          <span className="block text-muted-foreground text-sm">{CONTEXTO_ACUERDOS}</span>
-          {montoFormateado && (
-            <span className="block text-sm font-medium">Monto del proceso: {montoFormateado}</span>
-          )}
-          <span className="block text-muted-foreground text-sm">{descripcion}</span>
-        </span>
-      }
-    >
+    <div className="w-full space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Acuerdos de pago</CardTitle>
+          <CardDescription className="space-y-1.5">
+            <span className="block">{CONTEXTO_ACUERDOS}</span>
+            {montoFormateado && (
+              <span className="block font-medium text-foreground/90">Monto del proceso: {montoFormateado}</span>
+            )}
+            <span className="block">{descripcion}</span>
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
       <ConfirmarEliminacionModal
         open={openEliminar}
         onOpenChange={setOpenEliminar}
@@ -155,6 +163,15 @@ export function CardAcuerdosPagoList({
           formEliminarRef.current?.requestSubmit();
         }}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Registro de acuerdos</CardTitle>
+          <CardDescription>
+            Número del acuerdo, fechas, cuotas, porcentaje de cuota inicial y día del mes de cobro.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
         {initialAcuerdos.length > 0 && (
           <ul className="space-y-2 text-sm">
             {initialAcuerdos.map((a) => (
@@ -345,44 +362,65 @@ export function CardAcuerdosPagoList({
             </form>
           </DialogContent>
         </Dialog>
+        </CardContent>
+      </Card>
 
-        {showEtapa && (
-          <>
-            {enAcuerdoPago && (
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium">Acciones</h4>
-                <div>
-                  <p className="text-muted-foreground text-xs mb-1">Acuerdo cumplido</p>
-                  <AccionEstadoForm
-                    procesoId={procesoId}
-                    estadoDestino="finalizado"
-                    label="Finalizar (acuerdo cumplido)"
-                    variant="default"
-                  />
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-xs mb-1">Incumplimiento del acuerdo</p>
-                  <AccionEstadoForm
-                    procesoId={procesoId}
-                    estadoDestino="en_cobro_coactivo"
-                    label="Pasar a cobro coactivo (por incumplimiento)"
-                    variant="destructive"
-                  />
-                </div>
-              </div>
-            )}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Comentarios (Acuerdo de pago)</h4>
-              <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_ACUERDO_PAGO} />
-              <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
+      {showEtapa && enAcuerdoPago && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Acciones de estado</CardTitle>
+            <CardDescription>
+              Según el resultado del acuerdo, finaliza el proceso o pásalo a cobro coactivo por incumplimiento.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-muted-foreground text-xs mb-1">Acuerdo cumplido</p>
+              <AccionEstadoForm
+                procesoId={procesoId}
+                estadoDestino="finalizado"
+                label="Finalizar (acuerdo cumplido)"
+                variant="default"
+              />
             </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Documentos (Acuerdo de pago)</h4>
-              <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_ACUERDO_PAGO} />
-              <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
+            <div>
+              <p className="text-muted-foreground text-xs mb-1">Incumplimiento del acuerdo</p>
+              <AccionEstadoForm
+                procesoId={procesoId}
+                estadoDestino="en_cobro_coactivo"
+                label="Pasar a cobro coactivo (por incumplimiento)"
+                variant="destructive"
+              />
             </div>
-          </>
-        )}
-    </CardSectionAccordion>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Documentos</CardTitle>
+          <CardDescription>
+            Acuerdo de pago firmado, liquidaciones y constancias de esta etapa.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_ACUERDO_PAGO} />
+          <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Comentarios</CardTitle>
+          <CardDescription>
+            Notas y seguimiento del acuerdo de pago.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_ACUERDO_PAGO} />
+          <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
