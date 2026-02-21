@@ -25,7 +25,6 @@ const ESTADOS = [
   { value: "cobrado", label: "Cobrado" },
 ] as const;
 
-type ImpuestoOption = { id: string; nombre: string };
 type ContribuyenteOption = { id: number; nit: string; nombreRazonSocial: string };
 type UsuarioOption = { id: number; nombre: string };
 
@@ -33,7 +32,6 @@ type ProcesoFormProps = {
   action: (prev: EstadoFormProceso | null, formData: FormData) => Promise<EstadoFormProceso>;
   initialData?: Proceso | null;
   submitLabel: string;
-  impuestos: ImpuestoOption[];
   contribuyentes: ContribuyenteOption[];
   usuarios: UsuarioOption[];
 };
@@ -48,7 +46,6 @@ export function ProcesoForm({
   action,
   initialData,
   submitLabel,
-  impuestos: impuestosList,
   contribuyentes: contribuyentesList,
   usuarios: usuariosList,
 }: ProcesoFormProps) {
@@ -66,7 +63,7 @@ export function ProcesoForm({
           <CardDescription>
             {isEdit
               ? "Modifica los datos del proceso de cobro."
-              : "Registra un nuevo proceso de cobro (contribuyente obligatorio; impuesto opcional)."}
+              : "Registra un nuevo proceso de cobro."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -75,28 +72,6 @@ export function ProcesoForm({
               {state.error}
             </p>
           )}
-          <div className="grid gap-2">
-            <Label htmlFor="impuestoId">Impuesto (opcional)</Label>
-            <select
-              id="impuestoId"
-              name="impuestoId"
-              defaultValue={initialData?.impuestoId ?? ""}
-              className={cn(
-                "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-              )}
-              aria-invalid={!!state?.errores?.impuestoId}
-            >
-              <option value="">Sin impuesto</option>
-              {impuestosList.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.nombre}
-                </option>
-              ))}
-            </select>
-            {state?.errores?.impuestoId && (
-              <p className="text-destructive text-xs">{state.errores.impuestoId[0]}</p>
-            )}
-          </div>
           <div className="grid gap-2">
             <Label htmlFor="contribuyenteId">Contribuyente</Label>
             <select

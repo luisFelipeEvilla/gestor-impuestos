@@ -200,10 +200,6 @@ export const contribuyentes = pgTable("contribuyentes", {
 // Tabla: procesos (trabajo de cobro)
 export const procesos = pgTable("procesos", {
   id: serial("id").primaryKey(),
-  impuestoId: uuid("impuesto_id").references(() => impuestos.id, {
-    onDelete: "restrict",
-    onUpdate: "cascade",
-  }),
   contribuyenteId: integer("contribuyente_id")
     .notNull()
     .references(() => contribuyentes.id, { onDelete: "restrict", onUpdate: "cascade" }),
@@ -553,9 +549,8 @@ export const clientesMiembrosRelations = relations(clientesMiembros, ({ one }) =
   cliente: one(clientes),
 }));
 
-export const impuestosRelations = relations(impuestos, ({ one, many }) => ({
+export const impuestosRelations = relations(impuestos, ({ one }) => ({
   cliente: one(clientes, { fields: [impuestos.clienteId], references: [clientes.id] }),
-  procesos: many(procesos),
 }));
 
 export const contribuyentesRelations = relations(contribuyentes, ({ many }) => ({
@@ -563,7 +558,6 @@ export const contribuyentesRelations = relations(contribuyentes, ({ many }) => (
 }));
 
 export const procesosRelations = relations(procesos, ({ one, many }) => ({
-  impuesto: one(impuestos),
   contribuyente: one(contribuyentes),
   asignadoA: one(usuarios),
   historial: many(historialProceso),

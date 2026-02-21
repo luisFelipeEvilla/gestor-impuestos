@@ -31,8 +31,6 @@ const OPCIONES_VIGENCIA = Array.from(
   (_, i) => AÑO_MIN + i
 ).reverse();
 
-type ImpuestoOption = { id: string; nombre: string };
-
 type UsuarioOption = { id: number; nombre: string };
 
 type FiltrosProcesosProps = {
@@ -43,8 +41,6 @@ type FiltrosProcesosProps = {
   usuarios: UsuarioOption[];
   asignadoIdActual: number | null;
   fechaAsignacionActual: string | null;
-  impuestos: ImpuestoOption[];
-  impuestoIdActual: string | null;
 };
 
 export function FiltrosProcesos({
@@ -55,8 +51,6 @@ export function FiltrosProcesos({
   usuarios: usuariosList,
   asignadoIdActual,
   fechaAsignacionActual,
-  impuestos: impuestosList,
-  impuestoIdActual,
 }: FiltrosProcesosProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -78,7 +72,6 @@ export function FiltrosProcesos({
       comparendo?: string;
       asignadoId?: number | null;
       fechaAsignacion?: string | null;
-      impuestoId?: string | null;
     }) => {
       const params = new URLSearchParams(searchParams.toString());
       const estado =
@@ -99,10 +92,6 @@ export function FiltrosProcesos({
         updates.fechaAsignacion !== undefined
           ? updates.fechaAsignacion
           : fechaAsignacionActual;
-      const impId =
-        updates.impuestoId !== undefined
-          ? updates.impuestoId
-          : impuestoIdActual;
 
       params.delete("estado");
       params.delete("vigencia");
@@ -110,7 +99,6 @@ export function FiltrosProcesos({
       params.delete("comparendo");
       params.delete("asignado");
       params.delete("fechaAsignacion");
-      params.delete("impuesto");
       if (estado != null && estado !== "todos") params.set("estado", estado);
       if (vigencia != null) params.set("vigencia", String(vigencia));
       if (contrib.trim()) params.set("contribuyente", contrib.trim());
@@ -118,8 +106,6 @@ export function FiltrosProcesos({
       if (asigId != null && asigId > 0) params.set("asignado", String(asigId));
       if (fechaAsig != null && fechaAsig !== "")
         params.set("fechaAsignacion", fechaAsig);
-      if (impId != null && impId !== "")
-        params.set("impuesto", impId);
       return params;
     },
     [
@@ -130,7 +116,6 @@ export function FiltrosProcesos({
       comparendo,
       fechaAsignacionActual,
       asignadoIdActual,
-      impuestoIdActual,
     ]
   );
 
@@ -148,16 +133,6 @@ export function FiltrosProcesos({
     (value: string) => {
       const params = buildParams({
         vigencia: value === "todos" ? null : parseInt(value, 10),
-      });
-      router.push(`/procesos?${params.toString()}`);
-    },
-    [router, buildParams]
-  );
-
-  const handleImpuestoChange = useCallback(
-    (value: string) => {
-      const params = buildParams({
-        impuestoId: value === "todos" ? null : value,
       });
       router.push(`/procesos?${params.toString()}`);
     },
@@ -205,8 +180,7 @@ export function FiltrosProcesos({
     contribuyenteActual.length > 0 ||
     comparendoActual.length > 0 ||
     asignadoIdActual != null ||
-    fechaAsignacionActual != null ||
-    impuestoIdActual != null;
+    fechaAsignacionActual != null;
 
   const fieldClass = "min-w-0 w-full h-10";
 
@@ -290,30 +264,6 @@ export function FiltrosProcesos({
           className={fieldClass}
           aria-label="Filtrar por fecha de asignación"
         />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <Label
-          htmlFor="filtro-impuesto"
-          className="text-xs text-muted-foreground"
-        >
-          Impuesto
-        </Label>
-        <Select
-          value={impuestoIdActual != null ? impuestoIdActual : "todos"}
-          onValueChange={handleImpuestoChange}
-        >
-          <SelectTrigger id="filtro-impuesto" className={fieldClass}>
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
-            {impuestosList.map((i) => (
-              <SelectItem key={i.id} value={String(i.id)}>
-                {i.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="filtro-estado" className="text-xs text-muted-foreground">

@@ -14,7 +14,6 @@ import {
 import { db } from "@/lib/db";
 import {
   procesos,
-  impuestos,
   contribuyentes,
   usuarios,
   historialProceso,
@@ -67,7 +66,6 @@ function buildProcesosUrl(filtros: {
   contribuyente?: string;
   asignadoId?: number | null;
   fechaAsignacion?: string | null;
-  impuestoId?: string | null;
   comparendo?: string | null;
   page?: number;
 }) {
@@ -77,7 +75,6 @@ function buildProcesosUrl(filtros: {
   if (filtros.contribuyente?.trim()) search.set("contribuyente", filtros.contribuyente.trim());
   if (filtros.asignadoId != null && filtros.asignadoId > 0) search.set("asignado", String(filtros.asignadoId));
   if (filtros.fechaAsignacion) search.set("fechaAsignacion", filtros.fechaAsignacion);
-  if (filtros.impuestoId) search.set("impuesto", filtros.impuestoId);
   if (filtros.comparendo?.trim()) search.set("comparendo", filtros.comparendo.trim());
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
   const q = search.toString();
@@ -91,7 +88,6 @@ type Props = {
     contribuyente?: string;
     asignado?: string;
     fechaAsignacion?: string;
-    impuesto?: string;
     comparendo?: string;
     page?: string;
   }>;
@@ -110,7 +106,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
       ? parseInt(asignadoParam, 10)
       : null;
   const fechaAsignacionParam = params.fechaAsignacion;
-  const impuestoParam = params.impuesto?.trim();
   const comparendoQ = (params.comparendo ?? "").trim();
   const pageParam = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
 
@@ -125,10 +120,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const fechaAsignacion =
     fechaAsignacionParam != null && /^\d{4}-\d{2}-\d{2}$/.test(fechaAsignacionParam)
       ? fechaAsignacionParam
-      : null;
-  const impuestoIdStr =
-    impuestoParam != null && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(impuestoParam)
-      ? impuestoParam
       : null;
 
   let idsConFechaAsignacion: number[] | null = null;
@@ -147,15 +138,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
       idsConFechaAsignacion = [-1];
     }
   }
-
-  const impuestosQuery = db
-    .selectDistinct({ id: impuestos.id, nombre: impuestos.nombre })
-    .from(impuestos)
-    .innerJoin(procesos, eq(procesos.impuestoId, impuestos.id));
-  const impuestosConProcesos =
-    session?.user?.rol !== "admin" && session?.user?.id != null
-      ? await impuestosQuery.where(eq(procesos.asignadoAId, session.user.id)).orderBy(impuestos.nombre)
-      : await impuestosQuery.orderBy(impuestos.nombre);
 
   const usuariosList = await db
     .select({ id: usuarios.id, nombre: usuarios.nombre })
@@ -177,7 +159,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const condiciones = [];
   if (estadoActual != null) condiciones.push(eq(procesos.estadoActual, estadoActual));
   if (vigenciaNum != null) condiciones.push(eq(procesos.vigencia, vigenciaNum));
-  if (impuestoIdStr != null) condiciones.push(eq(procesos.impuestoId, impuestoIdStr));
   if (contribuyenteQ.length > 0) {
     condiciones.push(
       or(
@@ -219,13 +200,11 @@ export default async function ProcesosPage({ searchParams }: Props) {
       estadoActual: procesos.estadoActual,
       numeroResolucion: ordenesResolucion.numeroResolucion,
       fechaLimite: procesos.fechaLimite,
-      impuestoNombre: impuestos.nombre,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
       contribuyenteNit: contribuyentes.nit,
       asignadoNombre: usuarios.nombre,
     })
     .from(procesos)
-    .leftJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
     .leftJoin(ordenesResolucion, eq(procesos.id, ordenesResolucion.procesoId));
@@ -233,7 +212,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const countQuery = db
     .select({ total: count(procesos.id) })
     .from(procesos)
-    .leftJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id));
 
@@ -325,8 +303,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
               usuarios={usuariosList}
               asignadoIdActual={asignadoIdNum}
               fechaAsignacionActual={fechaAsignacion}
-              impuestos={impuestosConProcesos}
-              impuestoIdActual={impuestoIdStr}
             />
           </Suspense>
         </div>
@@ -433,8 +409,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
               contribuyenteQ.length > 0 ||
               comparendoQ.length > 0 ||
               asignadoIdNum != null ||
-              fechaAsignacion != null ||
-              impuestoIdStr != null) && " · Filtros aplicados"}
+              fechaAsignacion != null) && " · Filtros aplicados"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -472,7 +447,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
-                            impuestoId: impuestoIdStr ?? undefined,
                             page: 1,
                           })}
                           scroll={false}
@@ -497,7 +471,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
-                            impuestoId: impuestoIdStr ?? undefined,
                             page: page - 1,
                           })}
                           scroll={false}
@@ -525,7 +498,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
-                            impuestoId: impuestoIdStr ?? undefined,
                             page: page + 1,
                           })}
                           scroll={false}
@@ -550,7 +522,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             comparendo: comparendoQ || undefined,
                             asignadoId: asignadoIdNum ?? undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
-                            impuestoId: impuestoIdStr ?? undefined,
                             page: totalPages,
                           })}
                           scroll={false}
@@ -567,7 +538,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
                       {comparendoQ ? <input type="hidden" name="comparendo" value={comparendoQ} /> : null}
                       {asignadoIdNum != null && asignadoIdNum > 0 ? <input type="hidden" name="asignado" value={String(asignadoIdNum)} /> : null}
                       {fechaAsignacion ? <input type="hidden" name="fechaAsignacion" value={fechaAsignacion} /> : null}
-                      {impuestoIdStr ? <input type="hidden" name="impuesto" value={impuestoIdStr} /> : null}
                       <label htmlFor="procesos-page-go" className="sr-only">
                         Ir a página
                       </label>

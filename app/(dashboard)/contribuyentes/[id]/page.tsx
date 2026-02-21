@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { getTipoDocumentoLabel } from "@/lib/constants/tipo-documento";
 import { db } from "@/lib/db";
-import { contribuyentes, procesos, impuestos } from "@/lib/db/schema";
+import { contribuyentes, procesos } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import {
@@ -58,10 +58,8 @@ export default async function DetalleContribuyentePage({ params }: Props) {
       vigencia: procesos.vigencia,
       montoCop: procesos.montoCop,
       estadoActual: procesos.estadoActual,
-      impuestoNombre: impuestos.nombre,
     })
     .from(procesos)
-    .leftJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .where(whereCond)
     .orderBy(desc(procesos.creadoEn));
 
@@ -150,7 +148,6 @@ export default async function DetalleContribuyentePage({ params }: Props) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Impuesto</TableHead>
                   <TableHead>Vigencia</TableHead>
                   <TableHead>Monto (COP)</TableHead>
                   <TableHead>Estado</TableHead>
@@ -160,7 +157,6 @@ export default async function DetalleContribuyentePage({ params }: Props) {
               <TableBody>
                 {procesosList.map((p) => (
                   <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.impuestoNombre ?? "—"}</TableCell>
                     <TableCell>{p.vigencia}</TableCell>
                     <TableCell>
                       {Number(p.montoCop).toLocaleString("es-CO")}

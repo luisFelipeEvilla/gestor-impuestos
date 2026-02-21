@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { procesos, historialProceso, impuestos, contribuyentes, usuarios, documentosProceso, cobrosCoactivos } from "@/lib/db/schema";
+import { procesos, historialProceso, contribuyentes, usuarios, documentosProceso, cobrosCoactivos } from "@/lib/db/schema";
 import type { NewHistorialProceso } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import {
@@ -57,11 +57,6 @@ const estadoProcesoValues = [
 ] as const;
 
 const schemaCrear = z.object({
-  impuestoId: z
-    .string()
-    .optional()
-    .transform((v) => (v === "" || v == null ? undefined : v))
-    .refine((v) => v === undefined || /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v ?? ""), "Impuesto inválido"),
   contribuyenteId: z.coerce.number().int().positive("Selecciona un contribuyente"),
   vigencia: z.coerce.number().int().min(2000, "Vigencia inválida").max(2100),
   periodo: z.string().max(50).optional().or(z.literal("")),
@@ -101,7 +96,6 @@ export async function crearProceso(
   formData: FormData
 ): Promise<EstadoFormProceso> {
   const raw = {
-    impuestoId: formData.get("impuestoId"),
     contribuyenteId: formData.get("contribuyenteId"),
     vigencia: formData.get("vigencia"),
     periodo: formData.get("periodo") || undefined,
@@ -124,7 +118,6 @@ export async function crearProceso(
   }
 
   const {
-    impuestoId,
     contribuyenteId,
     vigencia,
     periodo,
@@ -148,7 +141,6 @@ export async function crearProceso(
     const [inserted] = await db
       .insert(procesos)
       .values({
-        impuestoId: impuestoId ?? null,
         contribuyenteId,
         vigencia,
         periodo: periodo?.trim() || null,
@@ -201,7 +193,6 @@ export async function actualizarProceso(
   const id = typeof idRaw === "string" ? parseInt(idRaw, 10) : Number(idRaw);
   const raw = {
     id: Number.isNaN(id) ? undefined : id,
-    impuestoId: formData.get("impuestoId"),
     contribuyenteId: formData.get("contribuyenteId"),
     vigencia: formData.get("vigencia"),
     periodo: formData.get("periodo") || undefined,
@@ -224,7 +215,6 @@ export async function actualizarProceso(
   }
 
   const {
-    impuestoId,
     contribuyenteId,
     vigencia,
     periodo,
@@ -261,7 +251,6 @@ export async function actualizarProceso(
     const [updated] = await db
       .update(procesos)
       .set({
-        impuestoId: impuestoId ?? null,
         contribuyenteId,
         vigencia,
         periodo: periodo?.trim() || null,
@@ -631,7 +620,6 @@ type RowProcesoNotificacion = {
   periodo: string | null;
   contribuyenteNombre: string;
   contribuyenteEmail: string | null;
-  impuestoNombre: string | null;
 };
 
 async function validarProcesoParaNotificacion(
@@ -647,11 +635,9 @@ async function validarProcesoParaNotificacion(
       periodo: procesos.periodo,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
       contribuyenteEmail: contribuyentes.email,
-      impuestoNombre: impuestos.nombre,
     })
     .from(procesos)
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
-    .leftJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
     .where(eq(procesos.id, procesoId));
 
   if (!row) return { error: "Proceso no encontrado." };
@@ -693,8 +679,8 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
 
     const resultado = await enviarNotificacionCobroPorEmail(email, {
       nombreContribuyente: row.contribuyenteNombre,
-      impuestoNombre: row.impuestoNombre ?? "Proceso de cobro",
-      impuestoCodigo: row.impuestoNombre ?? "Proceso de cobro",
+      impuestoNombre: "Proceso de cobro",
+      impuestoCodigo: "Proceso de cobro",
       montoCop: montoCopFormatted,
       vigencia: row.vigencia,
       periodo: row.periodo,

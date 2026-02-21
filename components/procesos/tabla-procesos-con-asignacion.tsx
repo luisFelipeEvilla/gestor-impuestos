@@ -37,7 +37,6 @@ const COLUMNS_STORAGE_KEY = "procesos-tabla-columnas-visible";
 
 const COLUMNS: { id: string; label: string }[] = [
   { id: "seleccion", label: "Selección" },
-  { id: "impuesto", label: "Impuesto" },
   { id: "contribuyente", label: "Contribuyente" },
   { id: "vigencia", label: "Vigencia" },
   { id: "noComparendo", label: "No. comparendo" },
@@ -83,7 +82,6 @@ export type FilaProceso = {
   estadoActual: string;
   numeroResolucion: string | null;
   fechaLimite: string | null;
-  impuestoNombre: string | null;
   contribuyenteNombre: string;
   contribuyenteNit: string;
   asignadoNombre: string | null;
@@ -271,7 +269,6 @@ export function TablaProcesosConAsignacion({
                 />
               </TableHead>
             )}
-            {isColumnVisible("impuesto") && <TableHead>Impuesto</TableHead>}
             {isColumnVisible("contribuyente") && (
               <TableHead className="max-w-[200px] w-[200px]">Contribuyente</TableHead>
             )}
@@ -303,9 +300,6 @@ export function TablaProcesosConAsignacion({
                     className="size-4 rounded border-border"
                   />
                 </TableCell>
-              )}
-              {isColumnVisible("impuesto") && (
-                <TableCell className="font-medium">{p.impuestoNombre ?? "—"}</TableCell>
               )}
               {isColumnVisible("contribuyente") && (
                 <TableCell className="max-w-[200px] w-[200px]">

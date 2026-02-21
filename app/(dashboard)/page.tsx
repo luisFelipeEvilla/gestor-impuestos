@@ -144,10 +144,8 @@ export default async function DashboardPage({ searchParams }: Props) {
         fechaLimite: procesos.fechaLimite,
         montoCop: procesos.montoCop,
         contribuyenteNombre: contribuyentes.nombreRazonSocial,
-        impuestoNombre: impuestos.nombre,
       })
       .from(procesos)
-      .leftJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
       .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
       .where(
         vigenciaCond
@@ -172,10 +170,8 @@ export default async function DashboardPage({ searchParams }: Props) {
           estadoActual: procesos.estadoActual,
           creadoEn: procesos.creadoEn,
           contribuyenteNombre: contribuyentes.nombreRazonSocial,
-          impuestoNombre: impuestos.nombre,
         })
         .from(procesos)
-        .leftJoin(impuestos, eq(procesos.impuestoId, impuestos.id))
         .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id));
       return (vigenciaCond ? base.where(vigenciaCond) : base)
         .orderBy(desc(procesos.creadoEn))
@@ -387,7 +383,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                       className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-transparent px-3 py-2.5 text-sm transition-colors hover:border-border hover:bg-accent/50"
                     >
                       <span className="font-medium text-foreground">
-                        #{p.id} · {p.impuestoNombre ?? "—"} – {p.contribuyenteNombre}
+                        #{p.id} – {p.contribuyenteNombre}
                       </span>
                       <span className="flex items-center gap-2">
                         <SemaforoFechaLimite fechaLimite={p.fechaLimite} variant="pill" />
@@ -441,7 +437,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                       className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-transparent px-3 py-2.5 text-sm transition-colors hover:border-border hover:bg-accent/50"
                     >
                       <span className="font-medium text-foreground">
-                        #{p.id} · {p.impuestoNombre ?? "—"} – {p.contribuyenteNombre}
+                        #{p.id} – {p.contribuyenteNombre}
                       </span>
                       <span className="text-muted-foreground text-xs tabular-nums">
                         {formatDate(p.creadoEn)}

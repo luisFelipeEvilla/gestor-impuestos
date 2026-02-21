@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { procesos, impuestos, contribuyentes, usuarios, documentosProceso } from "@/lib/db/schema";
+import { procesos, contribuyentes, usuarios, documentosProceso } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { actualizarProceso } from "@/lib/actions/procesos";
@@ -37,8 +37,7 @@ export default async function EditarProcesoPage({ params }: Props) {
     }
   }
 
-  const [impuestosList, contribuyentesList, usuariosList, documentosRows] = await Promise.all([
-    db.select({ id: impuestos.id, nombre: impuestos.nombre }).from(impuestos).where(eq(impuestos.activo, true)),
+  const [contribuyentesList, usuariosList, documentosRows] = await Promise.all([
     db.select({ id: contribuyentes.id, nit: contribuyentes.nit, nombreRazonSocial: contribuyentes.nombreRazonSocial }).from(contribuyentes),
     db.select({ id: usuarios.id, nombre: usuarios.nombre }).from(usuarios).where(eq(usuarios.activo, true)),
     db
@@ -66,7 +65,6 @@ export default async function EditarProcesoPage({ params }: Props) {
           action={actualizarProceso}
           initialData={proceso}
           submitLabel="Guardar cambios"
-          impuestos={impuestosList}
           contribuyentes={contribuyentesList}
           usuarios={usuariosList}
         />
