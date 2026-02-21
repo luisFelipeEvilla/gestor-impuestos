@@ -32,6 +32,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { FiltrosProcesos } from "./filtros-procesos";
 import { unstable_noStore } from "next/cache";
+import { labelEstado } from "@/lib/estados-proceso";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -41,14 +42,9 @@ const ESTADOS_VALIDOS = [
   "asignado",
   "notificado",
   "en_contacto",
-  "en_negociacion",
-  "cobrado",
-  "incobrable",
   "en_cobro_coactivo",
-  "suspendido",
+  "cobrado",
 ] as const;
-
-const TIPOS_IMPUESTO = ["nacional", "municipal"] as const;
 
 const PROCESOS_PAGE_SIZE = 15;
 
@@ -58,7 +54,7 @@ function buildProcesosUrl(filtros: {
   contribuyente?: string;
   asignado?: string;
   fechaAsignacion?: string | null;
-  tipoImpuesto?: string | null;
+  impuestoId?: number | null;
   page?: number;
 }) {
   const search = new URLSearchParams();
@@ -67,7 +63,7 @@ function buildProcesosUrl(filtros: {
   if (filtros.contribuyente?.trim()) search.set("contribuyente", filtros.contribuyente.trim());
   if (filtros.asignado?.trim()) search.set("asignado", filtros.asignado.trim());
   if (filtros.fechaAsignacion) search.set("fechaAsignacion", filtros.fechaAsignacion);
-  if (filtros.tipoImpuesto) search.set("tipoImpuesto", filtros.tipoImpuesto);
+  if (filtros.impuestoId != null && filtros.impuestoId > 0) search.set("impuesto", String(filtros.impuestoId));
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
   const q = search.toString();
   return q ? `/procesos?${q}` : "/procesos";
@@ -80,7 +76,7 @@ type Props = {
     contribuyente?: string;
     asignado?: string;
     fechaAsignacion?: string;
-    tipoImpuesto?: string;
+    impuesto?: string;
     page?: string;
   }>;
 };
@@ -94,7 +90,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const contribuyenteQ = (params.contribuyente ?? "").trim();
   const asignadoQ = (params.asignado ?? "").trim();
   const fechaAsignacionParam = params.fechaAsignacion;
-  const tipoImpuestoParam = params.tipoImpuesto;
+  const impuestoParam = params.impuesto;
   const pageParam = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
 
   const estadoActual: (typeof ESTADOS_VALIDOS)[number] | null =
@@ -109,9 +105,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
     fechaAsignacionParam != null && /^\d{4}-\d{2}-\d{2}$/.test(fechaAsignacionParam)
       ? fechaAsignacionParam
       : null;
-  const tipoImpuesto: (typeof TIPOS_IMPUESTO)[number] | null =
-    tipoImpuestoParam != null && TIPOS_IMPUESTO.includes(tipoImpuestoParam as (typeof TIPOS_IMPUESTO)[number])
-      ? (tipoImpuestoParam as (typeof TIPOS_IMPUESTO)[number])
+  const impuestoIdNum =
+    impuestoParam != null && /^\d+$/.test(impuestoParam)
+      ? parseInt(impuestoParam, 10)
       : null;
 
   let idsConFechaAsignacion: number[] | null = null;
@@ -131,10 +127,19 @@ export default async function ProcesosPage({ searchParams }: Props) {
     }
   }
 
+  const impuestosQuery = db
+    .selectDistinct({ id: impuestos.id, nombre: impuestos.nombre })
+    .from(impuestos)
+    .innerJoin(procesos, eq(procesos.impuestoId, impuestos.id));
+  const impuestosConProcesos =
+    session?.user?.rol !== "admin" && session?.user?.id != null
+      ? await impuestosQuery.where(eq(procesos.asignadoAId, session.user.id)).orderBy(impuestos.nombre)
+      : await impuestosQuery.orderBy(impuestos.nombre);
+
   const condiciones = [];
   if (estadoActual != null) condiciones.push(eq(procesos.estadoActual, estadoActual));
   if (vigenciaNum != null) condiciones.push(eq(procesos.vigencia, vigenciaNum));
-  if (tipoImpuesto != null) condiciones.push(eq(impuestos.tipo, tipoImpuesto));
+  if (impuestoIdNum != null) condiciones.push(eq(procesos.impuestoId, impuestoIdNum));
   if (contribuyenteQ.length > 0) {
     condiciones.push(
       or(
@@ -223,7 +228,8 @@ export default async function ProcesosPage({ searchParams }: Props) {
               contribuyenteActual={contribuyenteQ}
               asignadoActual={asignadoQ}
               fechaAsignacionActual={fechaAsignacion}
-              tipoImpuestoActual={tipoImpuesto}
+              impuestos={impuestosConProcesos}
+              impuestoIdActual={impuestoIdNum}
             />
           </Suspense>
         </div>
@@ -243,7 +249,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
               contribuyenteQ.length > 0 ||
               asignadoQ.length > 0 ||
               fechaAsignacion != null ||
-              tipoImpuesto != null) && " · Filtros aplicados"}
+              impuestoIdNum != null) && " · Filtros aplicados"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -290,8 +296,8 @@ export default async function ProcesosPage({ searchParams }: Props) {
                       <TableCell>
                         {Number(p.montoCop).toLocaleString("es-CO")}
                       </TableCell>
-                      <TableCell className="capitalize">
-                        {p.estadoActual?.replace(/_/g, " ")}
+                      <TableCell>
+                        {labelEstado(p.estadoActual)}
                       </TableCell>
                       <TableCell className="text-center">
                         <SemaforoFechaLimite
@@ -334,7 +340,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             contribuyente: contribuyenteQ || undefined,
                             asignado: asignadoQ || undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
-                            tipoImpuesto: tipoImpuesto ?? undefined,
+                            impuestoId: impuestoIdNum ?? undefined,
                             page: page - 1,
                           })}
                         >
@@ -360,7 +366,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                             contribuyente: contribuyenteQ || undefined,
                             asignado: asignadoQ || undefined,
                             fechaAsignacion: fechaAsignacion ?? undefined,
-                            tipoImpuesto: tipoImpuesto ?? undefined,
+                            impuestoId: impuestoIdNum ?? undefined,
                             page: page + 1,
                           })}
                         >

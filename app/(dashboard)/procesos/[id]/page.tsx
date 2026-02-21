@@ -40,6 +40,7 @@ import { CardAcuerdosPagoList } from "@/components/procesos/card-acuerdos-pago-l
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { DetalleConHistorial } from "./detalle-con-historial";
 import { unstable_noStore } from "next/cache";
+import { labelEstado } from "@/lib/estados-proceso";
 import type { EvidenciaEnvioEmail } from "@/lib/notificaciones/resend";
 
 export const dynamic = 'force-dynamic';
@@ -66,7 +67,7 @@ function formatDateTime(value: Date | string | null | undefined): string {
 
 const LABEL_CATEGORIA: Record<string, string> = {
   general: "General",
-  en_contacto: "En contacto",
+  en_contacto: "Cobro persuasivo",
   acuerdo_pago: "Acuerdo de pago",
   cobro_coactivo: "Cobro coactivo",
 };
@@ -250,7 +251,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
                 Vigencia {row.vigencia}
                 {row.periodo ? ` · Período ${row.periodo}` : ""}
                 {" · "}
-                Estado: <span className="capitalize">{row.estadoActual?.replace(/_/g, " ")}</span>
+                Estado: <span>{labelEstado(row.estadoActual)}</span>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -280,7 +281,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Estado</dt>
-                  <dd className="capitalize">{row.estadoActual?.replace(/_/g, " ")}</dd>
+                  <dd>{labelEstado(row.estadoActual)}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Asignado a</dt>
@@ -359,11 +360,11 @@ export default async function DetalleProcesoPage({ params }: Props) {
                         {(h.estadoAnterior != null || h.estadoNuevo != null) && (
                           <p className="text-muted-foreground text-xs">
                             {h.estadoAnterior != null && (
-                              <span>De: {h.estadoAnterior.replace(/_/g, " ")}</span>
+                              <span>De: {labelEstado(h.estadoAnterior)}</span>
                             )}
                             {h.estadoAnterior != null && h.estadoNuevo != null && " → "}
                             {h.estadoNuevo != null && (
-                              <span>A: {h.estadoNuevo.replace(/_/g, " ")}</span>
+                              <span>A: {labelEstado(h.estadoNuevo)}</span>
                             )}
                           </p>
                         )}

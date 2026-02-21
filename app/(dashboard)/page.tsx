@@ -29,11 +29,12 @@ import {
 } from "@/lib/db/schema";
 import { eq, desc, and, gte, lte, sql, notInArray } from "drizzle-orm";
 import { unstable_noStore } from "next/cache";
+import { labelEstado } from "@/lib/estados-proceso";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const ESTADOS_CERRADOS = ["cobrado", "incobrable"] as const;
+const ESTADOS_CERRADOS = ["cobrado"] as const;
 
 type Props = { searchParams: Promise<{ vigencia?: string }> };
 
@@ -193,11 +194,8 @@ export default async function DashboardPage({ searchParams }: Props) {
     "asignado",
     "notificado",
     "en_contacto",
-    "en_negociacion",
     "en_cobro_coactivo",
     "cobrado",
-    "incobrable",
-    "suspendido",
   ];
   const seen = new Set(ordenEstados);
   const procesosPorEstadoOrdenado = [
@@ -266,7 +264,7 @@ export default async function DashboardPage({ searchParams }: Props) {
           <CardContent>
             <p className="text-2xl font-bold text-primary">{formatMonto(montoGestion)}</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Suma de procesos no cobrados/incobrables
+              Suma de procesos no cobrados
             </p>
           </CardContent>
         </Card>
@@ -353,7 +351,7 @@ export default async function DashboardPage({ searchParams }: Props) {
           <CardHeader>
             <CardTitle>Monto en gestión por estado</CardTitle>
             <CardDescription>
-              Suma de montos (COP) por estado, excluyendo cobrado e incobrable
+              Suma de montos (COP) por estado, excluyendo cobrado
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -398,7 +396,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                         </span>
                       </span>
                       <span className="w-full text-xs capitalize text-muted-foreground">
-                        {p.estadoActual?.replace(/_/g, " ")} ·{" "}
+                        {labelEstado(p.estadoActual)} ·{" "}
                         {formatMonto(p.montoCop)}
                       </span>
                     </Link>
@@ -449,7 +447,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                         {formatDate(p.creadoEn)}
                       </span>
                       <span className="w-full text-xs capitalize text-muted-foreground">
-                        {p.estadoActual?.replace(/_/g, " ")}
+                        {labelEstado(p.estadoActual)}
                       </span>
                     </Link>
                   </li>

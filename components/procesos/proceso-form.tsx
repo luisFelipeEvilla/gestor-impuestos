@@ -20,12 +20,9 @@ const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
   { value: "asignado", label: "Asignado" },
   { value: "notificado", label: "Notificado" },
-  { value: "en_contacto", label: "En contacto" },
-  { value: "en_negociacion", label: "En negociación" },
-  { value: "cobrado", label: "Cobrado" },
-  { value: "incobrable", label: "Incobrable" },
+  { value: "en_contacto", label: "Cobro persuasivo" },
   { value: "en_cobro_coactivo", label: "En cobro coactivo" },
-  { value: "suspendido", label: "Suspendido" },
+  { value: "cobrado", label: "Cobrado" },
 ] as const;
 
 type ImpuestoOption = { id: number; nombre: string };

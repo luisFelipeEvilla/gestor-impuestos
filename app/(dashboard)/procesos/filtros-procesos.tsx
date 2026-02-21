@@ -19,17 +19,9 @@ const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
   { value: "asignado", label: "Asignado" },
   { value: "notificado", label: "Notificado" },
-  { value: "en_contacto", label: "En contacto" },
-  { value: "en_negociacion", label: "En negociación" },
+  { value: "en_contacto", label: "Cobro persuasivo" },
   { value: "en_cobro_coactivo", label: "En cobro coactivo" },
   { value: "cobrado", label: "Cobrado" },
-  { value: "incobrable", label: "Incobrable" },
-  { value: "suspendido", label: "Suspendido" },
-] as const;
-
-const TIPOS_IMPUESTO = [
-  { value: "nacional", label: "Nacional" },
-  { value: "municipal", label: "Municipal" },
 ] as const;
 
 const AÑO_MIN = 2000;
@@ -39,13 +31,16 @@ const OPCIONES_VIGENCIA = Array.from(
   (_, i) => AÑO_MIN + i
 ).reverse();
 
+type ImpuestoOption = { id: number; nombre: string };
+
 type FiltrosProcesosProps = {
   estadoActual: string | null;
   vigenciaActual: number | null;
   contribuyenteActual: string;
   asignadoActual: string;
   fechaAsignacionActual: string | null;
-  tipoImpuestoActual: string | null;
+  impuestos: ImpuestoOption[];
+  impuestoIdActual: number | null;
 };
 
 export function FiltrosProcesos({
@@ -54,7 +49,8 @@ export function FiltrosProcesos({
   contribuyenteActual,
   asignadoActual,
   fechaAsignacionActual,
-  tipoImpuestoActual,
+  impuestos: impuestosList,
+  impuestoIdActual,
 }: FiltrosProcesosProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -76,7 +72,7 @@ export function FiltrosProcesos({
       contribuyente?: string;
       asignado?: string;
       fechaAsignacion?: string | null;
-      tipoImpuesto?: string | null;
+      impuestoId?: number | null;
     }) => {
       const params = new URLSearchParams(searchParams.toString());
       const estado =
@@ -93,25 +89,25 @@ export function FiltrosProcesos({
         updates.fechaAsignacion !== undefined
           ? updates.fechaAsignacion
           : fechaAsignacionActual;
-      const tipoImp =
-        updates.tipoImpuesto !== undefined
-          ? updates.tipoImpuesto
-          : tipoImpuestoActual;
+      const impId =
+        updates.impuestoId !== undefined
+          ? updates.impuestoId
+          : impuestoIdActual;
 
       params.delete("estado");
       params.delete("vigencia");
       params.delete("contribuyente");
       params.delete("asignado");
       params.delete("fechaAsignacion");
-      params.delete("tipoImpuesto");
+      params.delete("impuesto");
       if (estado != null && estado !== "todos") params.set("estado", estado);
       if (vigencia != null) params.set("vigencia", String(vigencia));
       if (contrib.trim()) params.set("contribuyente", contrib.trim());
       if (asig.trim()) params.set("asignado", asig.trim());
       if (fechaAsig != null && fechaAsig !== "")
         params.set("fechaAsignacion", fechaAsig);
-      if (tipoImp != null && tipoImp !== "todos")
-        params.set("tipoImpuesto", tipoImp);
+      if (impId != null && impId > 0)
+        params.set("impuesto", String(impId));
       return params;
     },
     [
@@ -121,7 +117,7 @@ export function FiltrosProcesos({
       contribuyente,
       asignado,
       fechaAsignacionActual,
-      tipoImpuestoActual,
+      impuestoIdActual,
     ]
   );
 
@@ -145,10 +141,10 @@ export function FiltrosProcesos({
     [router, buildParams]
   );
 
-  const handleTipoImpuestoChange = useCallback(
+  const handleImpuestoChange = useCallback(
     (value: string) => {
       const params = buildParams({
-        tipoImpuesto: value === "todos" ? null : value,
+        impuestoId: value === "todos" ? null : parseInt(value, 10),
       });
       router.push(`/procesos?${params.toString()}`);
     },
@@ -186,7 +182,7 @@ export function FiltrosProcesos({
     contribuyenteActual.length > 0 ||
     asignadoActual.length > 0 ||
     fechaAsignacionActual != null ||
-    tipoImpuestoActual != null;
+    impuestoIdActual != null;
 
   const fieldClass = "min-w-0 w-full h-10";
 
@@ -249,23 +245,23 @@ export function FiltrosProcesos({
       </div>
       <div className="flex flex-col gap-1.5">
         <Label
-          htmlFor="filtro-tipo-impuesto"
+          htmlFor="filtro-impuesto"
           className="text-xs text-muted-foreground"
         >
-          Tipo impuesto
+          Impuesto
         </Label>
         <Select
-          value={tipoImpuestoActual ?? "todos"}
-          onValueChange={handleTipoImpuestoChange}
+          value={impuestoIdActual != null ? String(impuestoIdActual) : "todos"}
+          onValueChange={handleImpuestoChange}
         >
-          <SelectTrigger id="filtro-tipo-impuesto" className={fieldClass}>
+          <SelectTrigger id="filtro-impuesto" className={fieldClass}>
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos</SelectItem>
-            {TIPOS_IMPUESTO.map((t) => (
-              <SelectItem key={t.value} value={t.value}>
-                {t.label}
+            {impuestosList.map((i) => (
+              <SelectItem key={i.id} value={String(i.id)}>
+                {i.nombre}
               </SelectItem>
             ))}
           </SelectContent>

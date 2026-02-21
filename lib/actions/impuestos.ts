@@ -7,13 +7,11 @@ import { db } from "@/lib/db";
 import { impuestos } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
-const tipoImpuestoValues = ["nacional", "municipal"] as const;
 const naturalezaImpuestoValues = ["tributario", "no_tributario"] as const;
 
 const schemaCrear = z.object({
   clienteId: z.coerce.number().int().positive("Selecciona un cliente"),
   nombre: z.string().min(1, "El nombre es obligatorio").max(200),
-  tipo: z.enum(tipoImpuestoValues),
   naturaleza: z.enum(naturalezaImpuestoValues),
   prescripcionMeses: z
     .union([z.string(), z.number()])
@@ -45,7 +43,6 @@ export async function crearImpuesto(
   const raw = {
     clienteId: formData.get("clienteId"),
     nombre: formData.get("nombre"),
-    tipo: formData.get("tipo"),
     naturaleza: formData.get("naturaleza"),
     prescripcionMeses: formData.get("prescripcionMeses"),
     descripcion: formData.get("descripcion") || undefined,
@@ -62,7 +59,7 @@ export async function crearImpuesto(
     };
   }
 
-  const { clienteId, nombre, tipo, naturaleza, prescripcionMeses, descripcion, activo } = parsed.data;
+  const { clienteId, nombre, naturaleza, prescripcionMeses, descripcion, activo } = parsed.data;
 
   try {
     const [inserted] = await db
@@ -70,7 +67,6 @@ export async function crearImpuesto(
       .values({
         clienteId,
         nombre,
-        tipo,
         naturaleza,
         prescripcionMeses,
         descripcion: descripcion?.trim() || null,
@@ -101,7 +97,6 @@ export async function actualizarImpuesto(
     id: Number.isNaN(id) ? undefined : id,
     clienteId: formData.get("clienteId"),
     nombre: formData.get("nombre"),
-    tipo: formData.get("tipo"),
     naturaleza: formData.get("naturaleza"),
     prescripcionMeses: formData.get("prescripcionMeses"),
     descripcion: formData.get("descripcion") || undefined,
@@ -118,7 +113,7 @@ export async function actualizarImpuesto(
     };
   }
 
-  const { clienteId, nombre, tipo, naturaleza, prescripcionMeses, descripcion, activo } = parsed.data;
+  const { clienteId, nombre, naturaleza, prescripcionMeses, descripcion, activo } = parsed.data;
 
   try {
     const [updated] = await db
@@ -126,7 +121,6 @@ export async function actualizarImpuesto(
       .set({
         clienteId: clienteId ?? null,
         nombre,
-        tipo,
         naturaleza,
         prescripcionMeses,
         descripcion: descripcion?.trim() || null,

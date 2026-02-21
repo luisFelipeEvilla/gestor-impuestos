@@ -52,18 +52,9 @@ const estadoProcesoValues = [
   "asignado",
   "notificado",
   "en_contacto",
-  "en_negociacion",
+  "en_cobro_coactivo",
   "cobrado",
-  "incobrable",
-  "en_cobro_coactivo",
-  "suspendido",
 ] as const;
-
-/** No se puede pasar de acuerdo de pago (en_negociacion) o cobro coactivo a cobrado. */
-const ESTADOS_PROHIBIDOS_COBRADO: (typeof estadoProcesoValues)[number][] = [
-  "en_negociacion",
-  "en_cobro_coactivo",
-];
 
 const schemaCrear = z.object({
   impuestoId: z.coerce.number().int().positive("Selecciona un impuesto"),
@@ -375,16 +366,6 @@ export async function cambiarEstadoProceso(
     if (!proceso) return { error: "Proceso no encontrado." };
     if (!puedeAccederProceso(session?.user?.rol, session?.user?.id, proceso.asignadoAId ?? null)) {
       return { error: "No tienes permiso para modificar este proceso." };
-    }
-
-    if (
-      nuevoEstado === "cobrado" &&
-      ESTADOS_PROHIBIDOS_COBRADO.includes(proceso.estadoActual as (typeof estadoProcesoValues)[number])
-    ) {
-      return {
-        error:
-          "No se puede pasar a Cobrado desde En negociación o En cobro coactivo. Solo se marca Cobrado cuando el contribuyente realiza el pago desde En contacto.",
-      };
     }
 
     const entraCobroCoactivo = nuevoEstado === "en_cobro_coactivo";

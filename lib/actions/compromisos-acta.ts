@@ -31,6 +31,7 @@ export type CompromisoGestionItem = {
   actualizadoEn: Date | null;
   actualizadoPorNombre: string | null;
   actaId: string;
+  actaSerial: number;
   actaFecha: Date;
   actaObjetivo: string;
   asignadoNombre: string | null;
@@ -57,6 +58,7 @@ export async function obtenerCompromisosParaGestion(
       detalleActualizacion: compromisosActa.detalleActualizacion,
       actualizadoEn: compromisosActa.actualizadoEn,
       actaId: compromisosActa.actaId,
+      actaSerial: actasReunion.serial,
       actaFecha: actasReunion.fecha,
       actaObjetivo: actasReunion.objetivo,
       nombreIntegrante: actasIntegrantes.nombre,
@@ -126,6 +128,7 @@ export async function obtenerCompromisosParaGestion(
     actualizadoEn: r.actualizadoEn as Date | null,
     actualizadoPorNombre: r.actualizadoPorNombre ?? null,
     actaId: r.actaId,
+    actaSerial: r.actaSerial,
     actaFecha: new Date(r.actaFecha),
     actaObjetivo: r.actaObjetivo,
     asignadoNombre: r.nombreIntegrante ?? r.nombreClienteMiembro ?? null,

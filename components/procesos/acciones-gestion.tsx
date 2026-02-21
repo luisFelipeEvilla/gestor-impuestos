@@ -23,21 +23,16 @@ import {
   ListaDocumentos,
   SubirDocumentoForm,
 } from "@/components/procesos/documentos-proceso";
+import { labelEstado } from "@/lib/estados-proceso";
 
 const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
   { value: "asignado", label: "Asignado" },
   { value: "notificado", label: "Notificado" },
-  { value: "en_contacto", label: "En contacto" },
-  { value: "en_negociacion", label: "En negociación" },
-  { value: "cobrado", label: "Cobrado" },
-  { value: "incobrable", label: "Incobrable" },
+  { value: "en_contacto", label: "Cobro persuasivo" },
   { value: "en_cobro_coactivo", label: "En cobro coactivo" },
-  { value: "suspendido", label: "Suspendido" },
+  { value: "cobrado", label: "Cobrado" },
 ] as const;
-
-/** Desde estos estados no se puede pasar a Cobrado (solo desde En contacto se marca pago). */
-const ESTADOS_SIN_COBRADO = ["en_negociacion", "en_cobro_coactivo"];
 
 type UsuarioOption = { id: number; nombre: string };
 
@@ -48,10 +43,6 @@ type CambiarEstadoFormProps = {
 
 export function CambiarEstadoForm({ procesoId, estadoActual }: CambiarEstadoFormProps) {
   const [state, formAction] = useActionState(cambiarEstadoProceso, null);
-  const noPuedeCobrado = ESTADOS_SIN_COBRADO.includes(estadoActual);
-  const opcionesEstado = noPuedeCobrado
-    ? ESTADOS.filter((e) => e.value !== "cobrado")
-    : ESTADOS;
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-2">
@@ -69,7 +60,7 @@ export function CambiarEstadoForm({ procesoId, estadoActual }: CambiarEstadoForm
           )}
           aria-label="Seleccionar nuevo estado"
         >
-          {opcionesEstado.map((e) => (
+          {ESTADOS.map((e) => (
             <option key={e.value} value={e.value}>
               {e.label}
             </option>
@@ -503,14 +494,6 @@ export function CardEnContacto({
                     />
                   </div>
                   <div>
-                    <p className="text-muted-foreground text-xs mb-1">Se genera acuerdo de pago</p>
-                    <AccionEstadoForm
-                      procesoId={procesoId}
-                      estadoDestino="en_negociacion"
-                      label="Generar acuerdo de pago"
-                    />
-                  </div>
-                  <div>
                     <p className="text-muted-foreground text-xs mb-1">Se inicia cobro coactivo (sin acuerdo de pago)</p>
                     <AccionEstadoForm
                       procesoId={procesoId}
@@ -534,7 +517,7 @@ export function CardEnContacto({
           </>
         ) : (
           <p className="text-muted-foreground text-sm">
-            El proceso no está en esta etapa (estado actual: {estadoActual.replace(/_/g, " ")}). Puedes agregar comentarios y documentos de esta sección igualmente.
+            El proceso no está en esta etapa (estado actual: {labelEstado(estadoActual)}). Puedes agregar comentarios y documentos de esta sección igualmente.
           </p>
         )}
         {!activo && (
@@ -573,7 +556,7 @@ export function CardCobroCoactivo({
         <CardTitle>Cobro coactivo</CardTitle>
         <CardDescription>
           {fechaInicio
-            ? `Cobro activo desde ${fechaInicio}. Documentos y notas de esta etapa. Si se determina que es incobrable, se puede marcar como tal.`
+            ? `Cobro activo desde ${fechaInicio}. Documentos y notas de esta etapa. Cuando se efectúe el cobro, regístralo con la acción correspondiente.`
             : "Etapa independiente del acuerdo de pago. Puede iniciarse desde Cobro persuasivo (sin acuerdo) o desde Acuerdos de pago (por incumplimiento). Documentos y notas de esta etapa."}
         </CardDescription>
       </CardHeader>
@@ -584,9 +567,9 @@ export function CardCobroCoactivo({
               <h4 className="text-sm font-medium">Acciones</h4>
               <AccionEstadoForm
                 procesoId={procesoId}
-                estadoDestino="incobrable"
-                label="Marcar como incobrable"
-                variant="secondary"
+                estadoDestino="cobrado"
+                label="Registrar cobro"
+                variant="default"
               />
             </div>
             <div className="space-y-2">
@@ -602,7 +585,7 @@ export function CardCobroCoactivo({
           </>
         ) : (
           <p className="text-muted-foreground text-sm">
-            El proceso no está en cobro coactivo (estado actual: {estadoActual.replace(/_/g, " ")}). Puedes agregar comentarios y documentos de esta sección.
+            El proceso no está en cobro coactivo (estado actual: {labelEstado(estadoActual)}). Puedes agregar comentarios y documentos de esta sección.
           </p>
         )}
         {!activo && (

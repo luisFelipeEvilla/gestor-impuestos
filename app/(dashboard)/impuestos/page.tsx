@@ -49,7 +49,6 @@ export default async function ImpuestosPage({ searchParams }: Props) {
         .select({
           id: impuestos.id,
           nombre: impuestos.nombre,
-          tipo: impuestos.tipo,
           naturaleza: impuestos.naturaleza,
           prescripcionMeses: impuestos.prescripcionMeses,
           activo: impuestos.activo,
@@ -62,7 +61,6 @@ export default async function ImpuestosPage({ searchParams }: Props) {
         .select({
           id: impuestos.id,
           nombre: impuestos.nombre,
-          tipo: impuestos.tipo,
           naturaleza: impuestos.naturaleza,
           prescripcionMeses: impuestos.prescripcionMeses,
           activo: impuestos.activo,
@@ -95,7 +93,7 @@ export default async function ImpuestosPage({ searchParams }: Props) {
         <CardHeader>
           <CardTitle>Catálogo</CardTitle>
           <CardDescription>
-            Catálogo de impuestos tributarios y no tributarios (nacional / municipal)
+            Catálogo de impuestos tributarios y no tributarios
             {verInactivos && " · Mostrando todos (incl. inactivos)"}
             {busqueda && " · Búsqueda aplicada"}
           </CardDescription>
@@ -114,7 +112,6 @@ export default async function ImpuestosPage({ searchParams }: Props) {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Naturaleza</TableHead>
-                  <TableHead>Tipo</TableHead>
                   <TableHead>Prescripción</TableHead>
                   <TableHead className="w-20">Estado</TableHead>
                   <TableHead className="w-[80px]">Acción</TableHead>
@@ -128,7 +125,6 @@ export default async function ImpuestosPage({ searchParams }: Props) {
                     </TableCell>
                     <TableCell>{i.nombre}</TableCell>
                     <TableCell>{i.naturaleza === "no_tributario" ? "No tributario" : "Tributario"}</TableCell>
-                    <TableCell className="capitalize">{i.tipo}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {i.prescripcionMeses != null ? `${i.prescripcionMeses} meses` : "—"}
                     </TableCell>

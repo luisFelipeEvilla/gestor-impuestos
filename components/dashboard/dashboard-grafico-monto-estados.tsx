@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { labelEstado } from "@/lib/estados-proceso";
 
 export type DatumMontoEstado = { estado: string; total: number };
 
@@ -20,10 +21,6 @@ const COLORS = [
   "var(--chart-4)",
   "var(--chart-5)",
 ];
-
-function formatEstado(estado: string): string {
-  return (estado ?? "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function formatMonto(value: number): string {
   return new Intl.NumberFormat("es-CO", {
@@ -40,7 +37,7 @@ interface DashboardGraficoMontoEstadosProps {
 export function DashboardGraficoMontoEstados({ data }: DashboardGraficoMontoEstadosProps) {
   const chartData = data.map((d) => ({
     ...d,
-    label: formatEstado(d.estado),
+    label: labelEstado(d.estado),
   }));
 
   if (chartData.length === 0) {
@@ -83,7 +80,7 @@ export function DashboardGraficoMontoEstados({ data }: DashboardGraficoMontoEsta
               borderRadius: "var(--radius)",
             }}
             labelFormatter={(_, payload) =>
-              payload?.[0] ? formatEstado(payload[0].payload.estado) : ""
+              payload?.[0] ? labelEstado(payload[0].payload.estado) : ""
             }
             formatter={(value: number | undefined) => [formatMonto(value ?? 0), "Monto"]}
           />
