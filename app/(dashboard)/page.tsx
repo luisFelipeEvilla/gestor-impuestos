@@ -265,9 +265,10 @@ export default async function DashboardPage({ searchParams }: Props) {
   const totalActas = actasResult?.total ?? 0;
   const actasRecientes = actasResult?.actas ?? [];
   const ordenEstadosActa = ["borrador", "pendiente_aprobacion", "aprobada", "enviada"] as const;
+  type EstadoActaCount = { estado: (typeof ordenEstadosActa)[number]; count: number };
   const actasPorEstadoOrdenado = ordenEstadosActa
     .map((e) => actasPorEstadoRaw.find((r) => r.estado === e))
-    .filter((r): r is { estado: string; count: number } => Boolean(r))
+    .filter((r): r is EstadoActaCount => Boolean(r))
     .map((r) => ({ estado: r.estado, count: Number(r.count) }));
 
   const searchBase = new URLSearchParams();
