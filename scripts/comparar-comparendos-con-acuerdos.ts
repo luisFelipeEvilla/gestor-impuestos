@@ -73,6 +73,8 @@ interface FilaAcuerdo {
   nombre: string;
   noAcuerdo: string;
   valorAcuerdo: string;
+  fechaComparendo: string;
+  numCuotas: string;
 }
 
 function parseAcuerdosCsv(content: string): FilaAcuerdo[] {
@@ -91,6 +93,19 @@ function parseAcuerdosCsv(content: string): FilaAcuerdo[] {
   );
   const idxValorAcuerdo = header.findIndex(
     (h) => h === "valor acuerdo" || h.includes("valor acuerdo")
+  );
+  const idxFechaComparendo = header.findIndex(
+    (h) =>
+      h === "fecha del comparendo" ||
+      h.includes("fecha comparendo") ||
+      h.includes("fecha del comparendo")
+  );
+  const idxNumCuotas = header.findIndex(
+    (h) =>
+      h === "n° cuotas" ||
+      h === "n cuotas" ||
+      h === "no cuotas" ||
+      h === "nº cuotas"
   );
 
   if (idxNoComparendo < 0) {
@@ -113,6 +128,8 @@ function parseAcuerdosCsv(content: string): FilaAcuerdo[] {
       nombre: get(idxNombre),
       noAcuerdo: get(idxNoAcuerdo),
       valorAcuerdo: get(idxValorAcuerdo),
+      fechaComparendo: get(idxFechaComparendo),
+      numCuotas: get(idxNumCuotas),
     });
   }
   return rows;
@@ -125,6 +142,7 @@ interface FilaComparendo {
   header: string[];
   nroComparendo: string;
   nroResolucion: string;
+  fechaComparendo: string;
   identificacion: string;
   nombreInfractor: string;
   estadoCartera: string;
@@ -160,6 +178,11 @@ function parseComparendosCsv(content: string): { header: string[]; rows: FilaCom
   const idxValorDeuda = header.findIndex(
     (h) => h === "valor deuda" || h.includes("valor deuda")
   );
+  const idxFechaComparendo = header.findIndex(
+    (h) =>
+      h === "fecha comparendo" ||
+      h.includes("fecha comparendo")
+  );
 
   const rows: FilaComparendo[] = [];
   for (let i = 1; i < lines.length; i++) {
@@ -171,6 +194,7 @@ function parseComparendosCsv(content: string): { header: string[]; rows: FilaCom
       header,
       nroComparendo: get(idxNroComparendo),
       nroResolucion: get(idxNroResolucion),
+      fechaComparendo: get(idxFechaComparendo),
       identificacion: get(idxIdentificacion),
       nombreInfractor: get(idxNombre),
       estadoCartera: get(idxEstadoCartera),
@@ -420,6 +444,8 @@ async function main(): Promise<void> {
     "Tiene acuerdo",
     "N° acuerdo",
     "Valor acuerdo",
+    "Fecha comparendo",
+    "N° cuotas",
   ];
 
   for (const row of rowsComparendos) {
@@ -431,6 +457,8 @@ async function main(): Promise<void> {
       tieneAcuerdo ? "Sí" : "No",
       acuerdo?.noAcuerdo ?? "",
       acuerdo?.valorAcuerdo ?? "",
+      row.fechaComparendo ?? "",
+      acuerdo?.numCuotas ?? "",
     ]);
   }
 
