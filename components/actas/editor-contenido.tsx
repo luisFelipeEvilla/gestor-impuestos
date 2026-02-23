@@ -18,6 +18,8 @@ import {
   Quote,
   Minus,
   Type,
+  IndentIncrease,
+  IndentDecrease,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +57,8 @@ export function EditorContenido({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
+        // TrailingNode en v3 rompe listas: crea ítem vacío y mueve el cursor fuera
+        trailingNode: false,
       }),
       Placeholder.configure({ placeholder }),
       TextStyle,
@@ -193,6 +197,18 @@ export function EditorContenido({
             ariaLabel="Lista numerada"
           >
             <ListOrdered className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().sinkListItem("listItem").run()}
+            ariaLabel="Aumentar sangría (sublista)"
+          >
+            <IndentIncrease className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            onClick={() => editor.chain().focus().liftListItem("listItem").run()}
+            ariaLabel="Reducir sangría"
+          >
+            <IndentDecrease className="h-4 w-4" />
           </ToolbarButton>
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleBlockquote().run()}

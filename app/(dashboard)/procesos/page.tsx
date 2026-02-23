@@ -34,7 +34,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TablaProcesosConAsignacion } from "@/components/procesos/tabla-procesos-con-asignacion";
 import { FiltrosProcesos } from "./filtros-procesos";
-import { ChipsFiltrosProcesos } from "./chips-filtros-procesos";
+import { ChipsFiltrosProcesos } from "@/app/(dashboard)/procesos/chips-filtros-procesos";
 import { SelectorPorPagina } from "@/components/selector-por-pagina";
 import { parsePerPage } from "@/lib/pagination";
 import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafico-estados";
@@ -203,6 +203,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
     nombre: i.nombre,
   }));
 
+  // Empleados solo ven procesos que tienen asignados; admin ve todos; sin sesión no se ve nada.
   const condicionesSoloPermisos: ReturnType<typeof eq>[] = [];
   if (session?.user?.rol !== "admin") {
     if (!session?.user?.id) {
