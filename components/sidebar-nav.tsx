@@ -253,7 +253,10 @@ function NavConfigExpandable({
   );
 }
 
-export function SidebarNav({ isAdmin }: SidebarNavProps) {
+export function SidebarNav({
+  isAdmin,
+  configPosition = "inline",
+}: SidebarNavProps & { configPosition?: "inline" | "bottom" }) {
   const pathname = usePathname();
   const { collapsed } = useSidebar();
 
@@ -278,7 +281,7 @@ export function SidebarNav({ isAdmin }: SidebarNavProps) {
         ))}
         <NavActasExpandable pathname={pathname} collapsed={collapsed} />
       </div>
-      {isAdmin && (
+      {isAdmin && configPosition === "inline" && (
         <>
           <div className="min-h-0 flex-1" aria-hidden />
           <div className="sticky bottom-0 flex shrink-0 flex-col gap-1 border-t border-sidebar-border bg-sidebar pt-3">
@@ -287,5 +290,25 @@ export function SidebarNav({ isAdmin }: SidebarNavProps) {
         </>
       )}
     </nav>
+  );
+}
+
+/** Sección de Configuración para colocar al fondo del sidebar (viewport). Usar fuera del área con scroll. */
+export function SidebarNavConfig({ isAdmin }: SidebarNavProps) {
+  const pathname = usePathname();
+  const { collapsed } = useSidebar();
+  if (!isAdmin) return null;
+  return (
+    <div className="flex shrink-0 flex-col gap-1 border-t border-sidebar-border bg-sidebar py-2 pt-3">
+      <nav
+        className={cn(
+          "flex flex-col gap-1",
+          collapsed ? "px-2" : "px-3"
+        )}
+        aria-label="Configuración"
+      >
+        <NavConfigExpandable pathname={pathname} collapsed={collapsed} />
+      </nav>
+    </div>
   );
 }

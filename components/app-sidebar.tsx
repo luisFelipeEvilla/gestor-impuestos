@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/sidebar-provider";
-import { SidebarNav } from "@/components/sidebar-nav";
+import { SidebarNav, SidebarNavConfig } from "@/components/sidebar-nav";
 
 interface AppSidebarProps {
   className?: string;
@@ -87,10 +87,12 @@ export function AppSidebar({ className, session }: AppSidebarProps) {
           </Button>
         </div>
       )}
-      {/* Navegación */}
+      {/* Navegación (scroll) */}
       <div className="sidebar-nav-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden py-2">
-        <SidebarNav isAdmin={isAdmin} />
+        <SidebarNav isAdmin={isAdmin} configPosition="bottom" />
       </div>
+      {/* Configuración fija al fondo del sidebar */}
+      <SidebarNavConfig isAdmin={isAdmin} />
     </aside>
   );
 }
