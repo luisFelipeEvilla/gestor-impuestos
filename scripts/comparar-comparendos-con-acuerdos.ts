@@ -9,12 +9,15 @@
  *   - Comparendos: ReporteCarteraActual.csv o importe comparendos/ReporteCarteraActual.csv
  *   - Acuerdos: importe comparendos/acuerdos de pago.csv
  *
- * Salida: import-cartera-output/comparacion-acuerdos-YYYY-MM-DD-HH-mm-ss.csv
+ * Salida:
+ *   - CSV: import-cartera-output/comparacion-acuerdos-YYYY-MM-DD-HH-mm-ss.csv
+ *   - Excel: import-cartera-output/comparacion-acuerdos-YYYY-MM-DD-HH-mm-ss.xlsx
  */
 
 import "dotenv/config";
 import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
+import ExcelJS from "exceljs";
 
 const DEFAULT_COMPARENDOS =
   process.env.CARTERA_CSV_PATH ||
@@ -243,11 +246,138 @@ function timestampForFilename(): string {
   ].join("-");
 }
 
+function formatDateForReport(date: Date): string {
+  return date.toLocaleDateString("es-CO", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Export Excel (explicativo para el equipo)
+// ---------------------------------------------------------------------------
+
+const HEADER_STYLE: Partial<ExcelJS.Style> = {
+  font: { bold: true },
+  fill: {
+    type: "pattern",
+    pattern: "solid" as ExcelJS.FillPatterns,
+    fgColor: { argb: "FFE0E0E0" },
+  },
+  alignment: { wrapText: true, vertical: "middle" },
+};
+
+async function writeExcelReport(
+  outPathXlsx: string,
+  headerOut: string[],
+  resultados: string[][],
+  conAcuerdo: number,
+  total: number,
+  pathComparendos: string,
+  pathAcuerdos: string
+): Promise<void> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Gestor Impuestos - Comparación acuerdos de pago";
+  workbook.created = new Date();
+
+  const sinAcuerdo = total - conAcuerdo;
+  const pctConAcuerdo = total > 0 ? ((conAcuerdo / total) * 100).toFixed(1) : "0";
+
+  // ----- Hoja 1: Resumen -----
+  const wsResumen = workbook.addWorksheet("Resumen", {
+    views: [{ state: "frozen", ySplit: 1 }],
+  });
+  wsResumen.columns = [{ width: 50 }, { width: 60 }];
+  const addTitle = (text: string, row: number) => {
+    wsResumen.getCell(row, 1).value = text;
+    wsResumen.getCell(row, 1).font = { bold: true, size: 12 };
+  };
+  let row = 1;
+  addTitle("Reporte: Comparendos vs Acuerdos de pago", row++);
+  row++;
+  wsResumen.getCell(row, 1).value = "Fecha de generación:";
+  wsResumen.getCell(row, 1).font = { bold: true };
+  wsResumen.getCell(row, 2).value = formatDateForReport(new Date());
+  row++;
+  wsResumen.getCell(row, 1).value = "Archivo de comparendos (cartera):";
+  wsResumen.getCell(row, 1).font = { bold: true };
+  wsResumen.getCell(row, 2).value = pathComparendos;
+  row++;
+  wsResumen.getCell(row, 1).value = "Archivo de acuerdos de pago:";
+  wsResumen.getCell(row, 1).font = { bold: true };
+  wsResumen.getCell(row, 2).value = pathAcuerdos;
+  row += 2;
+  addTitle("Totales", row++);
+  const tabResumen = [
+    ["Total comparendos en cartera", String(total)],
+    ["Comparendos con acuerdo de pago", String(conAcuerdo)],
+    ["Comparendos sin acuerdo", String(sinAcuerdo)],
+    ["% con acuerdo", `${pctConAcuerdo}%`],
+  ];
+  tabResumen.forEach(([label, value], i) => {
+    wsResumen.getCell(row + i, 1).value = label;
+    wsResumen.getCell(row + i, 2).value = value;
+  });
+  row += tabResumen.length + 2;
+  addTitle("Descripción de las hojas", row++);
+  wsResumen.getCell(row, 1).value =
+    "• Resumen: esta hoja. Contiene los totales y la fecha de generación.";
+  row++;
+  wsResumen.getCell(row, 1).value =
+    "• Con acuerdo: solo los comparendos que tienen un acuerdo de pago registrado en el archivo de acuerdos.";
+  row++;
+  wsResumen.getCell(row, 1).value =
+    "• Todos: listado completo de comparendos con la columna 'Tiene acuerdo' (Sí/No) y datos del acuerdo cuando aplica.";
+  row++;
+
+  // ----- Hoja 2: Con acuerdo -----
+  const wsConAcuerdo = workbook.addWorksheet("Con acuerdo", {
+    views: [{ state: "frozen", ySplit: 1 }],
+  });
+  const idxTieneAcuerdo = headerOut.indexOf("Tiene acuerdo");
+  const conAcuerdoRows = resultados.filter((r) => r[idxTieneAcuerdo] === "Sí");
+  addDataSheet(wsConAcuerdo, headerOut, conAcuerdoRows);
+
+  // ----- Hoja 3: Todos -----
+  const wsTodos = workbook.addWorksheet("Todos", {
+    views: [{ state: "frozen", ySplit: 1 }],
+  });
+  addDataSheet(wsTodos, headerOut, resultados);
+
+  await workbook.xlsx.writeFile(outPathXlsx);
+}
+
+function addDataSheet(
+  sheet: ExcelJS.Worksheet,
+  headers: string[],
+  rows: string[][]
+): void {
+  const headerRow = sheet.addRow(headers);
+  headerRow.eachCell((cell, colNumber) => {
+    cell.style = HEADER_STYLE;
+  });
+  sheet.getRow(1).height = 22;
+  rows.forEach((r) => sheet.addRow(r));
+  // Ancho aproximado por columna (mín 10, máx 40)
+  const widths = headers.map((h, i) => {
+    const maxLen = Math.max(
+      (h ?? "").length,
+      ...rows.map((r) => String(r[i] ?? "").length)
+    );
+    return Math.min(42, Math.max(10, maxLen + 1));
+  });
+  sheet.columns = widths.map((w) => ({ width: w }));
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
-function main(): void {
+async function main(): Promise<void> {
   const pathComparendos =
     process.argv[2] ?? DEFAULT_COMPARENDOS;
   const pathAcuerdos = process.argv[3] ?? DEFAULT_ACUERDOS;
@@ -305,20 +435,32 @@ function main(): void {
   }
 
   mkdirSync(OUTPUT_DIR, { recursive: true });
-  const outPath = resolve(
-    process.cwd(),
-    OUTPUT_DIR,
-    `comparacion-acuerdos-${timestampForFilename()}.csv`
-  );
+  const baseName = `comparacion-acuerdos-${timestampForFilename()}`;
+  const outPath = resolve(process.cwd(), OUTPUT_DIR, `${baseName}.csv`);
+  const outPathXlsx = resolve(process.cwd(), OUTPUT_DIR, `${baseName}.xlsx`);
 
   const csvOut = [headerOut.join(";"), ...resultados.map((r) => r.join(";"))].join("\n");
   writeFileSync(outPath, csvOut, "utf-8");
+  console.log("   Generando Excel...");
+  await writeExcelReport(
+    outPathXlsx,
+    headerOut,
+    resultados,
+    conAcuerdo,
+    rowsComparendos.length,
+    pathComparendosResolved,
+    pathAcuerdosResolved
+  );
 
   console.log("\n✅ Resultado:");
   console.log("   Con acuerdo de pago:", conAcuerdo);
   console.log("   Sin acuerdo:        ", rowsComparendos.length - conAcuerdo);
   console.log("   Total:              ", rowsComparendos.length);
-  console.log("   Archivo generado:    ", outPath);
+  console.log("   CSV:                ", outPath);
+  console.log("   Excel:              ", outPathXlsx);
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
