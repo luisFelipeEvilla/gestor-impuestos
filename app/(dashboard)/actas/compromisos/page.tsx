@@ -3,6 +3,7 @@ import {
   obtenerCompromisosParaGestion,
   obtenerOpcionesMiembroParaFiltro,
   type FiltrosCompromisos,
+  type CompromisoGestionItem,
 } from "@/lib/actions/compromisos-acta";
 import { obtenerClientesActivos } from "@/lib/actions/clientes";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,49 @@ import {
 import { ListChecks } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FiltrosCompromisosForm } from "./filtros-compromisos-form";
+import { GraficoCompromisosPorEstado } from "@/components/actas/grafico-compromisos-por-estado";
+import { GraficoCompromisosPorAsignado } from "@/components/actas/grafico-compromisos-por-asignado";
+import { GraficoCompromisosPorCliente } from "@/components/actas/grafico-compromisos-por-cliente";
 import { unstable_noStore } from "next/cache";
+
+const ORDEN_ESTADO = ["pendiente", "cumplido", "no_cumplido"] as const;
+
+function agregarPorEstado(compromisos: CompromisoGestionItem[]) {
+  const map = new Map<string, number>();
+  for (const c of compromisos) {
+    const e = c.estado ?? "pendiente";
+    map.set(e, (map.get(e) ?? 0) + 1);
+  }
+  return ORDEN_ESTADO.filter((e) => map.has(e)).map((estado) => ({
+    estado,
+    count: map.get(estado) ?? 0,
+  }));
+}
+
+function agregarPorAsignado(compromisos: CompromisoGestionItem[]) {
+  const map = new Map<string, number>();
+  for (const c of compromisos) {
+    const nombre = c.asignadoNombre?.trim() || "Sin asignar";
+    map.set(nombre, (map.get(nombre) ?? 0) + 1);
+  }
+  return Array.from(map.entries(), ([nombre, count]) => ({ nombre, count })).sort(
+    (a, b) => b.count - a.count
+  );
+}
+
+function agregarPorCliente(compromisos: CompromisoGestionItem[]) {
+  const map = new Map<string, number>();
+  for (const c of compromisos) {
+    const nombres = c.clientesNombres?.length ? c.clientesNombres : ["Sin cliente"];
+    for (const n of nombres) {
+      const nombre = n?.trim() || "Sin cliente";
+      map.set(nombre, (map.get(nombre) ?? 0) + 1);
+    }
+  }
+  return Array.from(map.entries(), ([nombre, count]) => ({ nombre, count })).sort(
+    (a, b) => b.count - a.count
+  );
+}
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -82,6 +125,44 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
         miembroActual={miembro}
       />
 
+      {compromisos.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Por estado</CardTitle>
+              <CardDescription>
+                Compromisos pendientes, cumplidos y no cumplidos
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <GraficoCompromisosPorEstado data={agregarPorEstado(compromisos)} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Por persona asignada</CardTitle>
+              <CardDescription>
+                Top 10 responsables (interno o cliente)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <GraficoCompromisosPorAsignado data={agregarPorAsignado(compromisos)} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Por cliente</CardTitle>
+              <CardDescription>
+                Compromisos asociados a cada cliente (actas)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <GraficoCompromisosPorCliente data={agregarPorCliente(compromisos)} />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Compromisos</CardTitle>
@@ -104,7 +185,7 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Acta</TableHead>
-                    <TableHead>Descripción</TableHead>
+                    <TableHead className="max-w-[360px]">Descripción</TableHead>
                     <TableHead>Fecha límite</TableHead>
                     <TableHead>Asignado a</TableHead>
                     <TableHead>Clientes</TableHead>
@@ -127,7 +208,7 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                           })}
                         </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="max-w-[360px] min-w-0 whitespace-normal">
                         <Link
                           href={`/actas/compromisos/${c.id}`}
                           className="text-primary hover:underline font-medium line-clamp-2 block"

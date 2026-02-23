@@ -31,11 +31,11 @@ interface ChipsFiltrosProcesosProps {
   estado: string | null;
   vigencia: number | null;
   antiguedad: string | null;
-  impuestoId: string | null;
-  impuestoNombre: string | null;
   asignadoId: number | null;
   asignadoNombre: string | null;
   fechaAsignacion: string | null;
+  noComparendo: string | null;
+  documento: string | null;
   orderBy?: string;
   order?: string;
   perPage?: number;
@@ -46,11 +46,11 @@ export function ChipsFiltrosProcesos({
   estado,
   vigencia,
   antiguedad,
-  impuestoId,
-  impuestoNombre,
   asignadoId,
   asignadoNombre,
   fechaAsignacion,
+  noComparendo,
+  documento,
   orderBy,
   order,
   perPage,
@@ -60,9 +60,10 @@ export function ChipsFiltrosProcesos({
   if (estado) params.set("estado", estado);
   if (vigencia != null) params.set("vigencia", String(vigencia));
   if (antiguedad) params.set("antiguedad", antiguedad);
-  if (impuestoId) params.set("impuesto", impuestoId);
   if (asignadoId != null && asignadoId > 0) params.set("asignado", String(asignadoId));
   if (fechaAsignacion) params.set("fechaAsignacion", fechaAsignacion);
+  if (noComparendo?.trim()) params.set("noComparendo", noComparendo.trim());
+  if (documento?.trim()) params.set("documento", documento.trim());
   if (orderBy) params.set("orderBy", orderBy);
   if (order) params.set("order", order);
   if (perPage != null) params.set("perPage", String(perPage));
@@ -87,12 +88,6 @@ export function ChipsFiltrosProcesos({
       href: buildUrl(params, { key: "antiguedad" }),
     });
   }
-  if (impuestoId && impuestoNombre) {
-    chips.push({
-      label: `Tipo: ${impuestoNombre}`,
-      href: buildUrl(params, { key: "impuesto" }),
-    });
-  }
   if (asignadoId != null && asignadoId > 0) {
     chips.push({
       label: `Asignado: ${asignadoNombre ?? `#${asignadoId}`}`,
@@ -103,6 +98,18 @@ export function ChipsFiltrosProcesos({
     chips.push({
       label: `Fecha asig.: ${fechaAsignacion}`,
       href: buildUrl(params, { key: "fechaAsignacion" }),
+    });
+  }
+  if (noComparendo?.trim()) {
+    chips.push({
+      label: `Comparendo: ${noComparendo.trim()}`,
+      href: buildUrl(params, { key: "noComparendo" }),
+    });
+  }
+  if (documento?.trim()) {
+    chips.push({
+      label: `NIT/doc.: ${documento.trim()}`,
+      href: buildUrl(params, { key: "documento" }),
     });
   }
 

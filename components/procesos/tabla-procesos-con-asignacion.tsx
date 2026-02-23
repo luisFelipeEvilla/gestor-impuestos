@@ -29,6 +29,15 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { labelEstado } from "@/lib/estados-proceso";
 import { asignarProcesosEnLote } from "@/lib/actions/procesos";
@@ -116,6 +125,7 @@ export function TablaProcesosConAsignacion({
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [asignadoId, setAsignadoId] = useState<string>("");
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(ALL_COLUMN_IDS);
+  const [confirmAsignarOpen, setConfirmAsignarOpen] = useState(false);
 
   useEffect(() => {
     setVisibleColumns(getStoredVisibleColumns());
@@ -139,18 +149,17 @@ export function TablaProcesosConAsignacion({
   };
 
   const isColumnVisible = (id: string) => {
-    if (id === "seleccion") return isAdmin && visibleColumns.has(id);
     return visibleColumns.has(id);
   };
 
-  const toggleOne = (id: number) => {
+  const toggleOne = useCallback((id: number) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
+  }, []);
 
   const toggleAll = () => {
     if (selectedIds.size === lista.length) {
@@ -166,6 +175,13 @@ export function TablaProcesosConAsignacion({
       toast.error("Selecciona al menos un proceso y una persona.");
       return;
     }
+    setConfirmAsignarOpen(true);
+  };
+
+  const handleConfirmarAsignacion = () => {
+    const userId = asignadoId ? parseInt(asignadoId, 10) : 0;
+    if (!userId || selectedIds.size === 0) return;
+    setConfirmAsignarOpen(false);
     startTransition(async () => {
       const result = await asignarProcesosEnLote(Array.from(selectedIds), userId);
       if (result.error) {
@@ -207,9 +223,9 @@ export function TablaProcesosConAsignacion({
       ) {
         return;
       }
-      router.push(`/procesos/${procesoId}`);
+      toggleOne(procesoId);
     },
-    [router]
+    [toggleOne]
   );
 
   function SortableHead({
@@ -292,6 +308,27 @@ export function TablaProcesosConAsignacion({
           )}
         </div>
       )}
+      <AlertDialog open={confirmAsignarOpen} onOpenChange={setConfirmAsignarOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar asignación</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Asignar {selectedIds.size} proceso{selectedIds.size !== 1 ? "s" : ""} a{" "}
+              {asignadoId ? usuarios.find((u) => u.id === parseInt(asignadoId, 10))?.nombre ?? "esta persona" : "esta persona"}
+              ?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button
+              onClick={handleConfirmarAsignacion}
+              disabled={isPending}
+            >
+              {isPending ? "Asignando…" : "Confirmar asignación"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="flex flex-wrap items-center justify-end gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -378,9 +415,11 @@ export function TablaProcesosConAsignacion({
               key={p.id}
               className={cn(
                 rowUrgente && "border-l-4 border-l-red-500/70 bg-red-500/5 dark:bg-red-950/20",
-                "cursor-pointer transition-colors hover:bg-muted/50"
+                "cursor-pointer transition-colors hover:bg-muted/50",
+                selectedIds.has(p.id) && "bg-primary/10 hover:bg-primary/15"
               )}
               onClick={(e) => handleRowClick(e, p.id)}
+              aria-selected={selectedIds.has(p.id)}
             >
               {isColumnVisible("seleccion") && (
                 <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>

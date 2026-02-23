@@ -42,14 +42,11 @@ const OPCIONES_ANTIGUEDAD = [
 ] as const;
 
 type UsuarioOption = { id: number; nombre: string };
-type ImpuestoOption = { id: string; nombre: string };
 
 type FiltrosProcesosProps = {
   estadoActual: string | null;
   vigenciaActual: number | null;
   antiguedadActual: string | null;
-  impuestoIdActual: string | null;
-  impuestos: ImpuestoOption[];
   usuarios: UsuarioOption[];
   asignadoIdActual: number | null;
   fechaAsignacionActual: string | null;
@@ -59,8 +56,6 @@ export function FiltrosProcesos({
   estadoActual,
   vigenciaActual,
   antiguedadActual,
-  impuestoIdActual,
-  impuestos: impuestosList,
   usuarios: usuariosList,
   asignadoIdActual,
   fechaAsignacionActual,
@@ -73,7 +68,6 @@ export function FiltrosProcesos({
       estado?: string | null;
       vigencia?: string | number | null;
       antiguedad?: string | null;
-      impuestoId?: string | null;
       asignadoId?: number | null;
       fechaAsignacion?: string | null;
     }) => {
@@ -84,8 +78,6 @@ export function FiltrosProcesos({
         updates.vigencia !== undefined ? updates.vigencia : vigenciaActual;
       const antig =
         updates.antiguedad !== undefined ? updates.antiguedad : antiguedadActual;
-      const impId =
-        updates.impuestoId !== undefined ? updates.impuestoId : impuestoIdActual;
       const asigId =
         updates.asignadoId !== undefined
           ? updates.asignadoId
@@ -98,13 +90,11 @@ export function FiltrosProcesos({
       params.delete("estado");
       params.delete("vigencia");
       params.delete("antiguedad");
-      params.delete("impuesto");
       params.delete("asignado");
       params.delete("fechaAsignacion");
       if (estado != null && estado !== "todos") params.set("estado", estado);
       if (vigencia != null) params.set("vigencia", String(vigencia));
       if (antig != null && antig !== "todos") params.set("antiguedad", antig);
-      if (impId != null && impId !== "todos") params.set("impuesto", impId);
       if (asigId != null && asigId > 0) params.set("asignado", String(asigId));
       if (fechaAsig != null && fechaAsig !== "")
         params.set("fechaAsignacion", fechaAsig);
@@ -115,20 +105,9 @@ export function FiltrosProcesos({
       estadoActual,
       vigenciaActual,
       antiguedadActual,
-      impuestoIdActual,
       fechaAsignacionActual,
       asignadoIdActual,
     ]
-  );
-
-  const handleImpuestoChange = useCallback(
-    (value: string) => {
-      const params = buildParams({
-        impuestoId: value === "todos" ? null : value,
-      });
-      router.push(`/procesos?${params.toString()}`);
-    },
-    [router, buildParams]
   );
 
   const handleEstadoChange = useCallback(
@@ -188,40 +167,15 @@ export function FiltrosProcesos({
     estadoActual != null ||
     vigenciaActual != null ||
     (antiguedadActual != null && antiguedadActual !== "todos") ||
-    (impuestoIdActual != null && impuestoIdActual !== "todos") ||
     asignadoIdActual != null ||
     fechaAsignacionActual != null;
 
   const fieldClass = "min-w-0 w-full h-10";
 
   return (
-    <Card className="border-border/80 py-4">
-      <CardContent className="p-4 pt-0">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-4 items-end">
-      <div className="flex flex-col gap-1.5">
-        <Label
-          htmlFor="filtro-impuesto"
-          className="text-xs text-muted-foreground"
-        >
-          Tipo de proceso
-        </Label>
-        <Select
-          value={impuestoIdActual ?? "todos"}
-          onValueChange={handleImpuestoChange}
-        >
-          <SelectTrigger id="filtro-impuesto" className={fieldClass}>
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
-            {impuestosList.map((i) => (
-              <SelectItem key={i.id} value={i.id}>
-                {i.nombre}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+    <Card className="w-full min-w-0 border-border/80 py-5 px-5">
+      <CardContent className="p-0 pt-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-5 gap-y-5 items-end">
       <div className="flex flex-col gap-1.5">
         <Label
           htmlFor="filtro-asignado"

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { ClipboardList, Wallet } from "lucide-react";
+import { ClipboardList, Wallet, FileText } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,23 +10,46 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafico-estados";
+import { DashboardGraficoEstadosActas } from "@/components/dashboard/dashboard-grafico-estados-actas";
 import { DashboardGraficoMontoEstados } from "@/components/dashboard/dashboard-grafico-monto-estados";
 import { DashboardGraficoResponsables } from "@/components/dashboard/dashboard-grafico-responsables";
 import { DashboardFiltros } from "@/components/dashboard/dashboard-filtros";
 import { DashboardPolling } from "@/components/dashboard/dashboard-polling";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { db } from "@/lib/db";
-import { procesos, contribuyentes, usuarios } from "@/lib/db/schema";
-import { eq, desc, and, gte, lte, sql, notInArray } from "drizzle-orm";
+import { procesos, contribuyentes, usuarios, actasReunion } from "@/lib/db/schema";
+import { eq, desc, and, gte, lte, sql, notInArray, count } from "drizzle-orm";
 import { unstable_noStore } from "next/cache";
 import { labelEstado } from "@/lib/estados-proceso";
+import { obtenerActas } from "@/lib/actions/actas";
+import { cn } from "@/lib/utils";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const ESTADOS_CERRADOS = ["finalizado"] as const;
 
-type Props = { searchParams: Promise<{ vigencia?: string }> };
+const ESTADOS_VALIDOS = [
+  "pendiente",
+  "asignado",
+  "facturacion",
+  "acuerdo_pago",
+  "en_cobro_coactivo",
+  "finalizado",
+] as const;
+
+const TAB_VALIDOS = ["procesos", "actas"] as const;
+
+const ESTADO_ACTA_LABEL: Record<string, string> = {
+  borrador: "Borrador",
+  pendiente_aprobacion: "Pendiente aprobación",
+  aprobada: "Aprobada",
+  enviada: "Enviada",
+};
+
+type Props = {
+  searchParams: Promise<{ vigencia?: string; estado?: string; asignado?: string; tab?: string }>;
+};
 
 function formatDate(value: Date | string | null | undefined): string {
   if (!value) return "—";
@@ -46,10 +69,26 @@ function formatMonto(value: string | number): string {
 export default async function DashboardPage({ searchParams }: Props) {
   unstable_noStore();
 
-  const { vigencia: vigenciaParam } = await searchParams;
+  const params = await searchParams;
+  const tabParam = params.tab;
+  const tabActual =
+    tabParam != null && TAB_VALIDOS.includes(tabParam as (typeof TAB_VALIDOS)[number])
+      ? (tabParam as (typeof TAB_VALIDOS)[number])
+      : "procesos";
+
   const vigenciaNum =
-    vigenciaParam != null && /^\d{4}$/.test(vigenciaParam)
-      ? parseInt(vigenciaParam, 10)
+    params.vigencia != null && /^\d{4}$/.test(params.vigencia)
+      ? parseInt(params.vigencia, 10)
+      : null;
+  const estadoParam = params.estado;
+  const estadoActual =
+    estadoParam != null && ESTADOS_VALIDOS.includes(estadoParam as (typeof ESTADOS_VALIDOS)[number])
+      ? (estadoParam as (typeof ESTADOS_VALIDOS)[number])
+      : null;
+  const asignadoParam = params.asignado;
+  const asignadoIdNum =
+    asignadoParam != null && /^\d+$/.test(asignadoParam)
+      ? parseInt(asignadoParam, 10)
       : null;
 
   const today = new Date();
@@ -59,12 +98,17 @@ export default async function DashboardPage({ searchParams }: Props) {
   in30Days.setDate(in30Days.getDate() + 30);
   const in30DaysStr = in30Days.toISOString().slice(0, 10);
 
-  const vigenciaCond =
-    vigenciaNum != null ? eq(procesos.vigencia, vigenciaNum) : undefined;
+  const condiciones: ReturnType<typeof eq>[] = [];
+  if (vigenciaNum != null) condiciones.push(eq(procesos.vigencia, vigenciaNum));
+  if (estadoActual != null) condiciones.push(eq(procesos.estadoActual, estadoActual));
+  if (asignadoIdNum != null) condiciones.push(eq(procesos.asignadoAId, asignadoIdNum));
+  const baseWhere =
+    condiciones.length > 0 ? and(...condiciones) : undefined;
   const condProcesos = (c: ReturnType<typeof and> | ReturnType<typeof notInArray>) =>
-    vigenciaCond ? and(vigenciaCond, c) : c;
+    baseWhere ? and(baseWhere, c) : c;
 
   const [
+    usuariosList,
     totalProcesos,
     procesosPorEstado,
     montoEnGestion,
@@ -73,14 +117,19 @@ export default async function DashboardPage({ searchParams }: Props) {
     vencimientosProximos,
     procesosRecientes,
   ] = await Promise.all([
-    vigenciaCond
-      ? db.select({ count: sql<number>`count(*)::int` }).from(procesos).where(vigenciaCond)
+    db
+      .select({ id: usuarios.id, nombre: usuarios.nombre })
+      .from(usuarios)
+      .where(eq(usuarios.activo, true))
+      .orderBy(usuarios.nombre),
+    baseWhere
+      ? db.select({ count: sql<number>`count(*)::int` }).from(procesos).where(baseWhere)
       : db.select({ count: sql<number>`count(*)::int` }).from(procesos),
-    vigenciaCond
+    baseWhere
       ? db
           .select({ estado: procesos.estadoActual, count: sql<number>`count(*)::int` })
           .from(procesos)
-          .where(vigenciaCond)
+          .where(baseWhere)
           .groupBy(procesos.estadoActual)
       : db
           .select({ estado: procesos.estadoActual, count: sql<number>`count(*)::int` })
@@ -100,7 +149,7 @@ export default async function DashboardPage({ searchParams }: Props) {
       .from(procesos)
       .where(condProcesos(notInArray(procesos.estadoActual, [...ESTADOS_CERRADOS])))
       .groupBy(procesos.estadoActual),
-    vigenciaCond
+    baseWhere
       ? db
           .select({
             asignadoAId: procesos.asignadoAId,
@@ -109,7 +158,7 @@ export default async function DashboardPage({ searchParams }: Props) {
           })
           .from(procesos)
           .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
-          .where(vigenciaCond)
+          .where(baseWhere)
           .groupBy(procesos.asignadoAId)
           .orderBy(desc(sql`count(*)::int`))
           .limit(10)
@@ -137,11 +186,11 @@ export default async function DashboardPage({ searchParams }: Props) {
       .from(procesos)
       .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
       .where(
-        vigenciaCond
+        baseWhere
           ? and(
               gte(procesos.fechaLimite, todayStr),
               lte(procesos.fechaLimite, in30DaysStr),
-              vigenciaCond
+              baseWhere
             )
           : and(
               gte(procesos.fechaLimite, todayStr),
@@ -162,7 +211,7 @@ export default async function DashboardPage({ searchParams }: Props) {
         })
         .from(procesos)
         .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id));
-      return (vigenciaCond ? base.where(vigenciaCond) : base)
+      return (baseWhere ? base.where(baseWhere) : base)
         .orderBy(desc(procesos.creadoEn))
         .limit(5);
     })(),
@@ -200,6 +249,35 @@ export default async function DashboardPage({ searchParams }: Props) {
     }
   }
 
+  const [actasResult, actasPorEstadoRaw] =
+    tabActual === "actas"
+      ? await Promise.all([
+          obtenerActas({ page: 1, pageSize: 5 }),
+          db
+            .select({
+              estado: actasReunion.estado,
+              count: count(actasReunion.id),
+            })
+            .from(actasReunion)
+            .groupBy(actasReunion.estado),
+        ])
+      : [null, []];
+  const totalActas = actasResult?.total ?? 0;
+  const actasRecientes = actasResult?.actas ?? [];
+  const ordenEstadosActa = ["borrador", "pendiente_aprobacion", "aprobada", "enviada"] as const;
+  const actasPorEstadoOrdenado = ordenEstadosActa
+    .map((e) => actasPorEstadoRaw.find((r) => r.estado === e))
+    .filter((r): r is { estado: string; count: number } => Boolean(r))
+    .map((r) => ({ estado: r.estado, count: Number(r.count) }));
+
+  const searchBase = new URLSearchParams();
+  if (vigenciaNum != null) searchBase.set("vigencia", String(vigenciaNum));
+  if (estadoActual != null) searchBase.set("estado", estadoActual);
+  if (asignadoIdNum != null && asignadoIdNum > 0) searchBase.set("asignado", String(asignadoIdNum));
+  searchBase.set("tab", "procesos");
+  const urlProcesos = `/?${searchBase.toString()}`;
+  const urlActas = "/?tab=actas";
+
   return (
     <div className="p-6 space-y-8 animate-fade-in">
       <DashboardPolling />
@@ -215,17 +293,56 @@ export default async function DashboardPage({ searchParams }: Props) {
                 Vigencia {vigenciaNum}
               </Badge>
             )}
+            {estadoActual != null && (
+              <Badge variant="secondary" className="font-normal">
+                {labelEstado(estadoActual)}
+              </Badge>
+            )}
+            {asignadoIdNum != null && (
+              <Badge variant="secondary" className="font-normal">
+                {usuariosList.find((u) => u.id === asignadoIdNum)?.nombre ?? `Asignado #${asignadoIdNum}`}
+              </Badge>
+            )}
           </div>
           <p className="text-muted-foreground text-sm pl-14">
-            Resumen de procesos de cobro, vencimientos y montos en gestión (COP).
+            {tabActual === "procesos"
+              ? "Resumen de procesos de cobro, vencimientos y montos en gestión (COP)."
+              : "Resumen de actas de reunión."}
           </p>
         </div>
-        <Suspense fallback={null}>
-          <DashboardFiltros vigenciaActual={vigenciaNum} />
-        </Suspense>
       </div>
 
-      {totalP === 0 && vigenciaNum == null && (
+      <nav
+        className="flex border-b border-border"
+        aria-label="Secciones del dashboard"
+      >
+        <Link
+          href={urlProcesos}
+          className={cn(
+            "px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+            tabActual === "procesos"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+          )}
+        >
+          Procesos
+        </Link>
+        <Link
+          href={urlActas}
+          className={cn(
+            "px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+            tabActual === "actas"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+          )}
+        >
+          Actas
+        </Link>
+      </nav>
+
+      {tabActual === "procesos" && (
+        <>
+      {totalP === 0 && vigenciaNum == null && estadoActual == null && asignadoIdNum == null && (
         <div className="rounded-xl border border-border/80 bg-muted/30 px-4 py-4 text-center">
           <p className="text-muted-foreground text-sm">
             No hay procesos de cobro.{" "}
@@ -283,6 +400,20 @@ export default async function DashboardPage({ searchParams }: Props) {
           </Card>
         </Link>
       </div>
+
+      <section className="space-y-3" aria-label="Filtros del dashboard">
+        <h2 className="text-sm font-medium text-muted-foreground">
+          Filtros
+        </h2>
+        <Suspense fallback={null}>
+          <DashboardFiltros
+            vigenciaActual={vigenciaNum}
+            estadoActual={estadoActual}
+            asignadoIdActual={asignadoIdNum}
+            usuarios={usuariosList}
+          />
+        </Suspense>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -444,6 +575,99 @@ export default async function DashboardPage({ searchParams }: Props) {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
+
+      {tabActual === "actas" && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Link
+              href="/actas"
+              className="block rounded-2xl transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label="Ver actas de reunión"
+            >
+              <Card className="border-l-4 border-l-primary/80 h-full">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Actas
+                  </CardTitle>
+                  <FileText className="size-5 text-primary/70" aria-hidden />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-foreground">{totalActas}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Total de actas de reunión
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+          <Card>
+            <CardHeader>
+              <h2 className="text-lg font-semibold leading-none tracking-tight">
+                Actas por estado
+              </h2>
+              <CardDescription>
+                Distribución por estado del acta (borrador, pendiente aprobación, aprobada, enviada)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DashboardGraficoEstadosActas data={actasPorEstadoOrdenado} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <h2 className="text-lg font-semibold leading-none tracking-tight">
+                Actas recientes
+              </h2>
+              <CardDescription>
+                Últimas actas creadas
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {actasRecientes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+                  <div className="rounded-full bg-muted p-3" aria-hidden>
+                    <FileText className="size-8 text-muted-foreground" />
+                  </div>
+                  <p className="text-muted-foreground text-sm max-w-[240px]">
+                    No hay actas registradas.
+                  </p>
+                </div>
+              ) : (
+                <ul className="space-y-3" role="list">
+                  {actasRecientes.map((a) => (
+                    <li key={a.id}>
+                      <Link
+                        href={`/actas/${a.id}`}
+                        className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-transparent px-3 py-2.5 text-sm transition-colors hover:border-border hover:bg-accent/50"
+                      >
+                        <span className="font-medium text-foreground">
+                          Acta #{a.serial} – {a.objetivo}
+                        </span>
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          {formatDate(a.fecha)}
+                        </span>
+                        <span className="w-full text-xs text-muted-foreground">
+                          {ESTADO_ACTA_LABEL[a.estado] ?? a.estado}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="mt-3">
+                <Link
+                  href="/actas"
+                  className="text-primary text-sm font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+                >
+                  Ver todas las actas →
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

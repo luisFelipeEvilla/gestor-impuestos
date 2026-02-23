@@ -122,10 +122,15 @@ export function AsignarProcesoForm({
 }: AsignarProcesoFormProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string>(asignadoAId != null ? String(asignadoAId) : "");
   const [state, formAction] = useActionState(asignarProceso, null);
 
   const nombreActual =
     asignadoNombre ?? (asignadoAId != null ? usuarios.find((u) => u.id === asignadoAId)?.nombre : null) ?? null;
+  const nombreSeleccionado =
+    selectedId === ""
+      ? null
+      : usuarios.find((u) => u.id === parseInt(selectedId, 10))?.nombre ?? null;
 
   useEffect(() => {
     if (state != null && !state.error && open) {
@@ -133,6 +138,10 @@ export function AsignarProcesoForm({
       router.refresh();
     }
   }, [state, open, router]);
+
+  useEffect(() => {
+    if (open) setSelectedId(asignadoAId != null ? String(asignadoAId) : "");
+  }, [open, asignadoAId]);
 
   return (
     <>
@@ -151,9 +160,14 @@ export function AsignarProcesoForm({
         </Button>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+        <DialogContent className="sm:max-w-md" aria-describedby="asignar-desc">
           <DialogHeader>
-            <DialogTitle>Cambiar responsable</DialogTitle>
+            <DialogTitle>Confirmar asignación</DialogTitle>
+            <p id="asignar-desc" className="text-muted-foreground text-sm">
+              {nombreSeleccionado
+                ? `Se asignará este proceso a ${nombreSeleccionado}. ¿Continuar?`
+                : "Elige la persona responsable del proceso."}
+            </p>
           </DialogHeader>
           <form action={formAction} className="flex flex-col gap-4">
             <input type="hidden" name="procesoId" value={procesoId} />
@@ -164,7 +178,8 @@ export function AsignarProcesoForm({
               <select
                 id="asignadoAId-gestion"
                 name="asignadoAId"
-                defaultValue={asignadoAId ?? ""}
+                value={selectedId}
+                onChange={(e) => setSelectedId(e.target.value)}
                 className={cn(
                   "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
                 )}
@@ -188,7 +203,7 @@ export function AsignarProcesoForm({
                 Cancelar
               </Button>
               <Button type="submit" size="sm">
-                Guardar
+                Confirmar asignación
               </Button>
             </div>
           </form>
