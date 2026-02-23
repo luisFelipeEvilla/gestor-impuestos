@@ -476,24 +476,6 @@ export default async function DetalleProcesoPage({ params }: Props) {
             <div className="w-full space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Documentos generales del proceso</CardTitle>
-                  <CardDescription>
-                    Documentos del proceso no asociados a una etapa concreta (en contacto, acuerdo de pago o cobro coactivo).
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <SubirDocumentoForm procesoId={row.id} categoria="general" />
-                  <ListaDocumentos
-                    procesoId={row.id}
-                    documentos={documentosPorCategoria.general}
-                    puedeEliminar
-                    variant="table"
-                  />
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
                   <CardTitle>Bitácora del proceso</CardTitle>
                   <CardDescription>
                     Registra llamadas, acuerdos y seguimiento que no correspondan a una etapa concreta. Útil para dejar trazabilidad y que el equipo vea el historial de gestión.
@@ -533,15 +515,36 @@ export default async function DetalleProcesoPage({ params }: Props) {
                 </CardContent>
               </Card>
 
-              <CardEnContacto
-                procesoId={row.id}
-                estadoActual={row.estadoActual ?? ""}
-                documentos={documentosPorCategoria.en_contacto}
-                notas={notasPorCategoria.en_contacto}
-                sessionUser={sessionUser}
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle>Documentos generales del proceso</CardTitle>
+                  <CardDescription>
+                    Documentos del proceso no asociados a una etapa concreta (en contacto, acuerdo de pago o cobro coactivo).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <SubirDocumentoForm procesoId={row.id} categoria="general" />
+                  <ListaDocumentos
+                    procesoId={row.id}
+                    documentos={documentosPorCategoria.general}
+                    puedeEliminar
+                    variant="table"
+                  />
+                </CardContent>
+              </Card>
             </div>
           </>
+        }
+        facturacionContent={
+          <div className="w-full space-y-6">
+            <CardEnContacto
+              procesoId={row.id}
+              estadoActual={row.estadoActual ?? ""}
+              documentos={documentosPorCategoria.en_contacto}
+              notas={notasPorCategoria.en_contacto}
+              sessionUser={sessionUser}
+            />
+          </div>
         }
         acuerdosContent={
           <CardAcuerdosPagoList

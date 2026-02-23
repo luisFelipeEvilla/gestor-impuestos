@@ -26,6 +26,7 @@ import {
   type EstadoDocumentoProceso,
 } from "@/lib/proceso-categorias";
 import {
+  type TipoDocumentoProceso,
   getTiposDocumentoPorCategoria,
   labelTipoDocumentoProceso,
 } from "@/lib/tipos-documento-proceso";
@@ -57,11 +58,13 @@ type SubirDocumentoFormProps = {
   procesoId: number;
   /** Categoría del documento: general, en_contacto, acuerdo_pago, cobro_coactivo */
   categoria: CategoriaDocumentoNota;
+  /** Si se define, no se muestra el selector de tipo; se usa este tipo fijo (ej. Facturación = solo documento de facturación). */
+  tipoFijo?: TipoDocumentoProceso;
 };
 
 const MAX_S3_MB = 100;
 
-export function SubirDocumentoForm({ procesoId, categoria }: SubirDocumentoFormProps) {
+export function SubirDocumentoForm({ procesoId, categoria, tipoFijo }: SubirDocumentoFormProps) {
   const router = useRouter();
   const forceDirectSubmit = useRef(false);
   const [state, formAction] = useActionState(
@@ -117,7 +120,7 @@ export function SubirDocumentoForm({ procesoId, categoria }: SubirDocumentoFormP
         return;
       }
 
-      const tipoDocumento = (form.get("tipoDocumento") as string)?.trim() || "otro";
+      const tipoDocumento = (form.get("tipoDocumento") as string)?.trim() || tipoFijo || "otro";
       const reg = await registrarDocumentoProceso(
         procesoId,
         presigned.rutaArchivo,
@@ -125,7 +128,7 @@ export function SubirDocumentoForm({ procesoId, categoria }: SubirDocumentoFormP
         file.type || "application/octet-stream",
         file.size,
         categoria,
-        tipoDocumento as import("@/lib/tipos-documento-proceso").TipoDocumentoProceso
+        tipoDocumento as TipoDocumentoProceso
       );
       if (reg.error) {
         setSubmitError(reg.error);
@@ -145,11 +148,14 @@ export function SubirDocumentoForm({ procesoId, categoria }: SubirDocumentoFormP
     <form action={formAction} onSubmit={handleSubmit} className="space-y-4">
       <input type="hidden" name="procesoId" value={procesoId} />
       <input type="hidden" name="categoria" value={categoria} />
-      <div className="grid gap-1.5">
-        <Label htmlFor="tipoDocumento-subir" className="text-xs font-medium">
-          Tipo de documento
-        </Label>
-        <select
+      {tipoFijo ? (
+        <input type="hidden" name="tipoDocumento" value={tipoFijo} />
+      ) : (
+        <div className="grid gap-1.5">
+          <Label htmlFor="tipoDocumento-subir" className="text-xs font-medium">
+            Tipo de documento
+          </Label>
+          <select
             id="tipoDocumento-subir"
             name="tipoDocumento"
             required
@@ -162,7 +168,8 @@ export function SubirDocumentoForm({ procesoId, categoria }: SubirDocumentoFormP
               </option>
             ))}
           </select>
-      </div>
+        </div>
+      )}
       <div className="grid gap-1.5">
         <Label htmlFor="archivo" className="text-xs font-medium">
           Archivo (PDF, imágenes, Word, Excel; hasta {MAX_S3_MB} MB)

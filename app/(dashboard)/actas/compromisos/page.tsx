@@ -109,7 +109,6 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                     <TableHead>Asignado a</TableHead>
                     <TableHead>Clientes</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead>Detalle / actualización</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -187,13 +186,6 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                             })}
                             {c.actualizadoPorNombre && ` · ${c.actualizadoPorNombre}`}
                           </span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {c.detalleActualizacion ? (
-                          <span className="text-sm line-clamp-2">{c.detalleActualizacion}</span>
-                        ) : (
-                          "—"
                         )}
                       </TableCell>
                     </TableRow>

@@ -820,7 +820,7 @@ function fechaToInputValue(fecha: Date | string | null | undefined): string {
 }
 
 const DESCRIPCION_FACTURACION =
-  "Etapa de facturación y gestión inicial. Agrega comentarios y documentos. Puedes pasar a Acuerdo de pago, a Cobro coactivo (sin acuerdo previo) o finalizar si se registra el pago.";
+  "Etapa de facturación y gestión inicial. Agrega comentarios y documentos.";
 
 export function CardEnContacto({
   procesoId,
@@ -838,42 +838,16 @@ export function CardEnContacto({
     >
         {activo ? (
           <>
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Acciones</h4>
-              {estadoActual === "asignado" && (
+            {estadoActual === "asignado" && (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium">Acciones</h4>
                 <AccionEstadoForm
                   procesoId={procesoId}
                   estadoDestino="facturacion"
                   label="Pasar a Facturación"
                 />
-              )}
-              {estadoActual === "facturacion" && (
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-1">El contribuyente realizó el pago</p>
-                    <AccionEstadoForm
-                      procesoId={procesoId}
-                      estadoDestino="finalizado"
-                      label="Finalizar (registrar pago)"
-                      variant="default"
-                    />
-                  </div>
-                  <AccionEstadoForm
-                    procesoId={procesoId}
-                    estadoDestino="acuerdo_pago"
-                    label="Pasar a Acuerdo de pago"
-                  />
-                  <div>
-                    <p className="text-muted-foreground text-xs mb-1">Se inicia cobro coactivo (sin acuerdo de pago)</p>
-                    <AccionEstadoForm
-                      procesoId={procesoId}
-                      estadoDestino="en_cobro_coactivo"
-                      label="Pasar a cobro coactivo"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Comentarios (Facturación)</h4>
               <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} />
@@ -881,7 +855,7 @@ export function CardEnContacto({
             </div>
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Documentos (Facturación)</h4>
-              <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} />
+              <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} tipoFijo="liquidacion" />
               <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
             </div>
           </>

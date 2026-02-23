@@ -5,12 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface TabsGestionProcesoProps {
   generalContent: ReactNode;
+  facturacionContent: ReactNode;
   acuerdosContent: ReactNode;
   cobroContent: ReactNode;
 }
 
 export function TabsGestionProceso({
   generalContent,
+  facturacionContent,
   acuerdosContent,
   cobroContent,
 }: TabsGestionProcesoProps) {
@@ -19,6 +21,9 @@ export function TabsGestionProceso({
       <TabsList variant="underline" className="mb-6 w-full">
         <TabsTrigger variant="underline" value="general">
           General
+        </TabsTrigger>
+        <TabsTrigger variant="underline" value="facturacion">
+          Facturación
         </TabsTrigger>
         <TabsTrigger variant="underline" value="acuerdos">
           Acuerdos de pago
@@ -29,6 +34,9 @@ export function TabsGestionProceso({
       </TabsList>
       <TabsContent value="general" className="mt-0">
         {generalContent}
+      </TabsContent>
+      <TabsContent value="facturacion" className="mt-0">
+        {facturacionContent}
       </TabsContent>
       <TabsContent value="acuerdos" className="mt-0">
         {acuerdosContent}
