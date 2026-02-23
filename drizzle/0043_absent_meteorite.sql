@@ -23,6 +23,34 @@ EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 --> statement-breakpoint
+-- Mapear valores antiguos del enum a los nuevos (historial_proceso puede tener notificado, en_contacto, etc.)
+UPDATE "historial_proceso"
+SET
+  "estado_anterior" = CASE
+    WHEN "estado_anterior" IN ('notificado', 'en_contacto') THEN 'facturacion'
+    WHEN "estado_anterior" = 'en_negociacion' THEN 'acuerdo_pago'
+    WHEN "estado_anterior" IN ('cobrado', 'incobrable', 'suspendido') THEN 'finalizado'
+    ELSE "estado_anterior"
+  END,
+  "estado_nuevo" = CASE
+    WHEN "estado_nuevo" IN ('notificado', 'en_contacto') THEN 'facturacion'
+    WHEN "estado_nuevo" = 'en_negociacion' THEN 'acuerdo_pago'
+    WHEN "estado_nuevo" IN ('cobrado', 'incobrable', 'suspendido') THEN 'finalizado'
+    ELSE "estado_nuevo"
+  END
+WHERE "estado_anterior" IN ('notificado', 'en_contacto', 'en_negociacion', 'cobrado', 'incobrable', 'suspendido')
+   OR "estado_nuevo" IN ('notificado', 'en_contacto', 'en_negociacion', 'cobrado', 'incobrable', 'suspendido');
+--> statement-breakpoint
+-- procesos.estado_actual: mapear valores antiguos por si 0042 no se aplicó antes
+UPDATE "procesos"
+SET "estado_actual" = CASE
+  WHEN "estado_actual" IN ('notificado', 'en_contacto') THEN 'facturacion'
+  WHEN "estado_actual" = 'en_negociacion' THEN 'acuerdo_pago'
+  WHEN "estado_actual" IN ('cobrado', 'incobrable', 'suspendido') THEN 'finalizado'
+  ELSE "estado_actual"
+END
+WHERE "estado_actual" IN ('notificado', 'en_contacto', 'en_negociacion', 'cobrado', 'incobrable', 'suspendido');
+--> statement-breakpoint
 ALTER TABLE "historial_proceso" ALTER COLUMN "estado_anterior" SET DATA TYPE "public"."estado_proceso" USING "estado_anterior"::"public"."estado_proceso";
 --> statement-breakpoint
 ALTER TABLE "historial_proceso" ALTER COLUMN "estado_nuevo" SET DATA TYPE "public"."estado_proceso" USING "estado_nuevo"::"public"."estado_proceso";

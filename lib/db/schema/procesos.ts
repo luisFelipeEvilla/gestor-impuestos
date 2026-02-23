@@ -50,6 +50,10 @@ export const procesos = pgTable("procesos", {
   }),
   /** Fecha de creación o aplicación del impuesto (origen del proceso) */
   fechaAplicacionImpuesto: date("fecha_aplicacion_impuesto"),
+  /** true si el proceso fue importado desde cartera (CSV); false si se creó manualmente. */
+  importado: boolean("importado").default(false).notNull(),
+  /** Fecha en que se importó el proceso (solo tiene sentido cuando importado = true). */
+  fechaImportacion: timestamp("fecha_importacion", { withTimezone: true }),
   /** Fecha de creación del registro en el sistema */
   creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),

@@ -349,6 +349,8 @@ async function flushBatch(
             asignadoAId: null,
             fechaLimite: b.fechaLimite,
             fechaAplicacionImpuesto: b.fechaAplicacionImpuesto,
+            importado: true,
+            fechaImportacion: new Date(),
           }))
         )
         .returning({ id: procesos.id });
