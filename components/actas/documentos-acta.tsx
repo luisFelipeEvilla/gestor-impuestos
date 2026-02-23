@@ -110,7 +110,7 @@ export function SubirDocumentoActaForm({ actaId }: SubirDocumentoActaFormProps) 
       <div className="flex flex-wrap items-end gap-2">
         <div className="grid min-w-[200px] flex-1 gap-1.5">
           <Label htmlFor="archivo-acta" className="text-xs">
-            Archivo (PDF, imágenes, Word, Excel; hasta {MAX_S3_MB} MB con S3)
+            Archivo (PDF, imágenes, Word, Excel; hasta {MAX_S3_MB} MB)
           </Label>
           <FileInputDropzone
             id="archivo-acta"

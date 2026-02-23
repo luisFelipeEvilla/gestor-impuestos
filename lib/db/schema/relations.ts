@@ -66,7 +66,7 @@ export const procesosRelations = relations(procesos, ({ one, many }) => ({
   documentos: many(documentosProceso),
   ordenResolucion: one(ordenesResolucion),
   acuerdosPago: many(acuerdosPago),
-  cobroCoactivo: one(cobrosCoactivos),
+  cobrosCoactivos: many(cobrosCoactivos),
 }));
 
 export const historialProcesoRelations = relations(historialProceso, ({ one }) => ({
@@ -87,7 +87,7 @@ export const acuerdosPagoRelations = relations(acuerdosPago, ({ one }) => ({
 }));
 
 export const cobrosCoactivosRelations = relations(cobrosCoactivos, ({ one }) => ({
-  proceso: one(procesos),
+  proceso: one(procesos, { fields: [cobrosCoactivos.procesoId], references: [procesos.id] }),
 }));
 
 export const actasReunionRelations = relations(actasReunion, ({ one, many }) => ({

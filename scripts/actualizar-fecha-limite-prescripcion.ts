@@ -35,7 +35,8 @@ async function main(): Promise<void> {
 
   const cobros = await db
     .select({ procesoId: cobrosCoactivos.procesoId, fechaInicio: cobrosCoactivos.fechaInicio })
-    .from(cobrosCoactivos);
+    .from(cobrosCoactivos)
+    .where(eq(cobrosCoactivos.activo, true));
 
   const fechaInicioPorProceso = new Map(
     cobros.map((c) => [c.procesoId, toDateStr(c.fechaInicio)] as const)

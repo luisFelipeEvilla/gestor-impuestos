@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, useTransition, useRef } from "react";
+import { useActionState, useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -109,49 +109,92 @@ export function CambiarEstadoForm({ procesoId, estadoActual }: CambiarEstadoForm
 type AsignarProcesoFormProps = {
   procesoId: number;
   asignadoAId: number | null;
+  /** Nombre del responsable actual (para mostrar en la ficha). Si no se pasa, se infiere de usuarios + asignadoAId. */
+  asignadoNombre?: string | null;
   usuarios: UsuarioOption[];
 };
 
 export function AsignarProcesoForm({
   procesoId,
   asignadoAId,
+  asignadoNombre,
   usuarios,
 }: AsignarProcesoFormProps) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [state, formAction] = useActionState(asignarProceso, null);
 
+  const nombreActual =
+    asignadoNombre ?? (asignadoAId != null ? usuarios.find((u) => u.id === asignadoAId)?.nombre : null) ?? null;
+
+  useEffect(() => {
+    if (state != null && !state.error && open) {
+      setOpen(false);
+      router.refresh();
+    }
+  }, [state, open, router]);
+
   return (
-    <form action={formAction} className="flex flex-wrap items-end gap-2">
-      <input type="hidden" name="procesoId" value={procesoId} />
-      <div className="grid gap-1.5">
-        <Label htmlFor="asignadoAId-gestion" className="text-xs">
-          Asignar a
-        </Label>
-        <select
-          id="asignadoAId-gestion"
-          name="asignadoAId"
-          defaultValue={asignadoAId ?? ""}
-          className={cn(
-            "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px] min-w-[200px]"
-          )}
-          aria-label="Seleccionar usuario"
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-foreground">
+          {nombreActual ?? "Sin asignar"}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+          aria-label="Cambiar responsable"
         >
-          <option value="">Sin asignar</option>
-          {usuarios.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.nombre}
-            </option>
-          ))}
-        </select>
+          Cambiar responsable
+        </Button>
       </div>
-      <Button type="submit" size="sm">
-        Asignar
-      </Button>
-      {state?.error && (
-        <p className="text-destructive text-xs w-full" role="alert">
-          {state.error}
-        </p>
-      )}
-    </form>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Cambiar responsable</DialogTitle>
+          </DialogHeader>
+          <form action={formAction} className="flex flex-col gap-4">
+            <input type="hidden" name="procesoId" value={procesoId} />
+            <div className="grid gap-1.5">
+              <Label htmlFor="asignadoAId-gestion" className="text-xs">
+                Asignar a
+              </Label>
+              <select
+                id="asignadoAId-gestion"
+                name="asignadoAId"
+                defaultValue={asignadoAId ?? ""}
+                className={cn(
+                  "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+                )}
+                aria-label="Seleccionar responsable"
+              >
+                <option value="">Sin asignar</option>
+                {usuarios.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {state?.error && (
+              <p className="text-destructive text-xs" role="alert">
+                {state.error}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" size="sm">
+                Guardar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -246,13 +289,13 @@ function EvidenciaEnvioEmailBlock({ envios }: { envios: EvidenciaEnvioEmail[] })
             {envio.bodyHtml && (
               <Button
                 type="button"
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="h-6 gap-1 px-1.5 text-xs"
+                className="h-7 gap-1.5 shrink-0 border-green-300 bg-white px-2.5 text-xs text-green-800 hover:bg-green-100 hover:text-green-900 dark:border-green-700 dark:bg-green-950/50 dark:text-green-200 dark:hover:bg-green-900/50 dark:hover:text-green-100"
                 onClick={() => setVerContenidoEnvio(envio)}
                 aria-label="Ver contenido del correo enviado"
               >
-                <Mail className="size-3" aria-hidden />
+                <Mail className="size-3.5" aria-hidden />
                 Ver contenido del correo
               </Button>
             )}
@@ -698,12 +741,14 @@ const CATEGORIA_EN_CONTACTO: CategoriaNota = "en_contacto";
 const CATEGORIA_COBRO_COACTIVO: CategoriaNota = "cobro_coactivo";
 
 type DatosCobroCoactivoFormProps = {
+  cobroId: number;
   procesoId: number;
   noCoactivo: string;
   fechaInicio: Date | string;
 };
 
 function DatosCobroCoactivoForm({
+  cobroId,
   procesoId,
   noCoactivo,
   fechaInicio,
@@ -711,42 +756,40 @@ function DatosCobroCoactivoForm({
   const [state, formAction] = useActionState(actualizarDatosCobroCoactivoForm, null);
 
   return (
-    <form action={formAction} className="space-y-3 rounded-xl border border-border/80 bg-muted/20 p-4">
-      <h4 className="text-sm font-medium">Datos del sistema externo</h4>
+    <form action={formAction} className="flex flex-wrap items-end gap-4">
+      <input type="hidden" name="cobroId" value={cobroId} />
       <input type="hidden" name="procesoId" value={procesoId} />
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="grid gap-1.5">
-          <Label htmlFor="noCoactivo-cc" className="text-xs">
-            No. Coactivo
-          </Label>
-          <Input
-            id="noCoactivo-cc"
-            name="noCoactivo"
-            type="text"
-            placeholder="Ej. 12345"
-            defaultValue={noCoactivo}
-            className="w-40"
-          />
-        </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="fechaInicio-cc" className="text-xs">
-            Fecha
-          </Label>
-          <Input
-            id="fechaInicio-cc"
-            name="fechaInicio"
-            type="date"
-            required
-            defaultValue={fechaToInputValue(fechaInicio)}
-            className="w-40"
-          />
-        </div>
-        <Button type="submit" size="sm">
-          Guardar
-        </Button>
+      <div className="grid gap-1.5">
+        <Label htmlFor={`noCoactivo-cc-${cobroId}`} className="text-xs">
+          No. Coactivo
+        </Label>
+        <Input
+          id={`noCoactivo-cc-${cobroId}`}
+          name="noCoactivo"
+          type="text"
+          placeholder="Ej. 12345"
+          defaultValue={noCoactivo}
+          className="w-40"
+        />
       </div>
+      <div className="grid gap-1.5">
+        <Label htmlFor={`fechaInicio-cc-${cobroId}`} className="text-xs">
+          Fecha inicio
+        </Label>
+        <Input
+          id={`fechaInicio-cc-${cobroId}`}
+          name="fechaInicio"
+          type="date"
+          required
+          defaultValue={fechaToInputValue(fechaInicio)}
+          className="w-40"
+        />
+      </div>
+      <Button type="submit" size="sm">
+        Guardar
+      </Button>
       {state?.error && (
-        <p className="text-destructive text-xs" role="alert">
+        <p className="text-destructive text-xs w-full" role="alert">
           {state.error}
         </p>
       )}
@@ -763,9 +806,12 @@ type CardEtapaProps = {
 };
 
 type CobroCoactivoEntity = {
+  id: number;
   fechaInicio: Date | string;
   noCoactivo?: string | null;
-} | null;
+  activo: boolean;
+  creadoEn: Date | string;
+};
 
 function fechaToInputValue(fecha: Date | string | null | undefined): string {
   if (fecha == null) return "";
@@ -861,12 +907,8 @@ export function CardEnContacto({
   );
 }
 
-/** Contexto normativo: cobro coactivo como ejecución ante la autoridad competente. */
 const CONTEXTO_COBRO_COACTIVO =
-  "El cobro coactivo es la etapa de ejecución ante la autoridad competente (Estatuto Tributario / Ley 1437), con títulos ejecutivos y medidas de ley. El número de expediente y la fecha deben coincidir con el sistema donde se tramita el cobro. El plazo de prescripción se calcula desde la fecha de inicio del cobro coactivo.";
-
-const DESCRIPCION_COBRO_COACTIVO_INACTIVO =
-  "Etapa independiente del acuerdo de pago. Puede iniciarse en cualquier momento (sin necesidad de pasar por Acuerdos de pago). Inicia el cobro coactivo cuando corresponda.";
+  "El cobro coactivo es la etapa de ejecución ante la autoridad competente (Estatuto Tributario / Ley 1437), con títulos ejecutivos y medidas de ley. Un proceso puede tener múltiples cobros coactivos si hay incumplimientos sucesivos.";
 
 export function CardCobroCoactivo({
   procesoId,
@@ -874,13 +916,20 @@ export function CardCobroCoactivo({
   documentos,
   notas,
   sessionUser,
-  cobroCoactivo = null,
-}: CardEtapaProps & { cobroCoactivo?: CobroCoactivoEntity }) {
-  const activo = estadoActual === "en_cobro_coactivo";
-  const puedeIniciar = !activo && estadoActual !== "finalizado";
-  const fechaInicio = cobroCoactivo?.fechaInicio
-    ? new Date(cobroCoactivo.fechaInicio).toLocaleDateString("es-CO")
+  cobrosCoactivos = [],
+}: CardEtapaProps & { cobrosCoactivos?: CobroCoactivoEntity[] }) {
+  const enCobroCoactivo = estadoActual === "en_cobro_coactivo";
+  const puedeIniciar = estadoActual !== "finalizado";
+  const cobroActivo = cobrosCoactivos.find((c) => c.activo) ?? null;
+  const cobrosAnteriores = cobrosCoactivos.filter((c) => !c.activo);
+  const fechaActivoStr = cobroActivo?.fechaInicio
+    ? new Date(cobroActivo.fechaInicio).toLocaleDateString("es-CO")
     : null;
+
+  function formatFechaCobro(value: Date | string): string {
+    const d = typeof value === "string" ? new Date(value) : value;
+    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO");
+  }
 
   return (
     <div className="w-full space-y-6">
@@ -888,39 +937,44 @@ export function CardCobroCoactivo({
         <CardHeader>
           <CardTitle>Cobro coactivo</CardTitle>
           <CardDescription className="space-y-1.5">
-            {CONTEXTO_COBRO_COACTIVO}
-            {fechaInicio && (
-              <span className="block font-medium text-foreground/90">Cobro activo desde {fechaInicio}.</span>
+            <span className="block">
+              {CONTEXTO_COBRO_COACTIVO}
+            </span>
+            {cobroActivo && fechaActivoStr && (
+              <span className="block font-medium text-foreground/90">Cobro vigente desde {fechaActivoStr}.</span>
             )}
-            {!activo && puedeIniciar && (
-              <span className="block">{DESCRIPCION_COBRO_COACTIVO_INACTIVO}</span>
+            {estadoActual === "finalizado" && (
+              <span className="block text-muted-foreground">El proceso ya está finalizado.</span>
             )}
-            {!puedeIniciar && estadoActual === "finalizado" && (
-              <span className="block text-muted-foreground">El proceso ya está finalizado. No es posible iniciar cobro coactivo.</span>
+            {cobrosCoactivos.length > 0 && (
+              <span className="block text-muted-foreground">
+                Total de cobros coactivos registrados: {cobrosCoactivos.length}.
+              </span>
             )}
           </CardDescription>
         </CardHeader>
       </Card>
 
-      {activo && cobroCoactivo && (
+      {enCobroCoactivo && cobroActivo && (
         <Card>
           <CardHeader>
-            <CardTitle>Datos del expediente</CardTitle>
+            <CardTitle>Cobro coactivo vigente</CardTitle>
             <CardDescription>
-              Número de coactivo y fecha alineados al sistema donde se tramita el cobro.
+              Número de expediente y fecha alineados al sistema donde se tramita.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <DatosCobroCoactivoForm
+              cobroId={cobroActivo.id}
               procesoId={procesoId}
-              noCoactivo={cobroCoactivo.noCoactivo ?? ""}
-              fechaInicio={cobroCoactivo.fechaInicio}
+              noCoactivo={cobroActivo.noCoactivo ?? ""}
+              fechaInicio={cobroActivo.fechaInicio}
             />
           </CardContent>
         </Card>
       )}
 
-      {activo && (
+      {enCobroCoactivo && (
         <Card>
           <CardHeader>
             <CardTitle>Acciones</CardTitle>
@@ -939,21 +993,59 @@ export function CardCobroCoactivo({
         </Card>
       )}
 
-      {puedeIniciar && !activo && (
+      {!enCobroCoactivo && puedeIniciar && (
         <Card>
           <CardHeader>
-            <CardTitle>Iniciar cobro coactivo</CardTitle>
+            <CardTitle>
+              {cobrosCoactivos.length > 0 ? "Iniciar nuevo cobro coactivo" : "Iniciar cobro coactivo"}
+            </CardTitle>
             <CardDescription>
-              Crea el registro de cobro coactivo y pasa el proceso a esta etapa.
+              {cobrosCoactivos.length > 0
+                ? "Se desactivará el cobro anterior y se creará uno nuevo."
+                : "Crea el registro de cobro coactivo y pasa el proceso a esta etapa."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <AccionEstadoForm
               procesoId={procesoId}
               estadoDestino="en_cobro_coactivo"
-              label="Iniciar cobro coactivo"
+              label={cobrosCoactivos.length > 0 ? "Iniciar nuevo cobro coactivo" : "Iniciar cobro coactivo"}
               variant="default"
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {cobrosAnteriores.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Historial de cobros coactivos</CardTitle>
+            <CardDescription>
+              Cobros coactivos anteriores de este proceso (ya no vigentes).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm">
+              {cobrosAnteriores.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border/60 bg-muted/30 px-3 py-2"
+                >
+                  <span className="font-medium">
+                    {c.noCoactivo ? `No. ${c.noCoactivo}` : `Cobro #${c.id}`}
+                  </span>
+                  <span className="text-muted-foreground">
+                    Inicio: {formatFechaCobro(c.fechaInicio)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    Creado: {formatFechaCobro(c.creadoEn)}
+                  </span>
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                    Inactivo
+                  </span>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       )}
@@ -966,14 +1058,8 @@ export function CardCobroCoactivo({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {activo ? (
-            <>
-              <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_COBRO_COACTIVO} />
-              <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
-            </>
-          ) : (
-            <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
-          )}
+          <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_COBRO_COACTIVO} />
+          <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
         </CardContent>
       </Card>
 

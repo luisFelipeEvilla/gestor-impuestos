@@ -58,9 +58,6 @@ type CardAcuerdosPagoListProps = {
   sessionUser?: { id: number; rol: string } | null;
 };
 
-const CONTEXTO_ACUERDOS =
-  "Los acuerdos de pago permiten al contribuyente cumplir en cuotas según lo acordado, en el marco del procedimiento administrativo (Ley 1437).";
-
 export function CardAcuerdosPagoList({
   procesoId,
   acuerdos: initialAcuerdos,
@@ -131,8 +128,6 @@ export function CardAcuerdosPagoList({
     null
   );
 
-  const descripcion =
-    "Registro de acuerdos del proceso: número, fechas, porcentaje de cuota inicial, número de cuotas y día del mes de cobro. Acuerdo de pago y cobro coactivo son etapas independientes.";
   const montoFormateado =
     montoTotalCop != null && montoTotalCop !== ""
       ? Number(montoTotalCop).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
@@ -143,13 +138,11 @@ export function CardAcuerdosPagoList({
       <Card>
         <CardHeader>
           <CardTitle>Acuerdos de pago</CardTitle>
-          <CardDescription className="space-y-1.5">
-            <span className="block">{CONTEXTO_ACUERDOS}</span>
-            {montoFormateado && (
-              <span className="block font-medium text-foreground/90">Monto del proceso: {montoFormateado}</span>
-            )}
-            <span className="block">{descripcion}</span>
-          </CardDescription>
+          {montoFormateado && (
+            <CardDescription className="font-medium text-foreground/90">
+              Monto del proceso: {montoFormateado}
+            </CardDescription>
+          )}
         </CardHeader>
       </Card>
 

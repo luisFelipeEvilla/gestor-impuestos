@@ -300,18 +300,14 @@ export async function actualizarProceso(
 
     if (entraCobroCoactivo) {
       await db
-        .insert(cobrosCoactivos)
-        .values({
-          procesoId: parsed.data.id,
-          fechaInicio: hoyStr,
-        })
-        .onConflictDoUpdate({
-          target: cobrosCoactivos.procesoId,
-          set: {
-            fechaInicio: hoyStr,
-            actualizadoEn: new Date(),
-          },
-        });
+        .update(cobrosCoactivos)
+        .set({ activo: false, actualizadoEn: new Date() })
+        .where(and(eq(cobrosCoactivos.procesoId, parsed.data.id), eq(cobrosCoactivos.activo, true)));
+      await db.insert(cobrosCoactivos).values({
+        procesoId: parsed.data.id,
+        fechaInicio: hoyStr,
+        activo: true,
+      });
     }
 
     const cambiaEstado = existing.estadoActual !== estadoActual;
@@ -416,18 +412,14 @@ export async function cambiarEstadoProceso(
 
     if (entraCobroCoactivo) {
       await db
-        .insert(cobrosCoactivos)
-        .values({
-          procesoId,
-          fechaInicio: hoyStr,
-        })
-        .onConflictDoUpdate({
-          target: cobrosCoactivos.procesoId,
-          set: {
-            fechaInicio: hoyStr,
-            actualizadoEn: new Date(),
-          },
-        });
+        .update(cobrosCoactivos)
+        .set({ activo: false, actualizadoEn: new Date() })
+        .where(and(eq(cobrosCoactivos.procesoId, procesoId), eq(cobrosCoactivos.activo, true)));
+      await db.insert(cobrosCoactivos).values({
+        procesoId,
+        fechaInicio: hoyStr,
+        activo: true,
+      });
     }
 
     await db.insert(historialProceso).values({

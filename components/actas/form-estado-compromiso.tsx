@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { FileInputDropzone } from "@/components/ui/file-input-dropzone";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { actualizarEstadoCompromisoAction } from "@/lib/actions/compromisos-acta";
 

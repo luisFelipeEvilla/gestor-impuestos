@@ -1,4 +1,5 @@
 import {
+  boolean,
   date,
   integer,
   jsonb,
@@ -139,23 +140,21 @@ export const acuerdosPago = pgTable("acuerdos_pago", {
   actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Tabla: cobros_coactivos (1:1 con proceso)
-export const cobrosCoactivos = pgTable(
-  "cobros_coactivos",
-  {
-    id: serial("id").primaryKey(),
-    procesoId: integer("proceso_id")
-      .notNull()
-      .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
-    /** Número/referencia del cobro coactivo en el sistema externo. */
-    noCoactivo: text("no_coactivo"),
-    /** Fecha del cobro coactivo (sistema externo). */
-    fechaInicio: date("fecha_inicio").notNull(),
-    creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
-    actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => [unique().on(t.procesoId)]
-);
+// Tabla: cobros_coactivos (1:N con proceso — un proceso puede tener múltiples cobros coactivos)
+export const cobrosCoactivos = pgTable("cobros_coactivos", {
+  id: serial("id").primaryKey(),
+  procesoId: integer("proceso_id")
+    .notNull()
+    .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  /** Número/referencia del cobro coactivo en el sistema externo. */
+  noCoactivo: text("no_coactivo"),
+  /** Fecha del cobro coactivo (sistema externo). */
+  fechaInicio: date("fecha_inicio").notNull(),
+  /** true si este es el cobro coactivo vigente del proceso. */
+  activo: boolean("activo").default(true).notNull(),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
+});
 
 export type Proceso = typeof procesos.$inferSelect;
 export type NewProceso = typeof procesos.$inferInsert;

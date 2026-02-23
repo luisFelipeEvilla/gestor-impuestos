@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CardSectionAccordion } from "@/components/ui/card-accordion";
 import { Button } from "@/components/ui/button";
 import { FileInputDropzone } from "@/components/ui/file-input-dropzone";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfirmarEliminacionModal } from "@/components/confirmar-eliminacion-modal";
 import {

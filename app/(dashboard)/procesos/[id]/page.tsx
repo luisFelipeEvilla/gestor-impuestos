@@ -137,7 +137,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
     }
   }
 
-  const [historialRows, usuariosList, documentosRows, ordenResolucion, acuerdosPagoList, cobroCoactivo] = await Promise.all([
+  const [historialRows, usuariosList, documentosRows, ordenResolucion, acuerdosPagoList, cobrosCoactivosList] = await Promise.all([
     db
       .select({
         id: historialProceso.id,
@@ -177,7 +177,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
       .orderBy(desc(documentosProceso.creadoEn)),
     db.select().from(ordenesResolucion).where(eq(ordenesResolucion.procesoId, id)).then((r) => r[0] ?? null),
     db.select().from(acuerdosPago).where(eq(acuerdosPago.procesoId, id)).orderBy(desc(acuerdosPago.creadoEn)),
-    db.select().from(cobrosCoactivos).where(eq(cobrosCoactivos.procesoId, id)).then((r) => r[0] ?? null),
+    db.select().from(cobrosCoactivos).where(eq(cobrosCoactivos.procesoId, id)).orderBy(desc(cobrosCoactivos.creadoEn)),
   ]);
 
   const notificacionEvent = historialRows.find((h) => h.tipoEvento === "notificacion");
@@ -334,10 +334,6 @@ export default async function DetalleProcesoPage({ params }: Props) {
                   <dd>{labelEstado(row.estadoActual)}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Asignado a</dt>
-                  <dd>{row.asignadoNombre ?? "—"}</dd>
-                </div>
-                <div>
                   <dt className="text-muted-foreground">Fecha límite</dt>
                   <dd className="flex flex-wrap items-center gap-2">
                     <SemaforoFechaLimite fechaLimite={row.fechaLimite} variant="inline" />
@@ -355,11 +351,12 @@ export default async function DetalleProcesoPage({ params }: Props) {
                   <dd>{formatDate(row.creadoEn)}</dd>
                 </div>
                 <div className="pt-2 border-t">
-                  <dt className="text-muted-foreground text-xs mb-1">Asignar responsable</dt>
+                  <dt className="text-muted-foreground text-xs mb-1">Responsable</dt>
                   <dd>
                     <AsignarProcesoForm
                       procesoId={row.id}
                       asignadoAId={row.asignadoAId}
+                      asignadoNombre={row.asignadoNombre}
                       usuarios={usuariosList}
                     />
                   </dd>
@@ -563,7 +560,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
             estadoActual={row.estadoActual ?? ""}
             documentos={documentosPorCategoria.cobro_coactivo}
             notas={notasPorCategoria.cobro_coactivo}
-            cobroCoactivo={cobroCoactivo}
+            cobrosCoactivos={cobrosCoactivosList}
             sessionUser={sessionUser}
           />
         }

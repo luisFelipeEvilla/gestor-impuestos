@@ -165,7 +165,7 @@ export function SubirDocumentoForm({ procesoId, categoria }: SubirDocumentoFormP
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="archivo" className="text-xs font-medium">
-          Archivo (PDF, imágenes, Word, Excel; hasta {MAX_S3_MB} MB con S3)
+          Archivo (PDF, imágenes, Word, Excel; hasta {MAX_S3_MB} MB)
         </Label>
         <FileInputDropzone
           id="archivo"
@@ -233,7 +233,6 @@ export function ListaDocumentos({
               <TableHead className="font-medium">Nombre</TableHead>
               <TableHead className="font-medium">Tipo de documento</TableHead>
               <TableHead className="font-medium">Formato</TableHead>
-              <TableHead className="font-medium">Subido por</TableHead>
               <TableHead className="font-medium">Fecha</TableHead>
               {puedeEliminar && (
                 <TableHead className="w-[100px] text-right font-medium">Acciones</TableHead>
@@ -258,9 +257,6 @@ export function ListaDocumentos({
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {labelTipoDocumento(doc.mimeType)}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-sm">
-                  {doc.creadoPorNombre ?? "—"}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                   {formatFechaSubida(doc.creadoEn)}

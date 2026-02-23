@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -12,6 +13,8 @@ import {
   Users,
   Building,
   ClipboardList,
+  ChevronDown,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/sidebar-provider";
@@ -26,23 +29,22 @@ const navItemsMain: {
   { href: "/contribuyentes", label: "Contribuyentes", icon: Building2 },
   { href: "/clientes", label: "Clientes", icon: Briefcase },
   { href: "/impuestos", label: "Tipo de procesos", icon: Receipt },
-  { href: "/actas", label: "Actas", icon: FileText },
 ];
 
-const navItemsAdmin: {
+const actasMenuItems: { href: string; label: string }[] = [
+  { href: "/actas", label: "Actas" },
+  { href: "/actas/compromisos", label: "Compromisos" },
+];
+
+const configMenuItems: {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
   { href: "/cargos", label: "Cargos", icon: ClipboardList },
   { href: "/usuarios", label: "Usuarios", icon: Users },
+  { href: "/empresa", label: "Empresa", icon: Building },
 ];
-
-const navItemConfig = {
-  href: "/empresa",
-  label: "Configuración",
-  icon: Building,
-};
 
 type SidebarNavProps = {
   isAdmin: boolean;
@@ -85,6 +87,172 @@ function NavLink({
   );
 }
 
+function NavActasExpandable({
+  pathname,
+  collapsed,
+}: {
+  pathname: string;
+  collapsed: boolean;
+}) {
+  const isInActas = pathname === "/actas" || pathname.startsWith("/actas/");
+  const [open, setOpen] = useState(isInActas);
+
+  useEffect(() => {
+    if (isInActas) setOpen(true);
+  }, [isInActas]);
+
+  if (collapsed) {
+    return (
+      <Link
+        href="/actas"
+        title="Actas"
+        className={cn(
+          "flex items-center justify-center rounded-xl py-2.5 size-11 text-sm font-medium transition-all duration-200",
+          isInActas
+            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+        aria-current={isInActas ? "page" : undefined}
+        aria-label="Actas"
+      >
+        <FileText className={cn("size-5 shrink-0", isInActas ? "opacity-95" : "opacity-80")} />
+      </Link>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex w-full items-center rounded-xl text-sm font-medium transition-all duration-200 gap-3 px-3 py-2.5 text-left",
+          isInActas
+            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+        aria-expanded={open}
+        aria-label="Actas"
+      >
+        <FileText className={cn("size-5 shrink-0", isInActas ? "opacity-95" : "opacity-80")} />
+        <span className="truncate flex-1">Actas</span>
+        <ChevronDown
+          className={cn("size-4 shrink-0 opacity-70 transition-transform", open && "rotate-180")}
+        />
+      </button>
+      {open && (
+        <div className="flex flex-col gap-0.5 pl-4 ml-3 border-l border-sidebar-border">
+          {actasMenuItems.map((item) => {
+            const isActive =
+              item.href === "/actas"
+                ? pathname === "/actas"
+                : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center rounded-lg py-2 px-3 text-sm font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                )}
+                aria-current={isActive ? "page" : undefined}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NavConfigExpandable({
+  pathname,
+  collapsed,
+}: {
+  pathname: string;
+  collapsed: boolean;
+}) {
+  const isInConfig = configMenuItems.some(
+    (item) => pathname === item.href || pathname.startsWith(item.href + "/")
+  );
+  const [open, setOpen] = useState(isInConfig);
+
+  useEffect(() => {
+    if (isInConfig) setOpen(true);
+  }, [isInConfig]);
+
+  if (collapsed) {
+    return (
+      <Link
+        href="/empresa"
+        title="Configuración"
+        className={cn(
+          "flex items-center justify-center rounded-xl py-2.5 size-11 text-sm font-medium transition-all duration-200",
+          isInConfig
+            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+        aria-current={isInConfig ? "page" : undefined}
+        aria-label="Configuración"
+      >
+        <Settings className={cn("size-5 shrink-0", isInConfig ? "opacity-95" : "opacity-80")} />
+      </Link>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex w-full items-center rounded-xl text-sm font-medium transition-all duration-200 gap-3 px-3 py-2.5 text-left",
+          isInConfig
+            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+        aria-expanded={open}
+        aria-label="Configuración"
+      >
+        <Settings className={cn("size-5 shrink-0", isInConfig ? "opacity-95" : "opacity-80")} />
+        <span className="truncate flex-1">Configuración</span>
+        <ChevronDown
+          className={cn("size-4 shrink-0 opacity-70 transition-transform", open && "rotate-180")}
+        />
+      </button>
+      {open && (
+        <div className="flex flex-col gap-0.5 pl-4 ml-3 border-l border-sidebar-border">
+          {configMenuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive =
+              pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg py-2 px-3 text-sm font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                )}
+                aria-current={isActive ? "page" : undefined}
+              >
+                <Icon className="size-4 shrink-0 opacity-80" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SidebarNav({ isAdmin }: SidebarNavProps) {
   const pathname = usePathname();
   const { collapsed } = useSidebar();
@@ -108,28 +276,13 @@ export function SidebarNav({ isAdmin }: SidebarNavProps) {
             collapsed={collapsed}
           />
         ))}
+        <NavActasExpandable pathname={pathname} collapsed={collapsed} />
       </div>
       {isAdmin && (
         <>
           <div className="min-h-0 flex-1" aria-hidden />
-          <div className="flex shrink-0 flex-col gap-1 border-t border-sidebar-border pt-3">
-            {navItemsAdmin.map((item) => (
-              <NavLink
-                key={item.href}
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                pathname={pathname}
-                collapsed={collapsed}
-              />
-            ))}
-            <NavLink
-              href={navItemConfig.href}
-              label={navItemConfig.label}
-              icon={navItemConfig.icon}
-              pathname={pathname}
-              collapsed={collapsed}
-            />
+          <div className="sticky bottom-0 flex shrink-0 flex-col gap-1 border-t border-sidebar-border bg-sidebar pt-3">
+            <NavConfigExpandable pathname={pathname} collapsed={collapsed} />
           </div>
         </>
       )}
