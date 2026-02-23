@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CardSectionAccordion } from "@/components/ui/card-accordion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -847,52 +846,64 @@ export function CardEnContacto({
   const activo = estadoActual === "asignado" || estadoActual === "facturacion";
 
   return (
-    <CardSectionAccordion
-      title="Facturación"
-      description={DESCRIPCION_FACTURACION}
-    >
-        {activo ? (
-          <>
-            {estadoActual === "asignado" && (
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium">Acciones</h4>
-                <AccionEstadoForm
-                  procesoId={procesoId}
-                  estadoDestino="facturacion"
-                  label="Pasar a Facturación"
-                />
-              </div>
-            )}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Comentarios (Facturación)</h4>
-              <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} />
-              <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Documentos (Facturación)</h4>
-              <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} tipoFijo="liquidacion" />
-              <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
-            </div>
-          </>
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            El proceso no está en esta etapa (estado actual: {labelEstado(estadoActual)}). Puedes agregar comentarios y documentos de esta sección igualmente.
-          </p>
-        )}
-        {!activo && (
-          <>
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Comentarios (Facturación)</h4>
-              <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} />
-              <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
-            </div>
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Documentos (Facturación)</h4>
-              <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
-            </div>
-          </>
-        )}
-    </CardSectionAccordion>
+    <div className="w-full space-y-6">
+      {!activo && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Facturación</CardTitle>
+            <CardDescription>
+              El proceso no está en esta etapa (estado actual: {labelEstado(estadoActual)}). Puedes agregar comentarios y documentos de esta sección igualmente.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      {estadoActual === "asignado" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Acciones</CardTitle>
+            <CardDescription>
+              {DESCRIPCION_FACTURACION}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AccionEstadoForm
+              procesoId={procesoId}
+              estadoDestino="facturacion"
+              label="Pasar a Facturación"
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Comentarios (Facturación)</CardTitle>
+          <CardDescription>
+            Notas y comentarios de la etapa de facturación.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <AgregarNotaForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} />
+          <ListaNotas notas={notas} procesoId={procesoId} sessionUser={sessionUser} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Documentos (Facturación)</CardTitle>
+          <CardDescription>
+            Liquidaciones y documentos de la etapa de facturación.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {activo && (
+            <SubirDocumentoForm procesoId={procesoId} categoria={CATEGORIA_EN_CONTACTO} tipoFijo="liquidacion" />
+          )}
+          <ListaDocumentos procesoId={procesoId} documentos={documentos} puedeEliminar />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
