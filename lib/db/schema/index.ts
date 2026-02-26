@@ -9,6 +9,7 @@ export * from "./clientes";
 export * from "./impuestos";
 export * from "./contribuyentes";
 export * from "./procesos";
+export * from "./importaciones";
 export * from "./obligaciones";
 export * from "./actas";
 export * from "./relations";

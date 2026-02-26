@@ -542,9 +542,16 @@ export default async function ProcesosPage({ searchParams }: Props) {
               {tieneFiltros && " · Filtros aplicados"}
             </CardDescription>
           </div>
-          <Button asChild>
-            <Link href="/procesos/nuevo">Nuevo proceso</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {session?.user?.rol === "admin" && (
+              <Button variant="outline" asChild>
+                <Link href="/procesos/importar">Importar procesos</Link>
+              </Button>
+            )}
+            <Button asChild>
+              <Link href="/procesos/nuevo">Nuevo proceso</Link>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {lista.length === 0 ? (

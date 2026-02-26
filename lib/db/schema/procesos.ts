@@ -21,6 +21,7 @@ import {
 import { contribuyentes } from "./contribuyentes";
 import { usuarios } from "./usuarios";
 import { impuestos } from "./impuestos";
+import { importacionesProcesos } from "./importaciones";
 
 // Tabla: procesos (trabajo de cobro)
 export const procesos = pgTable("procesos", {
@@ -54,6 +55,11 @@ export const procesos = pgTable("procesos", {
   importado: boolean("importado").default(false).notNull(),
   /** Fecha en que se importó el proceso (solo tiene sentido cuando importado = true). */
   fechaImportacion: timestamp("fecha_importacion", { withTimezone: true }),
+  /** Referencia al registro de importación masiva que creó este proceso. */
+  importacionId: integer("importacion_id").references(() => importacionesProcesos.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
   /** Fecha de creación del registro en el sistema */
   creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
