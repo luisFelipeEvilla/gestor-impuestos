@@ -73,7 +73,7 @@ interface FilaAcuerdo {
   nombre: string;
   noAcuerdo: string;
   valorAcuerdo: string;
-  fechaComparendo: string;
+  fechaAcuerdo: string;
   numCuotas: string;
 }
 
@@ -94,11 +94,10 @@ function parseAcuerdosCsv(content: string): FilaAcuerdo[] {
   const idxValorAcuerdo = header.findIndex(
     (h) => h === "valor acuerdo" || h.includes("valor acuerdo")
   );
-  const idxFechaComparendo = header.findIndex(
+  const idxFechaAcuerdo = header.findIndex(
     (h) =>
-      h === "fecha del comparendo" ||
-      h.includes("fecha comparendo") ||
-      h.includes("fecha del comparendo")
+      h === "fecha acuerdo" ||
+      h.includes("fecha acuerdo")
   );
   const idxNumCuotas = header.findIndex(
     (h) =>
@@ -128,7 +127,7 @@ function parseAcuerdosCsv(content: string): FilaAcuerdo[] {
       nombre: get(idxNombre),
       noAcuerdo: get(idxNoAcuerdo),
       valorAcuerdo: get(idxValorAcuerdo),
-      fechaComparendo: get(idxFechaComparendo),
+      fechaAcuerdo: get(idxFechaAcuerdo),
       numCuotas: get(idxNumCuotas),
     });
   }
@@ -444,7 +443,7 @@ async function main(): Promise<void> {
     "Tiene acuerdo",
     "N° acuerdo",
     "Valor acuerdo",
-    "Fecha comparendo",
+    "Fecha acuerdo",
     "N° cuotas",
   ];
 
@@ -457,7 +456,7 @@ async function main(): Promise<void> {
       tieneAcuerdo ? "Sí" : "No",
       acuerdo?.noAcuerdo ?? "",
       acuerdo?.valorAcuerdo ?? "",
-      row.fechaComparendo ?? "",
+      acuerdo?.fechaAcuerdo ?? "",
       acuerdo?.numCuotas ?? "",
     ]);
   }
