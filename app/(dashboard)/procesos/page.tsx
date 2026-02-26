@@ -2,10 +2,6 @@ import Link from "next/link";
 import { Suspense } from "react";
 import {
   FolderOpen,
-  ChevronRight,
-  ChevronLeft,
-  ChevronsLeft,
-  ChevronsRight,
   ClipboardList,
   Wallet,
   CheckCircle,
@@ -29,13 +25,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Paginacion } from "@/components/ui/paginacion";
 import { TablaProcesosConAsignacion } from "@/components/procesos/tabla-procesos-con-asignacion";
 import { FiltrosProcesos } from "./filtros-procesos";
 import { ChipsFiltrosProcesos } from "@/app/(dashboard)/procesos/chips-filtros-procesos";
 import { BusquedaComparendoDocumento } from "./busqueda-comparendo-documento";
-import { SelectorPorPagina } from "@/components/selector-por-pagina";
 import { parsePerPage } from "@/lib/pagination";
 import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafico-estados";
 import { GraficoProcesosPorVigencia } from "@/components/procesos/grafico-procesos-por-vigencia";
@@ -385,6 +380,18 @@ export default async function ProcesosPage({ searchParams }: Props) {
             ? "Vigencia"
             : "Estado";
 
+  const selectorSearchParams: Record<string, string> = {
+    ...(estadoActual ? { estado: estadoActual } : {}),
+    ...(vigenciaNum != null ? { vigencia: String(vigenciaNum) } : {}),
+    ...(antiguedadActual ? { antiguedad: antiguedadActual } : {}),
+    ...(asignadoIdNum != null && asignadoIdNum > 0 ? { asignado: String(asignadoIdNum) } : {}),
+    ...(fechaAsignacion ? { fechaAsignacion } : {}),
+    ...(noComparendoActual ? { noComparendo: noComparendoActual } : {}),
+    ...(documentoActual ? { documento: documentoActual } : {}),
+    orderBy: orderByActual,
+    order: orderActual,
+  };
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 ">
@@ -543,11 +550,6 @@ export default async function ProcesosPage({ searchParams }: Props) {
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
-            {session?.user?.rol === "admin" && (
-              <Button variant="outline" asChild>
-                <Link href="/procesos/importar">Importar procesos</Link>
-              </Button>
-            )}
             <Button asChild>
               <Link href="/procesos/nuevo">Nuevo proceso</Link>
             </Button>
@@ -577,175 +579,29 @@ export default async function ProcesosPage({ searchParams }: Props) {
                 orderBy={orderByActual}
                 order={orderActual}
               />
-              {(totalPages > 1 || total > 0) && (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t pt-4 mt-4">
-                  <div className="flex flex-wrap items-center gap-4">
-                    <p className="text-sm text-muted-foreground">
-                      Mostrando {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} de {total}
-                    </p>
-                    <SelectorPorPagina
-                      searchParams={{
-                        ...(estadoActual ? { estado: estadoActual } : {}),
-                        ...(vigenciaNum != null ? { vigencia: String(vigenciaNum) } : {}),
-                        ...(antiguedadActual ? { antiguedad: antiguedadActual } : {}),
-                        ...(asignadoIdNum != null && asignadoIdNum > 0 ? { asignado: String(asignadoIdNum) } : {}),
-                        ...(fechaAsignacion ? { fechaAsignacion } : {}),
-                        ...(noComparendoActual ? { noComparendo: noComparendoActual } : {}),
-                        ...(documentoActual ? { documento: documentoActual } : {}),
-                        perPage: String(pageSize),
-                        orderBy: orderByActual,
-                        order: orderActual,
-                      }}
-                      perPage={pageSize}
-                    />
-                  </div>
-                  <nav className="flex flex-wrap items-center gap-2" aria-label="Paginación">
-                    {page <= 1 ? (
-                      <Button variant="outline" size="sm" className="gap-1 max-sm:sr-only" disabled>
-                        <ChevronsLeft className="size-4" aria-hidden />
-                        Primera
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="gap-1 max-sm:sr-only" asChild>
-                        <Link
-                          href={buildProcesosUrl({
-                            estado: estadoActual ?? undefined,
-                            vigencia: vigenciaNum,
-                            antiguedad: antiguedadActual ?? undefined,
-                            asignadoId: asignadoIdNum ?? undefined,
-                            fechaAsignacion: fechaAsignacion ?? undefined,
-                            noComparendo: noComparendoActual ?? undefined,
-                            documento: documentoActual ?? undefined,
-                            perPage: pageSize,
-                            page: 1,
-                            orderBy: orderByActual,
-                            order: orderActual,
-                          })}
-                          scroll={false}
-                        >
-                          <ChevronsLeft className="size-4" aria-hidden />
-                          Primera
-                        </Link>
-                      </Button>
-                    )}
-                    {page <= 1 ? (
-                      <Button variant="outline" size="sm" className="gap-1" disabled>
-                        <ChevronLeft className="size-4" aria-hidden />
-                        Anterior
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link
-                          href={buildProcesosUrl({
-                            estado: estadoActual ?? undefined,
-                            vigencia: vigenciaNum,
-                            antiguedad: antiguedadActual ?? undefined,
-                            asignadoId: asignadoIdNum ?? undefined,
-                            fechaAsignacion: fechaAsignacion ?? undefined,
-                            noComparendo: noComparendoActual ?? undefined,
-                            documento: documentoActual ?? undefined,
-                            perPage: pageSize,
-                            page: page - 1,
-                            orderBy: orderByActual,
-                            order: orderActual,
-                          })}
-                          scroll={false}
-                        >
-                          <ChevronLeft className="size-4" aria-hidden />
-                          Anterior
-                        </Link>
-                      </Button>
-                    )}
-                    <span className="px-2 text-sm text-muted-foreground">
-                      Página {page} de {totalPages}
-                    </span>
-                    {page >= totalPages ? (
-                      <Button variant="outline" size="sm" className="gap-1" disabled>
-                        Siguiente
-                        <ChevronRight className="size-4" aria-hidden />
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="gap-1" asChild>
-                        <Link
-                          href={buildProcesosUrl({
-                            estado: estadoActual ?? undefined,
-                            vigencia: vigenciaNum,
-                            antiguedad: antiguedadActual ?? undefined,
-                            asignadoId: asignadoIdNum ?? undefined,
-                            fechaAsignacion: fechaAsignacion ?? undefined,
-                            noComparendo: noComparendoActual ?? undefined,
-                            documento: documentoActual ?? undefined,
-                            perPage: pageSize,
-                            page: page + 1,
-                            orderBy: orderByActual,
-                            order: orderActual,
-                          })}
-                          scroll={false}
-                        >
-                          Siguiente
-                          <ChevronRight className="size-4" aria-hidden />
-                        </Link>
-                      </Button>
-                    )}
-                    {page >= totalPages ? (
-                      <Button variant="outline" size="sm" className="gap-1 max-sm:sr-only" disabled>
-                        Última
-                        <ChevronsRight className="size-4" aria-hidden />
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="gap-1 max-sm:sr-only" asChild>
-                        <Link
-                          href={buildProcesosUrl({
-                            estado: estadoActual ?? undefined,
-                            vigencia: vigenciaNum,
-                            antiguedad: antiguedadActual ?? undefined,
-                            asignadoId: asignadoIdNum ?? undefined,
-                            fechaAsignacion: fechaAsignacion ?? undefined,
-                            noComparendo: noComparendoActual ?? undefined,
-                            documento: documentoActual ?? undefined,
-                            perPage: pageSize,
-                            page: totalPages,
-                            orderBy: orderByActual,
-                            order: orderActual,
-                          })}
-                          scroll={false}
-                        >
-                          Última
-                          <ChevronsRight className="size-4" aria-hidden />
-                        </Link>
-                      </Button>
-                    )}
-                    <form method="GET" action="/procesos" className="flex items-center gap-1.5 max-sm:hidden">
-                      {estadoActual ? <input type="hidden" name="estado" value={estadoActual} /> : null}
-                      {vigenciaNum != null ? <input type="hidden" name="vigencia" value={String(vigenciaNum)} /> : null}
-                      {antiguedadActual ? <input type="hidden" name="antiguedad" value={antiguedadActual} /> : null}
-                      {asignadoIdNum != null && asignadoIdNum > 0 ? <input type="hidden" name="asignado" value={String(asignadoIdNum)} /> : null}
-                      {fechaAsignacion ? <input type="hidden" name="fechaAsignacion" value={fechaAsignacion} /> : null}
-                      {noComparendoActual ? <input type="hidden" name="noComparendo" value={noComparendoActual} /> : null}
-                      {documentoActual ? <input type="hidden" name="documento" value={documentoActual} /> : null}
-                      <input type="hidden" name="perPage" value={String(pageSize)} />
-                      <input type="hidden" name="orderBy" value={orderByActual} />
-                      <input type="hidden" name="order" value={orderActual} />
-                      <label htmlFor="procesos-page-go" className="sr-only">
-                        Ir a página
-                      </label>
-                      <Input
-                        id="procesos-page-go"
-                        type="number"
-                        name="page"
-                        min={1}
-                        max={totalPages}
-                        defaultValue={page}
-                        className="w-16 h-8 text-center text-sm"
-                        aria-label="Número de página"
-                      />
-                      <Button type="submit" variant="secondary" size="sm">
-                        Ir
-                      </Button>
-                    </form>
-                  </nav>
-                </div>
-              )}
+              <Paginacion
+                currentPage={page}
+                totalPages={totalPages}
+                total={total}
+                pageSize={pageSize}
+                buildPageUrl={(p) =>
+                  buildProcesosUrl({
+                    estado: estadoActual ?? undefined,
+                    vigencia: vigenciaNum,
+                    antiguedad: antiguedadActual ?? undefined,
+                    asignadoId: asignadoIdNum ?? undefined,
+                    fechaAsignacion: fechaAsignacion ?? undefined,
+                    noComparendo: noComparendoActual ?? undefined,
+                    documento: documentoActual ?? undefined,
+                    perPage: pageSize,
+                    page: p,
+                    orderBy: orderByActual,
+                    order: orderActual,
+                  })
+                }
+                formAction="/procesos"
+                selectorSearchParams={selectorSearchParams}
+              />
             </>
           )}
         </CardContent>

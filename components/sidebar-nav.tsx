@@ -15,6 +15,7 @@ import {
   ClipboardList,
   ChevronDown,
   Settings,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/sidebar-provider";
@@ -26,6 +27,7 @@ const navItemsMain: {
 }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/procesos", label: "Procesos", icon: FolderOpen },
+  { href: "/importaciones", label: "Importaciones", icon: Upload },
   { href: "/contribuyentes", label: "Contribuyentes", icon: Building2 },
   { href: "/clientes", label: "Clientes", icon: Briefcase },
   { href: "/impuestos", label: "Tipo de procesos", icon: Receipt },

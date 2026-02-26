@@ -14,8 +14,8 @@ export default async function ImportarProcesosPage() {
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex flex-col gap-2">
         <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Link href="/procesos" className="hover:text-foreground transition-colors">
-            Procesos de cobro
+          <Link href="/importaciones" className="hover:text-foreground transition-colors">
+            Importaciones
           </Link>
           <ChevronRight className="size-3.5" aria-hidden />
           <span className="text-foreground">Importar procesos</span>
