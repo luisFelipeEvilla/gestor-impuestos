@@ -398,7 +398,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
         <div className="flex items-center gap-3">
           <div className="h-1 w-12 rounded-full bg-primary" aria-hidden />
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Procesos de cobro
+            Comparendos de Transito
           </h1>
         </div>
         <div className="flex flex-col gap-2 w-full">

@@ -323,6 +323,20 @@
       "when": 1772069985594,
       "tag": "0045_amusing_proemial_gods",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1772287097972,
+      "tag": "0046_round_thundra",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1772287362507,
+      "tag": "0047_perfect_silverclaw",
+      "breakpoints": true
     }
   ]
 }

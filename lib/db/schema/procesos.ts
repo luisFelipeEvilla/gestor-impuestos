@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import {
   estadoProcesoEnum,
+  estadoCuotaAcuerdoEnum,
   tipoEventoHistorialEnum,
   categoriaDocumentoNotaEnum,
   tipoResolucionEnum,
@@ -21,7 +22,7 @@ import {
 import { contribuyentes } from "./contribuyentes";
 import { usuarios } from "./usuarios";
 import { impuestos } from "./impuestos";
-import { importacionesProcesos } from "./importaciones";
+import { importacionesProcesos, importacionesAcuerdos } from "./importaciones";
 
 // Tabla: procesos (trabajo de cobro)
 export const procesos = pgTable("procesos", {
@@ -146,6 +147,28 @@ export const acuerdosPago = pgTable("acuerdos_pago", {
   porcentajeCuotaInicial: numeric("porcentaje_cuota_inicial", { precision: 5, scale: 2 }).notNull(),
   /** Día del mes (1–31) en que se realiza el cobro de cada cuota. */
   diaCobroMes: integer("dia_cobro_mes").notNull(),
+  /** Fecha en que se importó el acuerdo (solo cuando proviene de importación masiva). */
+  fechaImportacion: timestamp("fecha_importacion", { withTimezone: true }),
+  /** Referencia al registro de importación masiva que creó este acuerdo. */
+  importacionId: integer("importacion_id").references(() => importacionesAcuerdos.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+  actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// Tabla: cuotas_acuerdo (una fila por cuota de un acuerdo; permite registrar pagos y pendientes)
+export const cuotasAcuerdo = pgTable("cuotas_acuerdo", {
+  id: serial("id").primaryKey(),
+  acuerdoPagoId: integer("acuerdo_pago_id")
+    .notNull()
+    .references(() => acuerdosPago.id, { onDelete: "cascade", onUpdate: "cascade" }),
+  numeroCuota: integer("numero_cuota").notNull(),
+  fechaVencimiento: date("fecha_vencimiento"),
+  montoEsperado: numeric("monto_esperado", { precision: 15, scale: 2 }),
+  estado: estadoCuotaAcuerdoEnum("estado").notNull().default("pendiente"),
+  fechaPago: date("fecha_pago"),
   creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -176,5 +199,7 @@ export type OrdenResolucion = typeof ordenesResolucion.$inferSelect;
 export type NewOrdenResolucion = typeof ordenesResolucion.$inferInsert;
 export type AcuerdoPago = typeof acuerdosPago.$inferSelect;
 export type NewAcuerdoPago = typeof acuerdosPago.$inferInsert;
+export type CuotaAcuerdo = typeof cuotasAcuerdo.$inferSelect;
+export type NewCuotaAcuerdo = typeof cuotasAcuerdo.$inferInsert;
 export type CobroCoactivo = typeof cobrosCoactivos.$inferSelect;
 export type NewCobroCoactivo = typeof cobrosCoactivos.$inferInsert;

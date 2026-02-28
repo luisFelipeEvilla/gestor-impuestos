@@ -1,0 +1,3 @@
+ALTER TABLE "acuerdos_pago" ADD COLUMN "fecha_importacion" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "acuerdos_pago" ADD COLUMN "importacion_id" integer;--> statement-breakpoint
+ALTER TABLE "acuerdos_pago" ADD CONSTRAINT "acuerdos_pago_importacion_id_importaciones_acuerdos_id_fk" FOREIGN KEY ("importacion_id") REFERENCES "public"."importaciones_acuerdos"("id") ON DELETE set null ON UPDATE cascade;

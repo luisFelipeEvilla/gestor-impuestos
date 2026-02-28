@@ -84,6 +84,12 @@ export const tipoResolucionEnum = pgEnum("tipo_resolucion", [
   "resumen_ap",
 ]);
 
+/** Estado de una cuota de acuerdo de pago: pendiente o pagada. */
+export const estadoCuotaAcuerdoEnum = pgEnum("estado_cuota_acuerdo", [
+  "pendiente",
+  "pagada",
+]);
+
 /** Tipo de documento del proceso (trazabilidad y auditoría). */
 export const tipoDocumentoProcesoEnum = pgEnum("tipo_documento_proceso", [
   "orden_resolucion",

@@ -26,7 +26,7 @@ const navItemsMain: {
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/procesos", label: "Procesos", icon: FolderOpen },
+  { href: "/procesos", label: "Comparendos", icon: FolderOpen },
   { href: "/importaciones", label: "Importaciones", icon: Upload },
   { href: "/contribuyentes", label: "Contribuyentes", icon: Building2 },
   { href: "/clientes", label: "Clientes", icon: Briefcase },
