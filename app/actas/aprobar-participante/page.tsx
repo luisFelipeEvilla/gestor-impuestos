@@ -243,7 +243,7 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
           <CardHeader>
             <CardTitle>Acta #{acta.id}</CardTitle>
             <CardDescription>
-              {new Date(acta.fecha).toLocaleDateString("es-CO", { dateStyle: "long" })}
+              {new Date(acta.fecha).toLocaleDateString("es-CO", { timeZone: "America/Bogota", dateStyle: "long" })}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -276,6 +276,7 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
                         Fecha límite:{" "}
                         {c.fechaLimite
                           ? new Date(c.fechaLimite).toLocaleDateString("es-CO", {
+                              timeZone: "America/Bogota",
                               dateStyle: "short",
                             })
                           : "—"}
@@ -334,6 +335,7 @@ export default async function AprobarParticipantePage({ searchParams }: Props) {
                           {formatTamano(doc.tamano)}
                           {" · "}
                           {new Date(doc.creadoEn).toLocaleDateString("es-CO", {
+                            timeZone: "America/Bogota",
                             day: "2-digit",
                             month: "2-digit",
                             year: "numeric",

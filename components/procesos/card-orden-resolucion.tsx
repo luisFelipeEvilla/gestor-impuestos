@@ -25,7 +25,7 @@ const TIPO_RESOLUCION_OPTIONS: { value: "sancion" | "resumen_ap"; label: string 
 function formatDate(value: Date | string | null | undefined): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO");
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO", { timeZone: "America/Bogota" });
 }
 
 function labelTipoResolucion(value: string | null | undefined): string {

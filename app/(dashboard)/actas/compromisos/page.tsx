@@ -204,6 +204,7 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                         </Link>
                         <span className="text-muted-foreground text-xs block">
                           {new Date(c.actaFecha).toLocaleDateString("es-CO", {
+                            timeZone: "America/Bogota",
                             dateStyle: "short",
                           })}
                         </span>
@@ -228,6 +229,7 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                       <TableCell>
                         {c.fechaLimite
                           ? new Date(c.fechaLimite).toLocaleDateString("es-CO", {
+                              timeZone: "America/Bogota",
                               dateStyle: "short",
                             })
                           : "—"}
@@ -262,6 +264,7 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                         {c.actualizadoEn && (
                           <span className="text-muted-foreground text-xs block">
                             {new Date(c.actualizadoEn).toLocaleString("es-CO", {
+                              timeZone: "America/Bogota",
                               dateStyle: "short",
                               timeStyle: "short",
                             })}

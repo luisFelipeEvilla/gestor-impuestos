@@ -88,6 +88,7 @@ export default async function ImportacionAcuerdosDetallePage({ params }: Props) 
   if (!row) notFound();
 
   const fechaFormateada = row.creadoEn.toLocaleDateString("es-CO", {
+    timeZone: "America/Bogota",
     day: "2-digit",
     month: "long",
     year: "numeric",

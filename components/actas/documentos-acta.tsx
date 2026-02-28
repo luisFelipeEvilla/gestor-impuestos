@@ -178,6 +178,7 @@ export function ListaDocumentosActa({
               {formatTamano(doc.tamano)}
               {" · "}
               {new Date(doc.creadoEn).toLocaleDateString("es-CO", {
+                timeZone: "America/Bogota",
                 dateStyle: "short",
               })}
             </span>

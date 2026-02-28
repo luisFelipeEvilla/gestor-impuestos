@@ -557,7 +557,7 @@ export async function enviarActaPorCorreo(actaId: string): Promise<EstadoGestion
           ? acta.compromisosLista
               .map((c) => {
                 const fechaStr = c.fechaLimite
-                  ? new Date(c.fechaLimite).toLocaleDateString("es-CO", { dateStyle: "short" })
+                  ? new Date(c.fechaLimite).toLocaleDateString("es-CO", { timeZone: "America/Bogota", dateStyle: "short" })
                   : "—";
                 const asignado = c.asignadoNombre ?? "—";
                 return `${c.descripcion} — Fecha límite: ${fechaStr} — Asignado: ${asignado}`;

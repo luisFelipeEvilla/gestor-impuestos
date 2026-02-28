@@ -54,7 +54,7 @@ type Props = {
 function formatDate(value: Date | string | null | undefined): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO");
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO", { timeZone: "America/Bogota" });
 }
 
 function formatMonto(value: string | number): string {

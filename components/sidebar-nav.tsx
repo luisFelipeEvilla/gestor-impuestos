@@ -28,10 +28,14 @@ const navItemsMain: {
 }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/procesos", label: "Comparendos", icon: FolderOpen },
-  { href: "/importaciones", label: "Importaciones", icon: Upload, adminOnly: true },
   { href: "/contribuyentes", label: "Contribuyentes", icon: Building2 },
   { href: "/clientes", label: "Clientes", icon: Briefcase },
   { href: "/impuestos", label: "Tipo de procesos", icon: Receipt },
+];
+
+const importacionesMenuItems: { href: string; label: string }[] = [
+  { href: "/importaciones/comparendos", label: "Comparendos" },
+  { href: "/importaciones/acuerdos", label: "Acuerdos de pago" },
 ];
 
 const actasMenuItems: { href: string; label: string }[] = [
@@ -172,6 +176,86 @@ function NavActasExpandable({
   );
 }
 
+function NavImportacionesExpandable({
+  pathname,
+  collapsed,
+}: {
+  pathname: string;
+  collapsed: boolean;
+}) {
+  const isInImportaciones =
+    pathname === "/importaciones" || pathname.startsWith("/importaciones/");
+  const [open, setOpen] = useState(isInImportaciones);
+
+  useEffect(() => {
+    if (isInImportaciones) setOpen(true);
+  }, [isInImportaciones]);
+
+  if (collapsed) {
+    return (
+      <Link
+        href="/importaciones/comparendos"
+        title="Importaciones"
+        className={cn(
+          "flex items-center justify-center rounded-xl py-2.5 size-11 text-sm font-medium transition-all duration-200",
+          isInImportaciones
+            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+        aria-current={isInImportaciones ? "page" : undefined}
+        aria-label="Importaciones"
+      >
+        <Upload className={cn("size-5 shrink-0", isInImportaciones ? "opacity-95" : "opacity-80")} />
+      </Link>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "flex w-full items-center rounded-xl text-sm font-medium transition-all duration-200 gap-3 px-3 py-2.5 text-left",
+          isInImportaciones
+            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+        aria-expanded={open}
+        aria-label="Importaciones"
+      >
+        <Upload className={cn("size-5 shrink-0", isInImportaciones ? "opacity-95" : "opacity-80")} />
+        <span className="truncate flex-1">Importaciones</span>
+        <ChevronDown
+          className={cn("size-4 shrink-0 opacity-70 transition-transform", open && "rotate-180")}
+        />
+      </button>
+      {open && (
+        <div className="flex flex-col gap-0.5 pl-4 ml-3 border-l border-sidebar-border">
+          {importacionesMenuItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center rounded-lg py-2 px-3 text-sm font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                )}
+                aria-current={isActive ? "page" : undefined}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NavConfigExpandable({
   pathname,
   collapsed,
@@ -283,6 +367,9 @@ export function SidebarNav({
           />
         ))}
         <NavActasExpandable pathname={pathname} collapsed={collapsed} />
+        {isAdmin && (
+          <NavImportacionesExpandable pathname={pathname} collapsed={collapsed} />
+        )}
       </div>
       {isAdmin && configPosition === "inline" && (
         <>

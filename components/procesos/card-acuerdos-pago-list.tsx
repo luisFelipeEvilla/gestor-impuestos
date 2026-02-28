@@ -51,7 +51,7 @@ import {
 function formatDate(value: Date | string | null | undefined): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
-  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO");
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO", { timeZone: "America/Bogota" });
 }
 
 const CATEGORIA_ACUERDO_PAGO = "acuerdo_pago" as const;

@@ -58,7 +58,7 @@ function formatFechaLimiteParaTitle(fechaLimite: string | Date | null | undefine
   if (fechaLimite == null) return null;
   const d = typeof fechaLimite === "string" ? new Date(fechaLimite + "T12:00:00") : fechaLimite;
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("es-CO", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString("es-CO", { timeZone: "America/Bogota", day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
 export function SemaforoFechaLimite({

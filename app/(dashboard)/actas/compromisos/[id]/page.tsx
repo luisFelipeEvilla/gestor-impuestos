@@ -78,6 +78,7 @@ export default async function CompromisoDetallePage({ params }: Props) {
                 <p className="text-foreground">
                   {compromiso.fechaLimite
                     ? new Date(compromiso.fechaLimite).toLocaleDateString("es-CO", {
+                        timeZone: "America/Bogota",
                         dateStyle: "long",
                       })
                     : "Sin fecha límite"}
@@ -110,6 +111,7 @@ export default async function CompromisoDetallePage({ params }: Props) {
                 </Link>
                 <span className="text-muted-foreground text-sm ml-2">
                   {new Date(compromiso.actaFecha).toLocaleDateString("es-CO", {
+                    timeZone: "America/Bogota",
                     dateStyle: "short",
                   })}
                   {" · "}
@@ -149,6 +151,7 @@ export default async function CompromisoDetallePage({ params }: Props) {
               <p className="text-muted-foreground text-xs mt-1">
                 Última actualización:{" "}
                 {new Date(compromiso.actualizadoEn).toLocaleString("es-CO", {
+                  timeZone: "America/Bogota",
                   dateStyle: "short",
                   timeStyle: "short",
                 })}
@@ -198,7 +201,7 @@ export default async function CompromisoDetallePage({ params }: Props) {
                 <li
                   key={h.id}
                   className="relative pl-6 pb-4 last:pb-0"
-                  aria-label={`Actualización ${index + 1}, ${new Date(h.creadoEn).toLocaleString("es-CO")}`}
+                  aria-label={`Actualización ${index + 1}, ${new Date(h.creadoEn).toLocaleString("es-CO", { timeZone: "America/Bogota" })}`}
                 >
                   {index < historial.length - 1 && (
                     <span
@@ -216,6 +219,7 @@ export default async function CompromisoDetallePage({ params }: Props) {
                       className="text-sm font-medium text-foreground"
                     >
                       {new Date(h.creadoEn).toLocaleString("es-CO", {
+                        timeZone: "America/Bogota",
                         dateStyle: "short",
                         timeStyle: "short",
                       })}

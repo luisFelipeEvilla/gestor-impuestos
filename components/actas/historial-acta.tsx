@@ -69,6 +69,7 @@ export function HistorialActa({ items }: HistorialActaProps) {
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               <span className="text-muted-foreground shrink-0">
                 {new Date(item.fecha).toLocaleString("es-CO", {
+                  timeZone: "America/Bogota",
                   dateStyle: "short",
                   timeStyle: "short",
                 })}

@@ -53,7 +53,7 @@ function formatFecha(fecha: Date | string): string {
   const d = typeof fecha === "string" ? new Date(fecha) : fecha;
   return Number.isNaN(d.getTime())
     ? String(fecha)
-    : d.toLocaleDateString("es-CO", { dateStyle: "long" });
+    : d.toLocaleDateString("es-CO", { timeZone: "America/Bogota", dateStyle: "long" });
 }
 
 export function renderTemplateActa(datos: DatosEmailActa, baseUrl: string): string {

@@ -214,7 +214,7 @@ function formatFechaSubida(value: Date | string): string {
   const d = typeof value === "string" ? new Date(value) : value;
   return Number.isNaN(d.getTime())
     ? "—"
-    : d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+    : d.toLocaleString("es-CO", { timeZone: "America/Bogota", dateStyle: "short", timeStyle: "short" });
 }
 
 export function ListaDocumentos({
@@ -303,6 +303,7 @@ export function ListaDocumentos({
               {formatTamano(doc.tamano)}
               {" · "}
               {new Date(doc.creadoEn).toLocaleDateString("es-CO", {
+                timeZone: "America/Bogota",
                 dateStyle: "short",
               })}
             </span>

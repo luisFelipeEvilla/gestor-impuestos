@@ -276,7 +276,7 @@ function formatFechaNotificacion(value: Date | string | null | undefined): strin
   const d = typeof value === "string" ? new Date(value) : value;
   return Number.isNaN(d.getTime())
     ? ""
-    : d.toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
+    : d.toLocaleString("es-CO", { timeZone: "America/Bogota", dateStyle: "medium", timeStyle: "short" });
 }
 
 const ACCEPT_ARCHIVOS =
@@ -295,6 +295,7 @@ function EvidenciaEnvioEmailBlock({ envios }: { envios: EvidenciaEnvioEmail[] })
               {envio.to}
               {" · "}
               {new Date(envio.sentAt).toLocaleString("es-CO", {
+                timeZone: "America/Bogota",
                 dateStyle: "short",
                 timeStyle: "short",
               })}
@@ -520,7 +521,7 @@ function formatTiempoRelativo(fecha: Date | string): string {
   if (diffMins < 60) return `Hace ${diffMins} min`;
   if (diffHours < 24) return `Hace ${diffHours} h`;
   if (diffDays < 7) return `Hace ${diffDays} días`;
-  return d.toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+  return d.toLocaleString("es-CO", { timeZone: "America/Bogota", dateStyle: "short", timeStyle: "short" });
 }
 
 type SessionUser = { id: number; rol: string };
@@ -628,6 +629,7 @@ function NotaRow({ nota, procesoId, sessionUser }: NotaRowProps) {
                 )}
                 <span
                   title={new Date(nota.fecha).toLocaleString("es-CO", {
+                    timeZone: "America/Bogota",
                     dateStyle: "medium",
                     timeStyle: "short",
                   })}
@@ -923,12 +925,12 @@ export function CardCobroCoactivo({
   const cobroActivo = cobrosCoactivos.find((c) => c.activo) ?? null;
   const cobrosAnteriores = cobrosCoactivos.filter((c) => !c.activo);
   const fechaActivoStr = cobroActivo?.fechaInicio
-    ? new Date(cobroActivo.fechaInicio).toLocaleDateString("es-CO")
+    ? new Date(cobroActivo.fechaInicio).toLocaleDateString("es-CO", { timeZone: "America/Bogota" })
     : null;
 
   function formatFechaCobro(value: Date | string): string {
     const d = typeof value === "string" ? new Date(value) : value;
-    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO");
+    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO", { timeZone: "America/Bogota" });
   }
 
   return (
