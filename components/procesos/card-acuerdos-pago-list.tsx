@@ -18,7 +18,7 @@ import {
   actualizarAcuerdoPago,
   eliminarAcuerdoPago,
 } from "@/lib/actions/acuerdos-pago";
-import type { AcuerdoPago } from "@/lib/db/schema";
+import type { AcuerdoPago, CuotaAcuerdo } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 import {
   AgregarNotaForm,
@@ -38,6 +38,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 function formatDate(value: Date | string | null | undefined): string {
   if (!value) return "—";
@@ -50,6 +58,8 @@ const CATEGORIA_ACUERDO_PAGO = "acuerdo_pago" as const;
 type CardAcuerdosPagoListProps = {
   procesoId: number;
   acuerdos: AcuerdoPago[];
+  /** Cuotas por acuerdo (id de acuerdo -> lista de cuotas ordenadas). */
+  cuotasPorAcuerdo?: Record<number, CuotaAcuerdo[]>;
   estadoActual?: string;
   documentos?: DocumentoItem[];
   notas?: NotaItem[];
@@ -58,9 +68,16 @@ type CardAcuerdosPagoListProps = {
   sessionUser?: { id: number; rol: string } | null;
 };
 
+function formatCurrency(value: string | number | null | undefined): string {
+  if (value == null || value === "") return "—";
+  const n = typeof value === "string" ? Number(value) : value;
+  return Number.isNaN(n) ? "—" : n.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+}
+
 export function CardAcuerdosPagoList({
   procesoId,
   acuerdos: initialAcuerdos,
+  cuotasPorAcuerdo = {},
   estadoActual,
   documentos = [],
   notas = [],
@@ -245,39 +262,110 @@ export function CardAcuerdosPagoList({
                     </Button>
                   </form>
                 ) : (
-                  <>
-                    <div>
-                      <span className="font-medium">{a.numeroAcuerdo}</span>
-                      <span className="text-muted-foreground ml-2">
-                        Fecha: {formatDate(a.fechaAcuerdo)} · Inicio: {formatDate(a.fechaInicio)}
-                        {" · "}
-                        {Number(a.porcentajeCuotaInicial)}% inicial · {a.cuotas} cuotas · cobro día {a.diaCobroMes}
-                      </span>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setEditingId(a.id)}>
-                        Editar
-                      </Button>
-                      <form
-                        action={deleteAction}
-                        onSubmit={(e) => {
-                          if (!confirmandoEliminarRef.current) {
-                            e.preventDefault();
-                            formEliminarRef.current = e.currentTarget;
-                            setOpenEliminar(true);
-                            return;
-                          }
-                          confirmandoEliminarRef.current = false;
-                        }}
-                      >
-                        <input type="hidden" name="id" value={a.id} />
-                        <input type="hidden" name="procesoId" value={procesoId} />
-                        <Button type="submit" variant="ghost" size="sm" className="text-destructive">
-                          Eliminar
+                  <div className="flex w-full flex-col gap-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex flex-col gap-1.5 min-w-0">
+                        <span className="font-semibold text-base">
+                          Acuerdo {a.numeroAcuerdo}
+                        </span>
+                        <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3 lg:grid-cols-4">
+                          <div>
+                            <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Fecha acuerdo
+                            </dt>
+                            <dd>{formatDate(a.fechaAcuerdo)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Inicio cuotas
+                            </dt>
+                            <dd>{formatDate(a.fechaInicio)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Nº cuotas
+                            </dt>
+                            <dd>{a.cuotas}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Cuota inicial
+                            </dt>
+                            <dd>{Number(a.porcentajeCuotaInicial).toFixed(2)}%</dd>
+                          </div>
+                          <div>
+                            <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Día de cobro
+                            </dt>
+                            <dd>Día {a.diaCobroMes} de cada mes</dd>
+                          </div>
+                        </dl>
+                      </div>
+                      <div className="flex gap-1 shrink-0">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setEditingId(a.id)}>
+                          Editar
                         </Button>
-                      </form>
+                        <form
+                          action={deleteAction}
+                          onSubmit={(e) => {
+                            if (!confirmandoEliminarRef.current) {
+                              e.preventDefault();
+                              formEliminarRef.current = e.currentTarget;
+                              setOpenEliminar(true);
+                              return;
+                            }
+                            confirmandoEliminarRef.current = false;
+                          }}
+                        >
+                          <input type="hidden" name="id" value={a.id} />
+                          <input type="hidden" name="procesoId" value={procesoId} />
+                          <Button type="submit" variant="ghost" size="sm" className="text-destructive">
+                            Eliminar
+                          </Button>
+                        </form>
+                      </div>
                     </div>
-                  </>
+                    {(cuotasPorAcuerdo[a.id]?.length ?? 0) > 0 && (
+                      <div className="rounded-md border border-border/60 bg-muted/30">
+                        <p className="text-muted-foreground px-3 py-2 text-xs font-medium uppercase tracking-wider">
+                          Gestión de cuotas
+                        </p>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Cuota</TableHead>
+                              <TableHead>Monto</TableHead>
+                              <TableHead>Fecha venc.</TableHead>
+                              <TableHead>Estado</TableHead>
+                              <TableHead>Fecha pago</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {cuotasPorAcuerdo[a.id].map((c) => (
+                              <TableRow key={c.id}>
+                                <TableCell className="font-medium">{c.numeroCuota}</TableCell>
+                                <TableCell>{formatCurrency(c.montoEsperado)}</TableCell>
+                                <TableCell>{formatDate(c.fechaVencimiento)}</TableCell>
+                                <TableCell>
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                                      c.estado === "pagada"
+                                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                        : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                                    )}
+                                  >
+                                    {c.estado === "pagada" ? "Pagada" : "Pendiente"}
+                                  </span>
+                                </TableCell>
+                                <TableCell>{c.estado === "pagada" ? formatDate(c.fechaPago) : "—"}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </div>
                 )}
               </li>
             ))}

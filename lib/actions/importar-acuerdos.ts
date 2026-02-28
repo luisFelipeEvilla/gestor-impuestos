@@ -53,6 +53,13 @@ export type ImportAcuerdosResult =
     }
   | { ok: false; error: string };
 
+interface CuotaDetalle {
+  numeroCuota: number;
+  monto: number | null;
+  fechaPago: string | null;
+  estado: "pagada" | "pendiente";
+}
+
 interface FilaAcuerdoParse {
   noComparendo: string;
   noAcuerdo: string;
@@ -63,6 +70,9 @@ interface FilaAcuerdoParse {
   porcentajeCuotaInicial: number;
   diaCobroMes: number;
   fechaInicioPrescripcion: string | null;
+  valorCuota: number | null;
+  cuotasDetalle: CuotaDetalle[];
+  fechaUltimoPago: string | null;
 }
 
 // ─── Parse CSV ─────────────────────────────────────────────────────────────────
@@ -118,6 +128,22 @@ function parsePorcentaje(raw: string): number {
   return n;
 }
 
+/**
+ * Parsea montos en COP del CSV: "$ 123.667" → 123667, "$ 64.000,00" → 64000.
+ * Los puntos son separadores de miles y la coma es el separador decimal.
+ */
+function parseMontoCop(raw: string): number | null {
+  if (!raw) return null;
+  const cleaned = (raw ?? "")
+    .replace(/\$/g, "")
+    .replace(/\t/g, "")
+    .replace(/ /g, "")
+    .replace(/\./g, "")   // eliminar separadores de miles
+    .replace(/,/g, ".");  // separador decimal
+  const n = parseFloat(cleaned);
+  return Number.isNaN(n) || n < 0 ? null : n;
+}
+
 function parseDiaFromFecha(fechaStr: string | null): number {
   const iso = parseFechaCsv(fechaStr ?? "");
   if (!iso) return 15;
@@ -144,8 +170,20 @@ function parseAcuerdosCsv(content: string): FilaAcuerdoParse[] {
   const idxFechaCuotaInicial = getIdx(["fecha cuota inicial"]);
   const idxNumCuotas = getIdx(["n° cuotas", "n cuotas", "no cuotas", "nº cuotas"]);
   const idxPorcentaje = getIdx(["% cuota inicial", "cuota inicial"]);
-  const idxFechaCuota1 = getIdx(["fecha cuota 1"]);
+  const idxFechaCuota1 = header.findIndex((h) => h === "fecha cuota 1");
   const idxFechaInicioPrescripcion = getIdx(["fecha inicio preescripcion", "fecha inicio preescripción"]);
+  const idxValorCuota = getIdx(["valor de la cuota"]);
+  const idxFechaUltimoPago = getIdx(["fecha de ultimo pago", "fecha ultimo pago"]);
+
+  // Índices para cada cuota individual (hasta 12): "Cuota N" y "Fecha cuota N"
+  const MAX_CUOTAS = 12;
+  const cuotaCols: Array<{ montoIdx: number; fechaIdx: number }> = [];
+  for (let n = 1; n <= MAX_CUOTAS; n++) {
+    cuotaCols.push({
+      montoIdx: header.findIndex((h) => h === `cuota ${n}`),
+      fechaIdx: header.findIndex((h) => h === `fecha cuota ${n}`),
+    });
+  }
 
   if (idxNoComparendo < 0) return [];
 
@@ -167,22 +205,58 @@ function parseAcuerdosCsv(content: string): FilaAcuerdoParse[] {
     const numCuotasRaw = get(idxNumCuotas).replace(/\D/g, "") || "1";
     const numCuotas = Math.max(1, parseInt(numCuotasRaw, 10) || 1);
     const porcentaje = parsePorcentaje(get(idxPorcentaje));
-    const fechaCuota1 = get(idxFechaCuota1) || get(idxFechaCuotaInicial);
-    const diaCobroMes = parseDiaFromFecha(fechaCuota1 || null);
+    const valorCuota = parseMontoCop(get(idxValorCuota));
+    const fechaUltimoPago = parseFechaCsv(get(idxFechaUltimoPago));
 
-    const acuerdoComun = {
-      noAcuerdo: get(idxNoAcuerdo),
-      nombre: get(idxNombre),
-      fechaAcuerdo: parseFechaCsv(get(idxFechaAcuerdo)),
-      fechaCuotaInicial: parseFechaCsv(get(idxFechaCuotaInicial)),
-      numCuotas,
-      porcentajeCuotaInicial: porcentaje,
-      diaCobroMes,
-      fechaInicioPrescripcion: parseFechaCsv(get(idxFechaInicioPrescripcion)),
-    };
+    // Detalle de cuotas (monto + fecha de pago real, mismos para todos los comparendos del acuerdo)
+    const cuotasDetalle: CuotaDetalle[] = [];
+    for (let n = 0; n < Math.min(numCuotas, MAX_CUOTAS); n++) {
+      const col = cuotaCols[n]!;
+      const monto = col.montoIdx >= 0 ? parseMontoCop(get(col.montoIdx)) : null;
+      const fechaPago = col.fechaIdx >= 0 ? parseFechaCsv(get(col.fechaIdx)) : null;
+      const estado: "pagada" | "pendiente" =
+        monto != null && monto > 0 && fechaPago != null ? "pagada" : "pendiente";
+      cuotasDetalle.push({ numeroCuota: n + 1, monto, fechaPago, estado });
+    }
 
-    for (const noComp of comparendos) {
-      rows.push({ noComparendo: noComp, ...acuerdoComun });
+    // Fechas que pueden venir múltiples (separadas por '-') cuando hay varios comparendos en una fila
+    const splitByGuion = (raw: string) =>
+      raw.split("-").map((s) => s.trim()).filter(Boolean);
+    const fechasAcuerdo = splitByGuion(get(idxFechaAcuerdo)).map(parseFechaCsv);
+    const fechasCuotaInicial = splitByGuion(get(idxFechaCuotaInicial)).map(parseFechaCsv);
+    const fechasCuota1 = splitByGuion(
+      get(idxFechaCuota1 >= 0 ? idxFechaCuota1 : idxFechaCuotaInicial)
+    ).map(parseFechaCsv);
+    const fechasInicioPrescripcion = splitByGuion(
+      get(idxFechaInicioPrescripcion)
+    ).map(parseFechaCsv);
+
+    for (let ci = 0; ci < comparendos.length; ci++) {
+      const fechaAcuerdo = fechasAcuerdo[ci] ?? fechasAcuerdo[0] ?? null;
+      const fechaCuotaInicial = fechasCuotaInicial[ci] ?? fechasCuotaInicial[0] ?? null;
+      const fechaInicioPrescripcion =
+        fechasInicioPrescripcion[ci] ?? fechasInicioPrescripcion[0] ?? null;
+      const fechaCuota1Iso = fechasCuota1[ci] ?? fechasCuota1[0];
+      const dayFromIso =
+        fechaCuota1Iso && fechaCuota1Iso.length >= 10
+          ? parseInt(fechaCuota1Iso.slice(8, 10), 10)
+          : 0;
+      const diaCobroMes = dayFromIso >= 1 && dayFromIso <= 31 ? dayFromIso : 15;
+
+      rows.push({
+        noComparendo: comparendos[ci]!,
+        noAcuerdo: get(idxNoAcuerdo),
+        nombre: get(idxNombre),
+        numCuotas,
+        porcentajeCuotaInicial: porcentaje,
+        valorCuota,
+        cuotasDetalle,
+        fechaUltimoPago,
+        fechaAcuerdo,
+        fechaCuotaInicial,
+        fechaInicioPrescripcion,
+        diaCobroMes,
+      });
     }
   }
   return rows;
@@ -405,13 +479,31 @@ export async function ejecutarImportacionAcuerdos(
 
       const acuerdoId = acuerdoInserted.id;
 
+      // Calcular fecha de prescripción:
+      // - Si hay cuotas pendientes: última cuota pagada + 37 meses
+      // - Si todas pagadas (o ninguna cuota pagada): usar fechaInicioPrescripcion del CSV
+      const cuotasPagadas = f.cuotasDetalle.filter((c) => c.estado === "pagada");
+      const hayPendientes = f.cuotasDetalle.some((c) => c.estado === "pendiente");
+      const ultimaCuotaPagada = cuotasPagadas[cuotasPagadas.length - 1] ?? null;
+
+      let fechaLimiteNueva: string | null = null;
+      if (hayPendientes) {
+        // Sigue debiendo: base = última cuota pagada, o si no hay pagos, fecha del acuerdo
+        const fechaBase37 =
+          ultimaCuotaPagada?.fechaPago ?? f.fechaAcuerdo ?? f.fechaCuotaInicial;
+        if (fechaBase37) {
+          fechaLimiteNueva = addMonthsToIso(fechaBase37, 37);
+        }
+      } else if (f.fechaInicioPrescripcion) {
+        // Todas pagadas: usar fecha de prescripción del CSV
+        fechaLimiteNueva = f.fechaInicioPrescripcion;
+      }
+
       await db
         .update(procesos)
         .set({
           estadoActual: "acuerdo_pago",
-          ...(f.fechaInicioPrescripcion
-            ? { fechaLimite: f.fechaInicioPrescripcion }
-            : {}),
+          ...(fechaLimiteNueva ? { fechaLimite: fechaLimiteNueva } : {}),
           actualizadoEn: now,
         })
         .where(eq(procesos.id, procesoId));
@@ -425,29 +517,28 @@ export async function ejecutarImportacionAcuerdos(
         comentario: `Acuerdo de pago importado desde CSV: ${numeroAcuerdo}`,
       });
 
-      const fechaBase =
-        f.fechaCuotaInicial ?? f.fechaAcuerdo ?? null;
+      // Insertar cuotas con monto y estado reales del CSV
+      const fechaBase = f.fechaCuotaInicial ?? f.fechaAcuerdo ?? null;
       const cuotasToInsert = Array.from({ length: numCuotas }, (_, i) => {
-        const numeroCuota = i + 1;
+        const detalle = f.cuotasDetalle[i];
         const fechaVencimiento =
-          fechaBase && numeroCuota >= 1
-            ? addMonthsToIso(fechaBase, i)
-            : null;
+          detalle?.fechaPago ?? (fechaBase ? addMonthsToIso(fechaBase, i) : null);
         return {
           acuerdoPagoId: acuerdoId,
-          numeroCuota,
-          fechaVencimiento,
-          estado: "pendiente" as const,
+          numeroCuota: i + 1,
+          // El monto esperado es el "Valor de la cuota" (estándar), o el que vino en la columna
+          montoEsperado:
+            detalle?.monto != null
+              ? String(detalle.monto)
+              : f.valorCuota != null
+                ? String(f.valorCuota)
+                : null,
+          fechaVencimiento: detalle?.estado === "pendiente" ? fechaVencimiento : null,
+          fechaPago: detalle?.estado === "pagada" ? detalle.fechaPago : null,
+          estado: (detalle?.estado ?? "pendiente") as "pagada" | "pendiente",
         };
       });
-      await db.insert(cuotasAcuerdo).values(
-        cuotasToInsert.map((c) => ({
-          acuerdoPagoId: c.acuerdoPagoId,
-          numeroCuota: c.numeroCuota,
-          fechaVencimiento: c.fechaVencimiento,
-          estado: c.estado,
-        }))
-      );
+      await db.insert(cuotasAcuerdo).values(cuotasToInsert);
 
       importados++;
       if (!existentes) acuerdosExistentes.set(procesoId, new Set());

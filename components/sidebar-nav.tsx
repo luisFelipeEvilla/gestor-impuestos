@@ -24,10 +24,11 @@ const navItemsMain: {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
 }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/procesos", label: "Comparendos", icon: FolderOpen },
-  { href: "/importaciones", label: "Importaciones", icon: Upload },
+  { href: "/importaciones", label: "Importaciones", icon: Upload, adminOnly: true },
   { href: "/contribuyentes", label: "Contribuyentes", icon: Building2 },
   { href: "/clientes", label: "Clientes", icon: Briefcase },
   { href: "/impuestos", label: "Tipo de procesos", icon: Receipt },
@@ -271,7 +272,7 @@ export function SidebarNav({
       aria-label="Menú"
     >
       <div className="flex flex-col gap-1">
-        {navItemsMain.map((item) => (
+        {navItemsMain.filter((item) => !item.adminOnly || isAdmin).map((item) => (
           <NavLink
             key={item.href}
             href={item.href}

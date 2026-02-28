@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Upload, ChevronRight } from "lucide-react";
+import { redirect } from "next/navigation";
+import { Upload, ChevronRight, FileText } from "lucide-react";
 import { db } from "@/lib/db";
-import { importacionesProcesos, usuarios } from "@/lib/db/schema";
+import { importacionesProcesos, importacionesAcuerdos, usuarios } from "@/lib/db/schema";
 import { eq, desc, count } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { parsePerPage } from "@/lib/pagination";
@@ -21,11 +22,23 @@ import { Paginacion } from "@/components/ui/paginacion";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type Fila = {
+type FilaProcesos = {
   id: number;
   nombreArchivo: string;
   totalRegistros: number;
   exitosos: number;
+  fallidos: number;
+  omitidos: number;
+  estado: string;
+  creadoEn: Date;
+  usuarioNombre: string | null;
+};
+
+type FilaAcuerdos = {
+  id: number;
+  nombreArchivo: string;
+  totalRegistros: number;
+  importados: number;
   fallidos: number;
   omitidos: number;
   estado: string;
@@ -64,13 +77,19 @@ function EstadoBadge({ estado }: { estado: string }) {
 }
 
 type Props = {
-  searchParams: Promise<{ page?: string; perPage?: string }>;
+  searchParams: Promise<{ page?: string; pageAcuerdos?: string; perPage?: string }>;
 };
 
-function buildUrl(params: { page?: number; perPage?: number }): string {
+function buildUrl(params: {
+  page?: number;
+  pageAcuerdos?: number;
+  perPage?: number;
+}): string {
   const sp = new URLSearchParams();
   if (params.perPage != null) sp.set("perPage", String(params.perPage));
   if (params.page != null && params.page > 1) sp.set("page", String(params.page));
+  if (params.pageAcuerdos != null && params.pageAcuerdos > 1)
+    sp.set("pageAcuerdos", String(params.pageAcuerdos));
   const s = sp.toString();
   return s ? `/importaciones?${s}` : "/importaciones";
 }
@@ -78,10 +97,17 @@ function buildUrl(params: { page?: number; perPage?: number }): string {
 export default async function ImportacionesPage({ searchParams }: Props) {
   unstable_noStore();
   const session = await getSession();
+  if (session?.user?.rol !== "admin") {
+    redirect("/procesos");
+  }
+
   const params = await searchParams;
   const pageSize = parsePerPage(params.perPage);
   const pageRaw = params.page ? parseInt(params.page, 10) : 1;
   const page = Number.isNaN(pageRaw) || pageRaw < 1 ? 1 : pageRaw;
+  const pageAcuerdosRaw = params.pageAcuerdos ? parseInt(params.pageAcuerdos, 10) : 1;
+  const pageAcuerdos =
+    Number.isNaN(pageAcuerdosRaw) || pageAcuerdosRaw < 1 ? 1 : pageAcuerdosRaw;
 
   const [countResult] = await db
     .select({ count: count() })
@@ -91,7 +117,7 @@ export default async function ImportacionesPage({ searchParams }: Props) {
   const currentPage = Math.min(page, totalPages);
   const offset = (currentPage - 1) * pageSize;
 
-  const lista = await db
+  const listaProcesos = await db
     .select({
       id: importacionesProcesos.id,
       nombreArchivo: importacionesProcesos.nombreArchivo,
@@ -109,7 +135,33 @@ export default async function ImportacionesPage({ searchParams }: Props) {
     .limit(pageSize)
     .offset(offset);
 
-  const columnas: ColumnaTabla<Fila>[] = [
+  const [countAcuerdosResult] = await db
+    .select({ count: count() })
+    .from(importacionesAcuerdos);
+  const totalAcuerdos = Number(countAcuerdosResult?.count ?? 0);
+  const totalPagesAcuerdos = Math.max(1, Math.ceil(totalAcuerdos / pageSize));
+  const currentPageAcuerdos = Math.min(pageAcuerdos, totalPagesAcuerdos);
+  const offsetAcuerdos = (currentPageAcuerdos - 1) * pageSize;
+
+  const listaAcuerdos = await db
+    .select({
+      id: importacionesAcuerdos.id,
+      nombreArchivo: importacionesAcuerdos.nombreArchivo,
+      totalRegistros: importacionesAcuerdos.totalRegistros,
+      importados: importacionesAcuerdos.importados,
+      fallidos: importacionesAcuerdos.fallidos,
+      omitidos: importacionesAcuerdos.omitidos,
+      estado: importacionesAcuerdos.estado,
+      creadoEn: importacionesAcuerdos.creadoEn,
+      usuarioNombre: usuarios.nombre,
+    })
+    .from(importacionesAcuerdos)
+    .leftJoin(usuarios, eq(importacionesAcuerdos.usuarioId, usuarios.id))
+    .orderBy(desc(importacionesAcuerdos.creadoEn))
+    .limit(pageSize)
+    .offset(offsetAcuerdos);
+
+  const columnasProcesos: ColumnaTabla<FilaProcesos>[] = [
     {
       key: "archivo",
       encabezado: "Archivo",
@@ -143,7 +195,9 @@ export default async function ImportacionesPage({ searchParams }: Props) {
       encabezado: "Exitosos",
       className: "text-right",
       celda: (f) => (
-        <span className="text-green-700">{f.exitosos.toLocaleString("es-CO")}</span>
+        <span className="text-green-700 dark:text-green-400">
+          {f.exitosos.toLocaleString("es-CO")}
+        </span>
       ),
     },
     {
@@ -182,6 +236,81 @@ export default async function ImportacionesPage({ searchParams }: Props) {
     },
   ];
 
+  const columnasAcuerdos: ColumnaTabla<FilaAcuerdos>[] = [
+    {
+      key: "archivo",
+      encabezado: "Archivo",
+      celda: (f) => (
+        <span className="font-mono text-xs">{f.nombreArchivo}</span>
+      ),
+    },
+    {
+      key: "usuario",
+      encabezado: "Usuario",
+      celda: (f) => f.usuarioNombre ?? "—",
+    },
+    {
+      key: "fecha",
+      encabezado: "Fecha",
+      celda: (f) =>
+        f.creadoEn.toLocaleDateString("es-CO", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+    },
+    {
+      key: "total",
+      encabezado: "Total",
+      className: "text-right",
+      celda: (f) => f.totalRegistros.toLocaleString("es-CO"),
+    },
+    {
+      key: "importados",
+      encabezado: "Importados",
+      className: "text-right",
+      celda: (f) => (
+        <span className="text-green-700 dark:text-green-400">
+          {f.importados.toLocaleString("es-CO")}
+        </span>
+      ),
+    },
+    {
+      key: "omitidos",
+      encabezado: "Omitidos",
+      className: "text-right",
+      celda: (f) => f.omitidos.toLocaleString("es-CO"),
+    },
+    {
+      key: "fallidos",
+      encabezado: "Fallidos",
+      className: "text-right",
+      celda: (f) =>
+        f.fallidos > 0 ? (
+          <span className="text-destructive">{f.fallidos.toLocaleString("es-CO")}</span>
+        ) : (
+          "0"
+        ),
+    },
+    {
+      key: "estado",
+      encabezado: "Estado",
+      celda: (f) => <EstadoBadge estado={f.estado} />,
+    },
+    {
+      key: "accion",
+      encabezado: "",
+      className: "w-[80px]",
+      celda: (f) => (
+        <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
+          <Link href={`/importaciones/acuerdos/${f.id}`}>
+            Ver <ChevronRight className="size-4" aria-hidden />
+          </Link>
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -191,34 +320,30 @@ export default async function ImportacionesPage({ searchParams }: Props) {
             Importaciones
           </h1>
         </div>
-        {session?.user?.rol === "admin" && (
-          <Button asChild>
-            <Link href="/procesos/importar">
-              <Upload className="size-4 mr-2" aria-hidden />
-              Importar procesos
-            </Link>
-          </Button>
-        )}
+        <Button asChild>
+          <Link href="/procesos/importar">
+            <Upload className="size-4 mr-2" aria-hidden />
+            Importar
+          </Link>
+        </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Historial de importaciones</CardTitle>
+          <CardTitle>Importaciones de procesos</CardTitle>
           <CardDescription>
-            Importaciones masivas de procesos realizadas en el sistema
+            Historial de importaciones masivas de procesos (cartera)
           </CardDescription>
         </CardHeader>
         <CardContent>
           <DataTable
-            columnas={columnas}
-            datos={lista}
+            columnas={columnasProcesos}
+            datos={listaProcesos}
             rowKey={(f) => f.id}
             sinDatos={{
               icon: Upload,
-              message: "No hay importaciones registradas.",
-              ...(session?.user?.rol === "admin"
-                ? { action: { href: "/procesos/importar", label: "Importar procesos →" } }
-                : {}),
+              message: "No hay importaciones de procesos.",
+              action: { href: "/procesos/importar", label: "Importar →" },
             }}
           />
           <Paginacion
@@ -226,9 +351,46 @@ export default async function ImportacionesPage({ searchParams }: Props) {
             totalPages={totalPages}
             total={total}
             pageSize={pageSize}
-            buildPageUrl={(p) => buildUrl({ page: p, perPage: pageSize })}
+            buildPageUrl={(p) =>
+              buildUrl({ page: p, pageAcuerdos: currentPageAcuerdos, perPage: pageSize })
+            }
             formAction="/importaciones"
-            selectorSearchParams={{}}
+            selectorSearchParams={{ page: String(currentPage), pageAcuerdos: String(currentPageAcuerdos) }}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="size-5" aria-hidden />
+            Importaciones de acuerdos de pago
+          </CardTitle>
+          <CardDescription>
+            Historial de importaciones masivas de acuerdos de pago
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataTable
+            columnas={columnasAcuerdos}
+            datos={listaAcuerdos}
+            rowKey={(f) => f.id}
+            sinDatos={{
+              icon: FileText,
+              message: "No hay importaciones de acuerdos de pago.",
+              action: { href: "/procesos/importar", label: "Importar acuerdos →" },
+            }}
+          />
+          <Paginacion
+            currentPage={currentPageAcuerdos}
+            totalPages={totalPagesAcuerdos}
+            total={totalAcuerdos}
+            pageSize={pageSize}
+            buildPageUrl={(p) =>
+              buildUrl({ page: currentPage, pageAcuerdos: p, perPage: pageSize })
+            }
+            formAction="/importaciones"
+            selectorSearchParams={{ page: String(currentPage), pageAcuerdos: String(currentPageAcuerdos) }}
           />
         </CardContent>
       </Card>

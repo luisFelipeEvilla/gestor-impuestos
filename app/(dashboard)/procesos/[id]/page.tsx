@@ -9,9 +9,10 @@ import {
   documentosProceso,
   ordenesResolucion,
   acuerdosPago,
+  cuotasAcuerdo,
   cobrosCoactivos,
 } from "@/lib/db/schema";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, inArray } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import {
   Card,
@@ -179,6 +180,21 @@ export default async function DetalleProcesoPage({ params }: Props) {
     db.select().from(acuerdosPago).where(eq(acuerdosPago.procesoId, id)).orderBy(desc(acuerdosPago.creadoEn)),
     db.select().from(cobrosCoactivos).where(eq(cobrosCoactivos.procesoId, id)).orderBy(desc(cobrosCoactivos.creadoEn)),
   ]);
+
+  const acuerdoIds = acuerdosPagoList.map((a) => a.id);
+  const cuotasList =
+    acuerdoIds.length > 0
+      ? await db
+          .select()
+          .from(cuotasAcuerdo)
+          .where(inArray(cuotasAcuerdo.acuerdoPagoId, acuerdoIds))
+          .orderBy(asc(cuotasAcuerdo.numeroCuota))
+      : [];
+  const cuotasPorAcuerdo: Record<number, typeof cuotasList> = {};
+  for (const c of cuotasList) {
+    if (!cuotasPorAcuerdo[c.acuerdoPagoId]) cuotasPorAcuerdo[c.acuerdoPagoId] = [];
+    cuotasPorAcuerdo[c.acuerdoPagoId].push(c);
+  }
 
   const notificacionEvent = historialRows.find((h) => h.tipoEvento === "notificacion");
   const yaNotificado = !!notificacionEvent;
@@ -550,6 +566,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
           <CardAcuerdosPagoList
             procesoId={row.id}
             acuerdos={acuerdosPagoList}
+            cuotasPorAcuerdo={cuotasPorAcuerdo}
             estadoActual={row.estadoActual ?? ""}
             documentos={documentosPorCategoria.acuerdo_pago}
             notas={notasPorCategoria.acuerdo_pago}
