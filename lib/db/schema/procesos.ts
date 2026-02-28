@@ -169,6 +169,11 @@ export const cuotasAcuerdo = pgTable("cuotas_acuerdo", {
   montoEsperado: numeric("monto_esperado", { precision: 15, scale: 2 }),
   estado: estadoCuotaAcuerdoEnum("estado").notNull().default("pendiente"),
   fechaPago: date("fecha_pago"),
+  /** Usuario que marcó la cuota como pagada. */
+  pagadoPorId: integer("pagado_por_id").references(() => usuarios.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
   creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
   actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
 });

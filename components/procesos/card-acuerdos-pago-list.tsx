@@ -17,6 +17,7 @@ import {
   crearAcuerdoPago,
   actualizarAcuerdoPago,
   eliminarAcuerdoPago,
+  marcarCuotaPagada,
 } from "@/lib/actions/acuerdos-pago";
 import type { AcuerdoPago, CuotaAcuerdo } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
@@ -92,6 +93,23 @@ export function CardAcuerdosPagoList({
   const [openEliminar, setOpenEliminar] = useState(false);
   const formEliminarRef = useRef<HTMLFormElement | null>(null);
   const confirmandoEliminarRef = useRef(false);
+
+  const [marcandoCuotaId, setMarcandoCuotaId] = useState<number | null>(null);
+  const [fechaPagoCuota, setFechaPagoCuota] = useState<string>("");
+  const [marcandoError, setMarcandoError] = useState<string | null>(null);
+  const [marcandoCargando, setMarcandoCargando] = useState(false);
+
+  async function handleMarcarPagada() {
+    if (!marcandoCuotaId || !fechaPagoCuota) return;
+    setMarcandoCargando(true);
+    setMarcandoError(null);
+    const r = await marcarCuotaPagada(marcandoCuotaId, procesoId, fechaPagoCuota);
+    setMarcandoCargando(false);
+    if (r?.error) { setMarcandoError(r.error); return; }
+    setMarcandoCuotaId(null);
+    setFechaPagoCuota("");
+    router.refresh();
+  }
 
   const parseNum = (v: FormDataEntryValue | null) => (v != null && v !== "" ? Number(String(v)) : null);
 
@@ -338,6 +356,7 @@ export function CardAcuerdosPagoList({
                               <TableHead>Fecha venc.</TableHead>
                               <TableHead>Estado</TableHead>
                               <TableHead>Fecha pago</TableHead>
+                              <TableHead className="w-36"></TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -359,6 +378,23 @@ export function CardAcuerdosPagoList({
                                   </span>
                                 </TableCell>
                                 <TableCell>{c.estado === "pagada" ? formatDate(c.fechaPago) : "—"}</TableCell>
+                                <TableCell>
+                                  {c.estado === "pendiente" && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-emerald-950"
+                                      onClick={() => {
+                                        setMarcandoCuotaId(c.id);
+                                        setFechaPagoCuota("");
+                                        setMarcandoError(null);
+                                      }}
+                                    >
+                                      Marcar pagada
+                                    </Button>
+                                  )}
+                                </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -376,6 +412,50 @@ export function CardAcuerdosPagoList({
             {deleteState.error}
           </p>
         )}
+        {/* Diálogo: marcar cuota como pagada */}
+        <Dialog
+          open={marcandoCuotaId !== null}
+          onOpenChange={(open) => { if (!open) { setMarcandoCuotaId(null); setMarcandoError(null); } }}
+        >
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Registrar pago de cuota</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="fechaPagoCuota">Fecha de pago</Label>
+                <Input
+                  id="fechaPagoCuota"
+                  type="date"
+                  value={fechaPagoCuota}
+                  onChange={(e) => setFechaPagoCuota(e.target.value)}
+                  max={new Date().toISOString().slice(0, 10)}
+                />
+              </div>
+              {marcandoError && (
+                <p className="text-destructive text-sm" role="alert">{marcandoError}</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => { setMarcandoCuotaId(null); setMarcandoError(null); }}
+                disabled={marcandoCargando}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleMarcarPagada}
+                disabled={!fechaPagoCuota || marcandoCargando}
+              >
+                {marcandoCargando ? "Guardando…" : "Confirmar pago"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={adding} onOpenChange={setAdding}>
           <Button type="button" variant="outline" size="sm" onClick={() => setAdding(true)}>
             Agregar acuerdo de pago

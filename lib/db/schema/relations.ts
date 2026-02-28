@@ -112,6 +112,10 @@ export const cuotasAcuerdoRelations = relations(cuotasAcuerdo, ({ one }) => ({
     fields: [cuotasAcuerdo.acuerdoPagoId],
     references: [acuerdosPago.id],
   }),
+  pagadoPor: one(usuarios, {
+    fields: [cuotasAcuerdo.pagadoPorId],
+    references: [usuarios.id],
+  }),
 }));
 
 export const cobrosCoactivosRelations = relations(cobrosCoactivos, ({ one }) => ({

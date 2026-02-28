@@ -1,0 +1,2 @@
+ALTER TABLE "cuotas_acuerdo" ADD COLUMN "pagado_por_id" integer;--> statement-breakpoint
+ALTER TABLE "cuotas_acuerdo" ADD CONSTRAINT "cuotas_acuerdo_pagado_por_id_usuarios_id_fk" FOREIGN KEY ("pagado_por_id") REFERENCES "public"."usuarios"("id") ON DELETE set null ON UPDATE cascade;

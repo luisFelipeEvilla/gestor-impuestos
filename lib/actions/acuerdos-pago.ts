@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { procesos, acuerdosPago } from "@/lib/db/schema";
+import { procesos, acuerdosPago, cuotasAcuerdo } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 
@@ -158,6 +158,46 @@ export async function actualizarAcuerdoPago(
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
     console.error(err);
     return { error: "Error al actualizar el acuerdo de pago." };
+  }
+}
+
+export async function marcarCuotaPagada(
+  cuotaId: number,
+  procesoId: number,
+  fechaPago: string
+): Promise<EstadoAcuerdoPago> {
+  if (!Number.isInteger(cuotaId) || cuotaId < 1) return { error: "Cuota inválida." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaPago)) return { error: "Fecha de pago inválida." };
+
+  try {
+    const session = await getSession();
+    if (!session?.user?.id) return { error: "No autorizado." };
+
+    const [proceso] = await db
+      .select({ id: procesos.id, asignadoAId: procesos.asignadoAId })
+      .from(procesos)
+      .where(eq(procesos.id, procesoId));
+    if (!proceso) return { error: "Proceso no encontrado." };
+    if (!puedeAccederProceso(session?.user?.rol, session?.user?.id, proceso.asignadoAId ?? null)) {
+      return { error: "No tienes permiso para gestionar este proceso." };
+    }
+
+    await db
+      .update(cuotasAcuerdo)
+      .set({
+        estado: "pagada",
+        fechaPago,
+        pagadoPorId: session.user.id,
+        actualizadoEn: new Date(),
+      })
+      .where(eq(cuotasAcuerdo.id, cuotaId));
+
+    revalidatePath(`/procesos/${procesoId}`);
+    return {};
+  } catch (err) {
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
+    console.error(err);
+    return { error: "Error al marcar la cuota como pagada." };
   }
 }
 

@@ -337,6 +337,13 @@
       "when": 1772287362507,
       "tag": "0047_perfect_silverclaw",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1772289217730,
+      "tag": "0048_sturdy_black_tom",
+      "breakpoints": true
     }
   ]
 }
