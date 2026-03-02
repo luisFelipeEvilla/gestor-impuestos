@@ -347,11 +347,11 @@ export async function previewImportacionAcuerdos(
   for (const f of filas) {
     const procesoId = buscarProcesoIdPorComparendo(f.noComparendo, indice);
     const existentes = procesoId ? acuerdosExistentes.get(procesoId) : undefined;
-    const numeroNorm = f.noAcuerdo.trim().toLowerCase();
+    // Duplicado: el proceso ya tiene al menos un acuerdo de pago registrado
     const esDuplicado =
       procesoId != null &&
       existentes != null &&
-      existentes.has(numeroNorm);
+      existentes.size > 0;
 
     if (procesoId == null) sinMatch++;
     else if (esDuplicado) duplicados++;
@@ -380,6 +380,97 @@ export async function previewImportacionAcuerdos(
     totalFilas: filas.length,
     resumen: { conMatch, sinMatch, duplicados },
   };
+}
+
+// ─── Crear procesos (comparendos) para filas sin match ──────────────────────────
+
+export type CrearProcesosSinMatchResult =
+  | { ok: true; creados: number; omitidos: number; errores: string[] }
+  | { ok: false; error: string };
+
+/**
+ * Crea procesos (comparendos) en la BD para los números de comparendo que no existen,
+ * con un contribuyente por proceso (NIT placeholder, nombre del CSV). Así el usuario
+ * puede volver a previsualizar e importar los acuerdos.
+ */
+export async function crearProcesosDesdeSinMatch(
+  filas: { noComparendo: string; nombre: string }[]
+): Promise<CrearProcesosSinMatchResult> {
+  const session = await requireAdminSession();
+  if (!session) return { ok: false, error: "No autorizado" };
+
+  if (!filas?.length) {
+    return { ok: true, creados: 0, omitidos: 0, errores: [] };
+  }
+
+  // Un proceso por comparendo único (varias filas pueden compartir el mismo comparendo)
+  const porComparendo = new Map<string, string>();
+  for (const f of filas) {
+    const key = (f.noComparendo ?? "").trim();
+    if (!key) continue;
+    if (!porComparendo.has(key)) porComparendo.set(key, (f.nombre ?? "").trim() || "Sin nombre");
+  }
+
+  const indice = await buildIndiceProcesos();
+  const vigencia = new Date().getFullYear();
+  let creados = 0;
+  let omitidos = 0;
+  const errores: string[] = [];
+
+  for (const [noComparendo, nombre] of porComparendo) {
+    if (buscarProcesoIdPorComparendo(noComparendo, indice) != null) {
+      omitidos++;
+      continue;
+    }
+
+    const nitBase = "SIN-NIT-" + noComparendo.replace(/\s/g, "").replace(/\D/g, "").slice(0, 25);
+    const nit = nitBase || `SIN-NIT-${Date.now()}-${creados}`;
+
+    try {
+      const [contribInserted] = await db
+        .insert(contribuyentes)
+        .values({
+          nit,
+          tipoDocumento: "nit",
+          nombreRazonSocial: nombre.slice(0, 500),
+        })
+        .returning({ id: contribuyentes.id });
+
+      if (!contribInserted) {
+        errores.push(`Comparendo ${noComparendo}: no se pudo crear el contribuyente.`);
+        continue;
+      }
+
+      const [procesoInserted] = await db
+        .insert(procesos)
+        .values({
+          contribuyenteId: contribInserted.id,
+          vigencia,
+          noComparendo: noComparendo.slice(0, 100),
+          montoCop: "0",
+          estadoActual: "pendiente",
+          importado: false,
+        })
+        .returning({ id: procesos.id });
+
+      if (!procesoInserted) {
+        errores.push(`Comparendo ${noComparendo}: no se pudo crear el proceso.`);
+        continue;
+      }
+
+      creados++;
+      for (const k of clavesParaBusqueda(noComparendo)) {
+        if (k) indice.set(k, procesoInserted.id);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errores.push(`Comparendo ${noComparendo}: ${msg}`);
+    }
+  }
+
+  revalidatePath("/procesos");
+  revalidatePath("/");
+  return { ok: true, creados, omitidos, errores };
 }
 
 // ─── Helper: sumar meses a una fecha ISO ──────────────────────────────────────
@@ -440,8 +531,8 @@ export async function ejecutarImportacionAcuerdos(
       continue;
     }
     const existentes = acuerdosExistentes.get(procesoId);
-    const numeroNorm = f.noAcuerdo.trim().toLowerCase();
-    if (existentes?.has(numeroNorm)) {
+    // Omitir si el proceso ya tiene al menos un acuerdo registrado
+    if (existentes != null && existentes.size > 0) {
       omitidos++;
       continue;
     }
@@ -541,8 +632,9 @@ export async function ejecutarImportacionAcuerdos(
       await db.insert(cuotasAcuerdo).values(cuotasToInsert);
 
       importados++;
-      if (!existentes) acuerdosExistentes.set(procesoId, new Set());
-      acuerdosExistentes.get(procesoId)!.add(numeroNorm);
+      // Marcar el proceso como con acuerdo para que filas posteriores del mismo CSV lo detecten
+      if (!existentes) acuerdosExistentes.set(procesoId, new Set(["_importado"]));
+      else existentes.add("_importado");
     } catch (err) {
       fallidos++;
       const msg = err instanceof Error ? err.message : String(err);

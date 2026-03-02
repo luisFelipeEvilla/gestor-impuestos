@@ -10,6 +10,8 @@ import {
   XCircle,
   Upload,
   RotateCcw,
+  Download,
+  PlusCircle,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +38,7 @@ import { FileInputDropzone } from "@/components/ui/file-input-dropzone";
 import {
   previewImportacionAcuerdos,
   ejecutarImportacionAcuerdos,
+  crearProcesosDesdeSinMatch,
   type FilaPreviewAcuerdo,
   type ImportAcuerdosResult,
 } from "@/lib/actions/importar-acuerdos";
@@ -83,8 +86,14 @@ export function ImportarAcuerdosForm() {
   const [archivo, setArchivo] = React.useState<File | null>(null);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [crearResult, setCrearResult] = React.useState<{
+    creados: number;
+    omitidos: number;
+    errores: string[];
+  } | null>(null);
   const [isPreviewing, startPreviewing] = useTransition();
   const [isImporting, startImporting] = useTransition();
+  const [isCreating, startCreating] = useTransition();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -96,6 +105,7 @@ export function ImportarAcuerdosForm() {
   const handlePreview = () => {
     if (!archivo) return;
     setErrorMsg(null);
+    setCrearResult(null);
     startPreviewing(async () => {
       const fd = new FormData();
       fd.append("archivo", archivo);
@@ -132,6 +142,65 @@ export function ImportarAcuerdosForm() {
     setStep({ type: "idle" });
     setArchivo(null);
     setErrorMsg(null);
+  };
+
+  const descargarCsv = (
+    filas: { noComparendo: string; noAcuerdo: string; nombre: string; cuotas: number | null; fechaAcuerdo: string | null; procesoId?: number | null; contribuyenteNombre?: string | null }[],
+    nombreArchivo: string,
+    conProceso: boolean
+  ) => {
+    const encabezados = conProceso
+      ? ["N° Comparendo", "N° Acuerdo", "Nombre", "Proceso ID", "Contribuyente", "Cuotas", "Fecha acuerdo"]
+      : ["N° Comparendo", "N° Acuerdo", "Nombre", "Cuotas", "Fecha acuerdo"];
+    const escapar = (v: string | number | null | undefined) => {
+      const s = v == null ? "" : String(v);
+      return s.includes(";") || s.includes('"') || s.includes("\n")
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    };
+    const lineas = filas.map((f) => {
+      const base = [f.noComparendo, f.noAcuerdo, f.nombre];
+      if (conProceso) base.push(String(f.procesoId ?? ""), f.contribuyenteNombre ?? "");
+      base.push(String(f.cuotas ?? ""), f.fechaAcuerdo ?? "");
+      return base.map(escapar).join(";");
+    });
+    const csv = [encabezados.join(";"), ...lineas].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${nombreArchivo}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDescargarSinMatch = () => {
+    if (step.type !== "preview") return;
+    const filas = step.filas.filter((f) => f.estado === "sin_match");
+    descargarCsv(filas, "acuerdos-sin-match", false);
+  };
+
+  const handleDescargarDuplicados = () => {
+    if (step.type !== "preview") return;
+    const filas = step.filas.filter((f) => f.estado === "duplicado");
+    descargarCsv(filas, "acuerdos-ya-registrados", true);
+  };
+
+  const handleCrearComparendosFaltantes = () => {
+    if (step.type !== "preview") return;
+    const filasSinMatch = step.filas.filter((f) => f.estado === "sin_match");
+    if (filasSinMatch.length === 0) return;
+    setCrearResult(null);
+    startCreating(async () => {
+      const result = await crearProcesosDesdeSinMatch(
+        filasSinMatch.map((f) => ({ noComparendo: f.noComparendo, nombre: f.nombre }))
+      );
+      if (result.ok) {
+        setCrearResult({ creados: result.creados, omitidos: result.omitidos, errores: result.errores });
+      } else {
+        setErrorMsg(result.error);
+      }
+    });
   };
 
   const totalFilas = step.type === "preview" ? step.totalFilas : 0;
@@ -201,9 +270,8 @@ export function ImportarAcuerdosForm() {
       )}
 
       {step.type === "preview" && (() => {
-        const filasConMatch = step.filas.filter(
-          (f) => f.estado === "match" || f.estado === "duplicado"
-        );
+        const filasConMatch = step.filas.filter((f) => f.estado === "match");
+        const filasDuplicado = step.filas.filter((f) => f.estado === "duplicado");
         const filasSinMatch = step.filas.filter((f) => f.estado === "sin_match");
         const limit = 100;
         return (
@@ -213,10 +281,10 @@ export function ImportarAcuerdosForm() {
                 <div>
                   <CardTitle>Vista previa</CardTitle>
                   <CardDescription>
-                    <strong>{totalFilas.toLocaleString("es-CO")}</strong> filas en total. Con
-                    match: <strong>{step.resumen.conMatch + step.resumen.duplicados}</strong> (a
-                    importar: {step.resumen.conMatch}, duplicados: {step.resumen.duplicados}).
-                    Sin match: <strong>{step.resumen.sinMatch}</strong>.
+                    <strong>{totalFilas.toLocaleString("es-CO")}</strong> filas en total.{" "}
+                    A importar: <strong className="text-green-700 dark:text-green-400">{step.resumen.conMatch}</strong>.{" "}
+                    Ya registrados: <strong className="text-yellow-700 dark:text-yellow-400">{step.resumen.duplicados}</strong>.{" "}
+                    Sin match: <strong className="text-destructive">{step.resumen.sinMatch}</strong>.
                   </CardDescription>
                 </div>
                 <Button
@@ -239,15 +307,16 @@ export function ImportarAcuerdosForm() {
               </CardHeader>
             </Card>
 
+            {/* Tabla: a importar */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">
-                  Con match ({filasConMatch.length.toLocaleString("es-CO")})
+                  A importar ({filasConMatch.length.toLocaleString("es-CO")})
                 </CardTitle>
                 <CardDescription>
-                  Acuerdos que coinciden con un proceso en el sistema.
+                  Acuerdos que coinciden con un proceso sin acuerdo previo y serán importados.
                   {filasConMatch.length > limit &&
-                    ` Mostrando las primeras ${limit.toLocaleString("es-CO")}.`}
+                    ` Mostrando los primeros ${limit.toLocaleString("es-CO")}.`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -258,70 +327,220 @@ export function ImportarAcuerdosForm() {
                         <TableHead>N° Comparendo</TableHead>
                         <TableHead>N° acuerdo</TableHead>
                         <TableHead>Nombre</TableHead>
-                        <TableHead>Estado</TableHead>
                         <TableHead>Proceso / Contribuyente</TableHead>
                         <TableHead>Cuotas</TableHead>
                         <TableHead>Fecha acuerdo</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filasConMatch.slice(0, limit).map((fila, i) => (
-                        <TableRow key={`match-${i}`}>
-                          <TableCell className="font-mono text-xs">
-                            {fila.noComparendo}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {fila.noAcuerdo || "—"}
-                          </TableCell>
-                          <TableCell>{fila.nombre || "—"}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={estadoVariant(fila.estado)}
-                              className="text-xs"
-                            >
-                              {estadoLabel(fila.estado)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="max-w-[200px] truncate">
-                            {fila.procesoId != null ? (
-                              <Link
-                                href={`/procesos/${fila.procesoId}`}
-                                className="text-primary hover:underline text-sm"
-                              >
-                                #{fila.procesoId}
-                                {fila.contribuyenteNombre
-                                  ? ` · ${fila.contribuyenteNombre}`
-                                  : ""}
-                              </Link>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>{fila.cuotas ?? "—"}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                            {fila.fechaAcuerdo ?? "—"}
+                      {filasConMatch.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
+                            No hay acuerdos nuevos para importar.
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : (
+                        filasConMatch.slice(0, limit).map((fila, i) => (
+                          <TableRow key={`match-${i}`}>
+                            <TableCell className="font-mono text-xs">
+                              {fila.noComparendo}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {fila.noAcuerdo || "—"}
+                            </TableCell>
+                            <TableCell>{fila.nombre || "—"}</TableCell>
+                            <TableCell className="max-w-[200px] truncate">
+                              {fila.procesoId != null ? (
+                                <Link
+                                  href={`/procesos/${fila.procesoId}`}
+                                  className="text-primary hover:underline text-sm"
+                                >
+                                  #{fila.procesoId}
+                                  {fila.contribuyenteNombre ? ` · ${fila.contribuyenteNombre}` : ""}
+                                </Link>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>{fila.cuotas ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                              {fila.fechaAcuerdo ?? "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Sin match ({filasSinMatch.length.toLocaleString("es-CO")})
-                </CardTitle>
-                <CardDescription>
-                  Acuerdos cuyo número de comparendo no coincide con ningún proceso en el
-                  sistema. No se importarán.
-                  {filasSinMatch.length > limit &&
-                    ` Mostrando las primeras ${limit.toLocaleString("es-CO")}.`}
-                </CardDescription>
+            {/* Tabla: ya registrados (duplicados) */}
+            <Card className="border-yellow-200 dark:border-yellow-900">
+              <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-base text-yellow-700 dark:text-yellow-400">
+                    Ya registrados — se omitirán ({filasDuplicado.length.toLocaleString("es-CO")})
+                  </CardTitle>
+                  <CardDescription>
+                    El comparendo ya tiene un acuerdo de pago en el sistema. No se importarán.
+                    {filasDuplicado.length > limit &&
+                      ` Mostrando los primeros ${limit.toLocaleString("es-CO")}.`}
+                  </CardDescription>
+                </div>
+                {filasDuplicado.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDescargarDuplicados}
+                    className="shrink-0"
+                  >
+                    <Download className="size-4 mr-2" aria-hidden />
+                    Descargar CSV
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
+                <div className="overflow-x-auto rounded-md border border-yellow-200 dark:border-yellow-900">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>N° Comparendo</TableHead>
+                        <TableHead>N° acuerdo</TableHead>
+                        <TableHead>Nombre</TableHead>
+                        <TableHead>Proceso / Contribuyente</TableHead>
+                        <TableHead>Cuotas</TableHead>
+                        <TableHead>Fecha acuerdo</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filasDuplicado.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
+                            Ningún comparendo tiene acuerdo previo.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filasDuplicado.slice(0, limit).map((fila, i) => (
+                          <TableRow key={`dup-${i}`} className="bg-yellow-50/50 dark:bg-yellow-950/20">
+                            <TableCell className="font-mono text-xs">
+                              {fila.noComparendo}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {fila.noAcuerdo || "—"}
+                            </TableCell>
+                            <TableCell>{fila.nombre || "—"}</TableCell>
+                            <TableCell className="max-w-[200px] truncate">
+                              {fila.procesoId != null ? (
+                                <Link
+                                  href={`/procesos/${fila.procesoId}`}
+                                  className="text-primary hover:underline text-sm"
+                                >
+                                  #{fila.procesoId}
+                                  {fila.contribuyenteNombre ? ` · ${fila.contribuyenteNombre}` : ""}
+                                </Link>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell>{fila.cuotas ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                              {fila.fechaAcuerdo ?? "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tabla: sin match */}
+            <Card>
+              <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-base">
+                    Sin match ({filasSinMatch.length.toLocaleString("es-CO")})
+                  </CardTitle>
+                  <CardDescription>
+                    Acuerdos cuyo número de comparendo no coincide con ningún proceso en el
+                    sistema. Puede crear los comparendos faltantes y luego previsualizar de nuevo para importarlos.
+                    {filasSinMatch.length > limit &&
+                      ` Mostrando los primeros ${limit.toLocaleString("es-CO")}.`}
+                  </CardDescription>
+                </div>
+                {filasSinMatch.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleCrearComparendosFaltantes}
+                      disabled={isCreating}
+                      className="gap-1.5"
+                    >
+                      {isCreating ? (
+                        <>
+                          <span
+                            className="size-4 animate-spin border-2 border-current border-t-transparent rounded-full inline-block"
+                            aria-hidden
+                          />
+                          Creando…
+                        </>
+                      ) : (
+                        <>
+                          <PlusCircle className="size-4" aria-hidden />
+                          Crear comparendos faltantes
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDescargarSinMatch}
+                      disabled={isCreating}
+                    >
+                      <Download className="size-4 mr-2" aria-hidden />
+                      Descargar CSV
+                    </Button>
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {crearResult != null && (
+                  <div
+                    className={`rounded-lg border px-4 py-3 text-sm ${
+                      crearResult.creados > 0
+                        ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/40"
+                        : "border-muted bg-muted/30"
+                    }`}
+                  >
+                    <p className="font-medium text-foreground">
+                      {crearResult.creados > 0 ? (
+                        <>Se crearon {crearResult.creados.toLocaleString("es-CO")} comparendo(s).</>
+                      ) : crearResult.omitidos > 0 ? (
+                        <>Todos los comparendos ya existían ({crearResult.omitidos} omitidos).</>
+                      ) : (
+                        "No se crearon procesos (ya existían o no había filas)."
+                      )}
+                    </p>
+                    {crearResult.creados > 0 && (
+                      <p className="mt-1 text-muted-foreground">
+                        Haga clic en <strong>Previsualizar</strong> de nuevo para actualizar la vista; los acuerdos de esos comparendos pasarán a &quot;A importar&quot; y podrá importarlos.
+                      </p>
+                    )}
+                    {crearResult.errores.length > 0 && (
+                      <ul className="mt-2 list-disc list-inside text-destructive text-xs space-y-0.5">
+                        {crearResult.errores.slice(0, 5).map((e, i) => (
+                          <li key={i}>{e}</li>
+                        ))}
+                        {crearResult.errores.length > 5 && (
+                          <li>… y {crearResult.errores.length - 5} más</li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                )}
                 <div className="overflow-x-auto rounded-md border">
                   <Table>
                     <TableHeader>
@@ -334,21 +553,29 @@ export function ImportarAcuerdosForm() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filasSinMatch.slice(0, limit).map((fila, i) => (
-                        <TableRow key={`nomatch-${i}`}>
-                          <TableCell className="font-mono text-xs">
-                            {fila.noComparendo}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">
-                            {fila.noAcuerdo || "—"}
-                          </TableCell>
-                          <TableCell>{fila.nombre || "—"}</TableCell>
-                          <TableCell>{fila.cuotas ?? "—"}</TableCell>
-                          <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
-                            {fila.fechaAcuerdo ?? "—"}
+                      {filasSinMatch.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
+                            Todos los comparendos tienen match.
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : (
+                        filasSinMatch.slice(0, limit).map((fila, i) => (
+                          <TableRow key={`nomatch-${i}`}>
+                            <TableCell className="font-mono text-xs">
+                              {fila.noComparendo}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {fila.noAcuerdo || "—"}
+                            </TableCell>
+                            <TableCell>{fila.nombre || "—"}</TableCell>
+                            <TableCell>{fila.cuotas ?? "—"}</TableCell>
+                            <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                              {fila.fechaAcuerdo ?? "—"}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>

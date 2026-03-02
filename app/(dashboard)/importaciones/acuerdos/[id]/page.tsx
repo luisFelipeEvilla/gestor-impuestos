@@ -9,8 +9,14 @@ import {
   MinusCircle,
 } from "lucide-react";
 import { db } from "@/lib/db";
-import { importacionesAcuerdos, usuarios } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import {
+  importacionesAcuerdos,
+  usuarios,
+  acuerdosPago,
+  procesos,
+  contribuyentes,
+} from "@/lib/db/schema";
+import { eq, asc } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -20,6 +26,14 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { getSession } from "@/lib/auth-server";
 import { unstable_noStore } from "next/cache";
 
@@ -87,6 +101,22 @@ export default async function ImportacionAcuerdosDetallePage({ params }: Props) 
 
   if (!row) notFound();
 
+  const acuerdosImportados = await db
+    .select({
+      id: acuerdosPago.id,
+      numeroAcuerdo: acuerdosPago.numeroAcuerdo,
+      fechaAcuerdo: acuerdosPago.fechaAcuerdo,
+      cuotas: acuerdosPago.cuotas,
+      procesoId: procesos.id,
+      noComparendo: procesos.noComparendo,
+      contribuyenteNombre: contribuyentes.nombreRazonSocial,
+    })
+    .from(acuerdosPago)
+    .innerJoin(procesos, eq(acuerdosPago.procesoId, procesos.id))
+    .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
+    .where(eq(acuerdosPago.importacionId, id))
+    .orderBy(asc(acuerdosPago.id));
+
   const fechaFormateada = row.creadoEn.toLocaleDateString("es-CO", {
     timeZone: "America/Bogota",
     day: "2-digit",
@@ -100,11 +130,11 @@ export default async function ImportacionAcuerdosDetallePage({ params }: Props) 
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex flex-col gap-2">
         <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Link href="/importaciones" className="hover:text-foreground transition-colors">
-            Importaciones
+          <Link href="/importaciones/acuerdos" className="hover:text-foreground transition-colors">
+            Importaciones · Acuerdos
           </Link>
           <ChevronRight className="size-3.5" aria-hidden />
-          <span className="text-foreground">Acuerdos #{row.id}</span>
+          <span className="text-foreground">#{row.id}</span>
         </nav>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-3">
@@ -210,18 +240,81 @@ export default async function ImportacionAcuerdosDetallePage({ params }: Props) 
       </div>
 
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <p className="text-sm text-muted-foreground">
-              Los acuerdos de pago importados están asociados a sus procesos en el
-              listado de comparendos.
-            </p>
-            <Button variant="outline" asChild>
-              <Link href="/procesos">
-                Ver procesos <ChevronRight className="size-4 ml-1" aria-hidden />
-              </Link>
-            </Button>
+        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="size-5" aria-hidden />
+              Acuerdos importados
+            </CardTitle>
+            <CardDescription>
+              {acuerdosImportados.length === 0
+                ? "No hay acuerdos asociados a esta importación."
+                : `${acuerdosImportados.length.toLocaleString("es-CO")} acuerdo(s) de pago creado(s) en esta importación.`}
+            </CardDescription>
           </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/procesos">
+              Ver procesos <ChevronRight className="size-4 ml-1" aria-hidden />
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {acuerdosImportados.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">
+              Los acuerdos importados se listan aquí. Si la importación recién terminó y no
+              aparece ninguno, recargue la página.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>N° Comparendo</TableHead>
+                    <TableHead>N° Acuerdo</TableHead>
+                    <TableHead>Contribuyente</TableHead>
+                    <TableHead className="text-right">Cuotas</TableHead>
+                    <TableHead>Fecha acuerdo</TableHead>
+                    <TableHead className="w-[80px]" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {acuerdosImportados.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell className="font-mono text-xs">
+                        {a.noComparendo ?? "—"}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {a.numeroAcuerdo}
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate">
+                        {a.contribuyenteNombre ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {a.cuotas.toLocaleString("es-CO")}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
+                        {a.fechaAcuerdo
+                          ? new Date(a.fechaAcuerdo).toLocaleDateString("es-CO", {
+                              timeZone: "America/Bogota",
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })
+                          : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
+                          <Link href={`/procesos/${a.procesoId}`}>
+                            Ver <ChevronRight className="size-4" aria-hidden />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
