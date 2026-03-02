@@ -250,7 +250,7 @@ export default async function ActasPage({ searchParams }: Props) {
                       <TableCell>#{a.serial}</TableCell>
                       <TableCell>
                         {new Date(a.fecha).toLocaleDateString("es-CO", {
-                          timeZone: "America/Bogota",
+                          timeZone: "UTC",
                           dateStyle: "short",
                         })}
                       </TableCell>

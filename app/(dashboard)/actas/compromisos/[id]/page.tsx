@@ -78,7 +78,7 @@ export default async function CompromisoDetallePage({ params }: Props) {
                 <p className="text-foreground">
                   {compromiso.fechaLimite
                     ? new Date(compromiso.fechaLimite).toLocaleDateString("es-CO", {
-                        timeZone: "America/Bogota",
+                        timeZone: "UTC",
                         dateStyle: "long",
                       })
                     : "Sin fecha límite"}
@@ -111,7 +111,7 @@ export default async function CompromisoDetallePage({ params }: Props) {
                 </Link>
                 <span className="text-muted-foreground text-sm ml-2">
                   {new Date(compromiso.actaFecha).toLocaleDateString("es-CO", {
-                    timeZone: "America/Bogota",
+                    timeZone: "UTC",
                     dateStyle: "short",
                   })}
                   {" · "}

@@ -204,7 +204,7 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                         </Link>
                         <span className="text-muted-foreground text-xs block">
                           {new Date(c.actaFecha).toLocaleDateString("es-CO", {
-                            timeZone: "America/Bogota",
+                            timeZone: "UTC",
                             dateStyle: "short",
                           })}
                         </span>
@@ -229,7 +229,7 @@ export default async function GestionCompromisosPage({ searchParams }: Props) {
                       <TableCell>
                         {c.fechaLimite
                           ? new Date(c.fechaLimite).toLocaleDateString("es-CO", {
-                              timeZone: "America/Bogota",
+                              timeZone: "UTC",
                               dateStyle: "short",
                             })
                           : "—"}

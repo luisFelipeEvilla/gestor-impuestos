@@ -295,7 +295,7 @@ export default async function ImportacionAcuerdosDetallePage({ params }: Props) 
                       <TableCell className="text-muted-foreground text-sm whitespace-nowrap">
                         {a.fechaAcuerdo
                           ? new Date(a.fechaAcuerdo).toLocaleDateString("es-CO", {
-                              timeZone: "America/Bogota",
+                              timeZone: "UTC",
                               day: "2-digit",
                               month: "short",
                               year: "numeric",

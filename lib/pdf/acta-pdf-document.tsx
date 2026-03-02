@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
 
 function formatFecha(date: Date): string {
   return new Date(date).toLocaleDateString("es-CO", {
-    timeZone: "America/Bogota",
+    timeZone: "UTC",
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -281,7 +281,7 @@ function formatFecha(date: Date): string {
 
 function formatFechaCorta(date: Date | null): string {
   if (!date) return "—";
-  return new Date(date).toLocaleDateString("es-CO", { timeZone: "America/Bogota", dateStyle: "short" });
+  return new Date(date).toLocaleDateString("es-CO", { timeZone: "UTC", dateStyle: "short" });
 }
 
 function estadoLabel(estado?: "pendiente" | "cumplido" | "no_cumplido" | null): string {

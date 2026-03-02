@@ -86,7 +86,7 @@ export default async function ActaDetallePage({ params }: Props) {
             Acta #{acta.serial}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {new Date(acta.fecha).toLocaleDateString("es-CO", { timeZone: "America/Bogota", dateStyle: "long" })}
+            {new Date(acta.fecha).toLocaleDateString("es-CO", { timeZone: "UTC", dateStyle: "long" })}
             {" · "}
             {LABEL_ESTADO[acta.estado] ?? acta.estado}
           </p>
@@ -177,7 +177,7 @@ export default async function ActaDetallePage({ params }: Props) {
                     Fecha límite:{" "}
                     {c.fechaLimite
                       ? new Date(c.fechaLimite).toLocaleDateString("es-CO", {
-                          timeZone: "America/Bogota",
+                          timeZone: "UTC",
                           dateStyle: "short",
                         })
                       : "—"}

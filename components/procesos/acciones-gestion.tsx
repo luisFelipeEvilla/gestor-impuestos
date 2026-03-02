@@ -925,12 +925,12 @@ export function CardCobroCoactivo({
   const cobroActivo = cobrosCoactivos.find((c) => c.activo) ?? null;
   const cobrosAnteriores = cobrosCoactivos.filter((c) => !c.activo);
   const fechaActivoStr = cobroActivo?.fechaInicio
-    ? new Date(cobroActivo.fechaInicio).toLocaleDateString("es-CO", { timeZone: "America/Bogota" })
+    ? new Date(cobroActivo.fechaInicio).toLocaleDateString("es-CO", { timeZone: "UTC" })
     : null;
 
   function formatFechaCobro(value: Date | string): string {
     const d = typeof value === "string" ? new Date(value) : value;
-    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO", { timeZone: "America/Bogota" });
+    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-CO", { timeZone: "UTC" });
   }
 
   return (
