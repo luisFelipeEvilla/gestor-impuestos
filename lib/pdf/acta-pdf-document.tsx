@@ -323,7 +323,7 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
           style={styles.pageRef}
           fixed
           render={({ pageNumber }) =>
-            pageNumber > 1 ? `Acta de reunión · No. ${acta.serial}` : ""
+            pageNumber > 1 ? "Acta de reunión" : ""
           }
         />
         <Text
@@ -346,7 +346,6 @@ export function ActaPdfDocument({ acta, empresa, logoPath }: ActaPdfDocumentProp
         <View style={styles.main}>
           <View style={styles.docTitleBlock}>
             <Text style={styles.docTitle}>Acta de reunión</Text>
-            <Text style={styles.docSubtitle}>No. {acta.serial}</Text>
           </View>
 
           <View style={styles.metaBlock}>
