@@ -68,7 +68,7 @@ export const procesosRelations = relations(procesos, ({ one, many }) => ({
   historial: many(historialProceso),
   documentos: many(documentosProceso),
   ordenResolucion: one(ordenesResolucion),
-  ordenComparendo: one(ordenComparendo),
+  ordenesComparendo: many(ordenComparendo),
   acuerdosPago: many(acuerdosPago),
   cobrosCoactivos: many(cobrosCoactivos),
   importacion: one(importacionesProcesos, {
@@ -102,6 +102,7 @@ export const ordenesResolucionRelations = relations(ordenesResolucion, ({ one })
 
 export const ordenComparendoRelations = relations(ordenComparendo, ({ one }) => ({
   proceso: one(procesos),
+  subidoPor: one(usuarios, { fields: [ordenComparendo.subidoPorId], references: [usuarios.id] }),
 }));
 
 export const acuerdosPagoRelations = relations(acuerdosPago, ({ one, many }) => ({

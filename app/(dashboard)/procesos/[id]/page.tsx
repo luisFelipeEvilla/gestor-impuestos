@@ -141,7 +141,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
     }
   }
 
-  const [historialRows, usuariosList, documentosRows, ordenResolucion, ordenComparendoRow, acuerdosPagoList, cobrosCoactivosList] = await Promise.all([
+  const [historialRows, usuariosList, documentosRows, ordenResolucion, ordenesComparendoList, acuerdosPagoList, cobrosCoactivosList] = await Promise.all([
     db
       .select({
         id: historialProceso.id,
@@ -180,7 +180,20 @@ export default async function DetalleProcesoPage({ params }: Props) {
       .where(eq(documentosProceso.procesoId, id))
       .orderBy(desc(documentosProceso.creadoEn)),
     db.select().from(ordenesResolucion).where(eq(ordenesResolucion.procesoId, id)).then((r) => r[0] ?? null),
-    db.select().from(ordenComparendo).where(eq(ordenComparendo.procesoId, id)).then((r) => r[0] ?? null),
+    db
+      .select({
+        id: ordenComparendo.id,
+        procesoId: ordenComparendo.procesoId,
+        nombreOriginal: ordenComparendo.nombreOriginal,
+        mimeType: ordenComparendo.mimeType,
+        legible: ordenComparendo.legible,
+        creadoEn: ordenComparendo.creadoEn,
+        subidoPorNombre: usuarios.nombre,
+      })
+      .from(ordenComparendo)
+      .leftJoin(usuarios, eq(ordenComparendo.subidoPorId, usuarios.id))
+      .where(eq(ordenComparendo.procesoId, id))
+      .orderBy(desc(ordenComparendo.creadoEn)),
     db.select().from(acuerdosPago).where(eq(acuerdosPago.procesoId, id)).orderBy(desc(acuerdosPago.creadoEn)),
     db.select().from(cobrosCoactivos).where(eq(cobrosCoactivos.procesoId, id)).orderBy(desc(cobrosCoactivos.creadoEn)),
   ]);
@@ -494,7 +507,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
         generalContent={
           <>
             <div className="w-full space-y-6">
-              <CardOrdenComparendo procesoId={row.id} orden={ordenComparendoRow} />
+              <CardOrdenComparendo procesoId={row.id} ordenes={ordenesComparendoList} />
 
               <Card>
                 <CardHeader>
