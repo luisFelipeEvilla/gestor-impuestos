@@ -105,7 +105,7 @@ export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoP
       <CardHeader>
         <CardTitle>Comparendo</CardTitle>
         <CardDescription>
-          Documentos de comparendo asociados al proceso.
+          Documento Físico del comparendo.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
