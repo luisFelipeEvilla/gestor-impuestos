@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -64,6 +64,7 @@ function formatDateTime(value: Date | string | null | undefined): string {
 export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoProps) {
   const router = useRouter();
   const [openEliminarId, setOpenEliminarId] = useState<number | null>(null);
+  const confirmandoEliminarRef = useRef(false);
 
   const [uploadState, uploadAction] = useActionState(
     async (_: { error?: string } | null, formData: FormData) => {
@@ -147,26 +148,24 @@ export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoP
                     </form>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2 flex-wrap">
-                      <Button variant="outline" size="sm" asChild>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="outline" size="icon" className="size-8 shrink-0" asChild>
                         <a
                           href={DOCUMENTO_URL(procesoId, orden.id)}
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`Ver ${orden.nombreOriginal}`}
                         >
-                          <Eye className="size-4 shrink-0" aria-hidden />
-                          Ver
+                          <Eye className="size-4" aria-hidden />
                         </a>
                       </Button>
-                      <Button variant="outline" size="sm" asChild>
+                      <Button variant="outline" size="icon" className="size-8 shrink-0" asChild>
                         <a
                           href={DOCUMENTO_URL(procesoId, orden.id, true)}
                           download={orden.nombreOriginal}
                           aria-label={`Descargar ${orden.nombreOriginal}`}
                         >
-                          <Download className="size-4 shrink-0" aria-hidden />
-                          Descargar
+                          <Download className="size-4" aria-hidden />
                         </a>
                       </Button>
                       <ConfirmarEliminacionModal
@@ -175,6 +174,7 @@ export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoP
                         title="Eliminar comparendo"
                         description="Se eliminará este documento. No se puede deshacer."
                         onConfirm={() => {
+                          confirmandoEliminarRef.current = true;
                           setOpenEliminarId(null);
                           const form = document.querySelector(
                             `form[data-delete-comparendo-id="${orden.id}"]`
@@ -189,22 +189,25 @@ export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoP
                           router.refresh();
                         }}
                         onSubmit={(e) => {
-                          e.preventDefault();
-                          setOpenEliminarId(orden.id);
+                          if (!confirmandoEliminarRef.current) {
+                            e.preventDefault();
+                            setOpenEliminarId(orden.id);
+                            return;
+                          }
+                          confirmandoEliminarRef.current = false;
                         }}
-                        className="inline"
+                        className="inline-block shrink-0"
                       >
                         <input type="hidden" name="documentoId" value={orden.id} />
                         <input type="hidden" name="procesoId" value={procesoId} />
                         <Button
                           type="submit"
                           variant="outline"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
+                          size="icon"
+                          className="size-8 shrink-0 text-destructive hover:text-destructive"
                           aria-label={`Eliminar ${orden.nombreOriginal}`}
                         >
-                          <Trash2 className="size-4 shrink-0" aria-hidden />
-                          Eliminar
+                          <Trash2 className="size-4" aria-hidden />
                         </Button>
                       </form>
                     </div>
