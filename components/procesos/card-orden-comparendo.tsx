@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState, useRef } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -26,7 +27,7 @@ import {
   actualizarLegibleOrdenComparendoDesdeFormData,
   eliminarOrdenComparendoDesdeFormData,
 } from "@/lib/actions/orden-comparendo";
-import { Eye, Download, Trash2 } from "lucide-react";
+import { Eye, Download, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DOCUMENTO_URL = (procesoId: number, docId: number, descargar?: boolean) => {
@@ -48,6 +49,26 @@ type CardOrdenComparendoProps = {
   procesoId: number;
   ordenes: OrdenComparendoRow[];
 };
+
+function BotonEliminarConEstado({ nombreOriginal }: { nombreOriginal: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      variant="outline"
+      size="icon"
+      className="size-8 shrink-0 text-destructive hover:text-destructive"
+      aria-label={pending ? "Eliminando…" : `Eliminar ${nombreOriginal}`}
+      disabled={pending}
+    >
+      {pending ? (
+        <Loader2 className="size-4 animate-spin" aria-hidden />
+      ) : (
+        <Trash2 className="size-4" aria-hidden />
+      )}
+    </Button>
+  );
+}
 
 function formatDateTime(value: Date | string | null | undefined): string {
   if (!value) return "—";
@@ -200,15 +221,7 @@ export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoP
                       >
                         <input type="hidden" name="documentoId" value={orden.id} />
                         <input type="hidden" name="procesoId" value={procesoId} />
-                        <Button
-                          type="submit"
-                          variant="outline"
-                          size="icon"
-                          className="size-8 shrink-0 text-destructive hover:text-destructive"
-                          aria-label={`Eliminar ${orden.nombreOriginal}`}
-                        >
-                          <Trash2 className="size-4" aria-hidden />
-                        </Button>
+                        <BotonEliminarConEstado nombreOriginal={orden.nombreOriginal} />
                       </form>
                     </div>
                   </TableCell>
