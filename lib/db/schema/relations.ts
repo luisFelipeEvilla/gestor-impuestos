@@ -10,6 +10,7 @@ import {
   historialProceso,
   documentosProceso,
   ordenesResolucion,
+  ordenComparendo,
   acuerdosPago,
   cuotasAcuerdo,
   cobrosCoactivos,
@@ -67,6 +68,7 @@ export const procesosRelations = relations(procesos, ({ one, many }) => ({
   historial: many(historialProceso),
   documentos: many(documentosProceso),
   ordenResolucion: one(ordenesResolucion),
+  ordenComparendo: one(ordenComparendo),
   acuerdosPago: many(acuerdosPago),
   cobrosCoactivos: many(cobrosCoactivos),
   importacion: one(importacionesProcesos, {
@@ -95,6 +97,10 @@ export const documentosProcesoRelations = relations(documentosProceso, ({ one })
 }));
 
 export const ordenesResolucionRelations = relations(ordenesResolucion, ({ one }) => ({
+  proceso: one(procesos),
+}));
+
+export const ordenComparendoRelations = relations(ordenComparendo, ({ one }) => ({
   proceso: one(procesos),
 }));
 

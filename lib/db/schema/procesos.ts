@@ -132,6 +132,26 @@ export const ordenesResolucion = pgTable(
   (t) => [unique().on(t.procesoId)]
 );
 
+// Tabla: orden_comparendo (1:1 con proceso; documento de orden de comparendo, con visibilidad)
+export const ordenComparendo = pgTable(
+  "orden_comparendo",
+  {
+    id: serial("id").primaryKey(),
+    procesoId: integer("proceso_id")
+      .notNull()
+      .references(() => procesos.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    rutaArchivo: text("ruta_archivo").notNull(),
+    nombreOriginal: text("nombre_original").notNull(),
+    mimeType: text("mime_type").notNull(),
+    tamano: integer("tamano").notNull(),
+    /** Si es visible en la interfaz; por defecto true. */
+    visible: boolean("visible").default(true).notNull(),
+    creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+    actualizadoEn: timestamp("actualizado_en", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.procesoId)]
+);
+
 // Tabla: acuerdos_pago (N:1 con proceso; un proceso puede tener varios acuerdos)
 export const acuerdosPago = pgTable("acuerdos_pago", {
   id: serial("id").primaryKey(),
@@ -202,6 +222,8 @@ export type DocumentoProceso = typeof documentosProceso.$inferSelect;
 export type NewDocumentoProceso = typeof documentosProceso.$inferInsert;
 export type OrdenResolucion = typeof ordenesResolucion.$inferSelect;
 export type NewOrdenResolucion = typeof ordenesResolucion.$inferInsert;
+export type OrdenComparendo = typeof ordenComparendo.$inferSelect;
+export type NewOrdenComparendo = typeof ordenComparendo.$inferInsert;
 export type AcuerdoPago = typeof acuerdosPago.$inferSelect;
 export type NewAcuerdoPago = typeof acuerdosPago.$inferInsert;
 export type CuotaAcuerdo = typeof cuotasAcuerdo.$inferSelect;

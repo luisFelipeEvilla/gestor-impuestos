@@ -8,6 +8,7 @@ import {
   historialProceso,
   documentosProceso,
   ordenesResolucion,
+  ordenComparendo,
   acuerdosPago,
   cuotasAcuerdo,
   cobrosCoactivos,
@@ -36,6 +37,7 @@ import {
   SubirDocumentoForm,
 } from "@/components/procesos/documentos-proceso";
 import { CardOrdenResolucion } from "@/components/procesos/card-orden-resolucion";
+import { CardOrdenComparendo } from "@/components/procesos/card-orden-comparendo";
 import { CardAcuerdosPagoList } from "@/components/procesos/card-acuerdos-pago-list";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { DetalleConHistorial } from "./detalle-con-historial";
@@ -139,7 +141,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
     }
   }
 
-  const [historialRows, usuariosList, documentosRows, ordenResolucion, acuerdosPagoList, cobrosCoactivosList] = await Promise.all([
+  const [historialRows, usuariosList, documentosRows, ordenResolucion, ordenComparendoRow, acuerdosPagoList, cobrosCoactivosList] = await Promise.all([
     db
       .select({
         id: historialProceso.id,
@@ -178,6 +180,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
       .where(eq(documentosProceso.procesoId, id))
       .orderBy(desc(documentosProceso.creadoEn)),
     db.select().from(ordenesResolucion).where(eq(ordenesResolucion.procesoId, id)).then((r) => r[0] ?? null),
+    db.select().from(ordenComparendo).where(eq(ordenComparendo.procesoId, id)).then((r) => r[0] ?? null),
     db.select().from(acuerdosPago).where(eq(acuerdosPago.procesoId, id)).orderBy(desc(acuerdosPago.creadoEn)),
     db.select().from(cobrosCoactivos).where(eq(cobrosCoactivos.procesoId, id)).orderBy(desc(cobrosCoactivos.creadoEn)),
   ]);
@@ -491,6 +494,8 @@ export default async function DetalleProcesoPage({ params }: Props) {
         generalContent={
           <>
             <div className="w-full space-y-6">
+              <CardOrdenComparendo procesoId={row.id} orden={ordenComparendoRow} />
+
               <Card>
                 <CardHeader>
                   <CardTitle>Bitácora del proceso</CardTitle>

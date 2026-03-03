@@ -69,6 +69,15 @@ export function getOrdenResolucionUploadDir(procesoId: number): string {
   return path.join(getUploadRoot(), "procesos", String(procesoId), "orden-resolucion");
 }
 
+/** Ruta relativa para el documento de orden de comparendo (procesos/{id}/orden-comparendo/{file}). */
+export function getOrdenComparendoRelativePath(procesoId: number, storedFileName: string): string {
+  return path.join("procesos", String(procesoId), "orden-comparendo", storedFileName).replace(/\\/g, "/");
+}
+
+export function getOrdenComparendoUploadDir(procesoId: number): string {
+  return path.join(getUploadRoot(), "procesos", String(procesoId), "orden-comparendo");
+}
+
 export function getActaUploadDir(actaId: string): string {
   return path.join(getUploadRoot(), "actas", String(actaId));
 }
@@ -291,6 +300,38 @@ export async function saveOrdenResolucionDocument(
   }
 
   const dir = getOrdenResolucionUploadDir(procesoId);
+  await ensureDir(dir);
+  const fullPath = path.join(getUploadRoot(), rutaRelativa);
+  await writeFile(fullPath, buffer);
+  return rutaRelativa;
+}
+
+/**
+ * Guarda el documento de orden de comparendo. Retorna la ruta relativa para guardar en BD.
+ */
+export async function saveOrdenComparendoDocument(
+  procesoId: number,
+  buffer: Buffer,
+  nombreOriginal: string,
+  mimeType: string
+): Promise<string> {
+  const ext = getSafeExtension(nombreOriginal);
+  const storedFileName = `${randomUUID()}${ext ? `.${ext.replace(/^\./, "")}` : ""}`;
+  const rutaRelativa = getOrdenComparendoRelativePath(procesoId, storedFileName);
+
+  if (useS3()) {
+    await getS3Client().send(
+      new PutObjectCommand({
+        Bucket: getS3Bucket(),
+        Key: getS3Key(rutaRelativa),
+        Body: buffer,
+        ContentType: mimeType,
+      })
+    );
+    return rutaRelativa;
+  }
+
+  const dir = getOrdenComparendoUploadDir(procesoId);
   await ensureDir(dir);
   const fullPath = path.join(getUploadRoot(), rutaRelativa);
   await writeFile(fullPath, buffer);
