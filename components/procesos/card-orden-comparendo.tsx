@@ -22,6 +22,15 @@ import {
 import type { OrdenComparendo } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
 
+const DOCUMENTO_URL = (procesoId: number) =>
+  `/api/procesos/${procesoId}/orden-comparendo/documento`;
+
+function puedePrevisualizar(mimeType: string): "pdf" | "imagen" | null {
+  if (mimeType === "application/pdf") return "pdf";
+  if (mimeType.startsWith("image/")) return "imagen";
+  return null;
+}
+
 type CardOrdenComparendoProps = {
   procesoId: number;
   orden: OrdenComparendo | null;
@@ -89,9 +98,9 @@ export function CardOrdenComparendo({ procesoId, orden }: CardOrdenComparendoPro
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Orden de comparendo</CardTitle>
+        <CardTitle>Comparendo</CardTitle>
         <CardDescription>
-          Documento de orden de comparendo asociado al proceso. Puedes marcar si es visible o no.
+          Documento de comparendo asociado al proceso. Puedes marcar si es visible o no.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -102,7 +111,7 @@ export function CardOrdenComparendo({ procesoId, orden }: CardOrdenComparendoPro
                 <dt className="text-muted-foreground">Documento</dt>
                 <dd>
                   <a
-                    href={`/api/procesos/${procesoId}/orden-comparendo/documento`}
+                    href={DOCUMENTO_URL(procesoId)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline"
@@ -145,6 +154,33 @@ export function CardOrdenComparendo({ procesoId, orden }: CardOrdenComparendoPro
                 </dd>
               </div>
             </dl>
+
+            {(() => {
+              const tipoPreview = puedePrevisualizar(orden.mimeType);
+              if (!tipoPreview) return null;
+              return (
+                <div className="space-y-2">
+                  <p className="text-muted-foreground text-sm font-medium">Vista previa</p>
+                  <div className="rounded-lg border border-border bg-muted/30 overflow-hidden">
+                    {tipoPreview === "pdf" && (
+                      <iframe
+                        src={DOCUMENTO_URL(procesoId)}
+                        title={`Vista previa: ${orden.nombreOriginal}`}
+                        className="w-full min-h-[420px] h-[60vh] max-h-[720px]"
+                      />
+                    )}
+                    {tipoPreview === "imagen" && (
+                      <img
+                        src={DOCUMENTO_URL(procesoId)}
+                        alt={orden.nombreOriginal}
+                        className="w-full max-h-[70vh] object-contain"
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
                 Reemplazar documento
@@ -152,7 +188,7 @@ export function CardOrdenComparendo({ procesoId, orden }: CardOrdenComparendoPro
               <ConfirmarEliminacionModal
                 open={openEliminar}
                 onOpenChange={setOpenEliminar}
-                title="Eliminar orden de comparendo"
+                title="Eliminar comparendo"
                 description="Se eliminará el documento. No se puede deshacer."
                 onConfirm={() => {
                   confirmandoEliminarRef.current = true;
@@ -239,7 +275,7 @@ export function CardOrdenComparendo({ procesoId, orden }: CardOrdenComparendoPro
               />
               <Label htmlFor="visible-new-oc">Visible</Label>
             </div>
-            <Button type="submit">Subir orden de comparendo</Button>
+            <Button type="submit">Subir comparendo</Button>
             {uploadState?.error && (
               <p className="text-destructive text-sm" role="alert">
                 {uploadState.error}
