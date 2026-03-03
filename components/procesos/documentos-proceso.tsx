@@ -120,7 +120,8 @@ export function SubirDocumentoForm({ procesoId, categoria, tipoFijo }: SubirDocu
         return;
       }
 
-      const tipoDocumento = (form.get("tipoDocumento") as string)?.trim() || tipoFijo || "otro";
+      const formData = new FormData(form);
+      const tipoDocumento = (formData.get("tipoDocumento") as string)?.trim() || tipoFijo || "otro";
       const reg = await registrarDocumentoProceso(
         procesoId,
         presigned.rutaArchivo,
@@ -137,8 +138,12 @@ export function SubirDocumentoForm({ procesoId, categoria, tipoFijo }: SubirDocu
       form.reset();
       router.refresh();
       setLoading(false);
-    } catch {
-      setSubmitError("Error inesperado. Puedes intentar adjuntar de nuevo.");
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : "Error inesperado. El archivo pudo subirse a S3 pero no se guardó el registro. Intenta de nuevo."
+      );
     } finally {
       setLoading(false);
     }

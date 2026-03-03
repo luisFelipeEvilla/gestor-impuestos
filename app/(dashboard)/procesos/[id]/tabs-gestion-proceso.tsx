@@ -22,9 +22,9 @@ export function TabsGestionProceso({
         <TabsTrigger variant="underline" value="general">
           General
         </TabsTrigger>
-        <TabsTrigger variant="underline" value="facturacion">
+        {/* <TabsTrigger variant="underline" value="facturacion">
           Facturación
-        </TabsTrigger>
+        </TabsTrigger> */}
         <TabsTrigger variant="underline" value="acuerdos">
           Acuerdos de pago
         </TabsTrigger>
@@ -35,9 +35,9 @@ export function TabsGestionProceso({
       <TabsContent value="general" className="mt-0">
         {generalContent}
       </TabsContent>
-      <TabsContent value="facturacion" className="mt-0">
+      {/* <TabsContent value="facturacion" className="mt-0">
         {facturacionContent}
-      </TabsContent>
+      </TabsContent> */}
       <TabsContent value="acuerdos" className="mt-0">
         {acuerdosContent}
       </TabsContent>

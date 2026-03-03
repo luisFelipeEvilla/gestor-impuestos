@@ -123,16 +123,11 @@ export async function registrarDocumentoProceso(
     revalidatePath("/procesos");
     return {};
   } catch (err) {
-    if (
-      err &&
-      typeof err === "object" &&
-      "digest" in err &&
-      typeof (err as { digest?: string }).digest === "string"
-    ) {
-      throw err;
-    }
-    console.error(err);
-    return { error: "Error al registrar el documento." };
+    console.error("[registrarDocumentoProceso]", err);
+    return {
+      error:
+        err instanceof Error ? err.message : "Error al registrar el documento en la base de datos.",
+    };
   }
 }
 
@@ -210,16 +205,10 @@ export async function subirDocumentoProceso(
     revalidatePath("/procesos");
     return {};
   } catch (err) {
-    if (
-      err &&
-      typeof err === "object" &&
-      "digest" in err &&
-      typeof (err as { digest?: string }).digest === "string"
-    ) {
-      throw err;
-    }
-    console.error(err);
-    return { error: "Error al subir el archivo." };
+    console.error("[subirDocumentoProceso]", err);
+    return {
+      error: err instanceof Error ? err.message : "Error al subir el archivo.",
+    };
   }
 }
 
@@ -252,27 +241,28 @@ export async function eliminarDocumentoProceso(
       }
     }
 
-    await db.delete(documentosProceso).where(eq(documentosProceso.id, docId));
     try {
       await deleteProcesoDocument(doc.rutaArchivo);
-    } catch {
-      // Archivo ya borrado en disco; ignorar
+    } catch (err) {
+      console.error("[eliminarDocumentoProceso] Error al borrar archivo en S3/disco:", err);
+      return {
+        error:
+          err instanceof Error
+            ? err.message
+            : "No se pudo eliminar el archivo del almacenamiento. El documento sigue en la lista.",
+      };
     }
+
+    await db.delete(documentosProceso).where(eq(documentosProceso.id, docId));
 
     revalidatePath(`/procesos/${doc.procesoId}`);
     revalidatePath(`/procesos/${doc.procesoId}/editar`);
     revalidatePath("/procesos");
     return {};
   } catch (err) {
-    if (
-      err &&
-      typeof err === "object" &&
-      "digest" in err &&
-      typeof (err as { digest?: string }).digest === "string"
-    ) {
-      throw err;
-    }
-    console.error(err);
-    return { error: "Error al eliminar el documento." };
+    console.error("[eliminarDocumentoProceso]", err);
+    return {
+      error: err instanceof Error ? err.message : "Error al eliminar el documento.",
+    };
   }
 }
