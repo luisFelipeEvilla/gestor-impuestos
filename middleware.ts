@@ -55,7 +55,8 @@ export const config = {
   matcher: [
     "/",
     "/actas/:path*",
-    "/procesos/:path*",
+    "/procesos/((?!importar$|importar/).*)",
+    "/procesos",
     "/clientes/:path*",
     "/contribuyentes/:path*",
     "/impuestos/:path*",

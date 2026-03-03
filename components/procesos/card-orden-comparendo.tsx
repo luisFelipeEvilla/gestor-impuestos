@@ -14,6 +14,13 @@ import { Button } from "@/components/ui/button";
 import { FileInputDropzone } from "@/components/ui/file-input-dropzone";
 import { Label } from "@/components/ui/label";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -27,7 +34,7 @@ import {
   actualizarLegibleOrdenComparendoDesdeFormData,
   eliminarOrdenComparendoDesdeFormData,
 } from "@/lib/actions/orden-comparendo";
-import { Eye, Download, Trash2, Loader2 } from "lucide-react";
+import { Eye, Download, Trash2, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DOCUMENTO_URL = (procesoId: number, docId: number, descargar?: boolean) => {
@@ -70,6 +77,22 @@ function BotonEliminarConEstado({ nombreOriginal }: { nombreOriginal: string }) 
   );
 }
 
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="size-4 mr-2 animate-spin" aria-hidden />
+          Subiendo…
+        </>
+      ) : (
+        "Subir archivo"
+      )}
+    </Button>
+  );
+}
+
 function formatDateTime(value: Date | string | null | undefined): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
@@ -85,6 +108,7 @@ function formatDateTime(value: Date | string | null | undefined): string {
 export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoProps) {
   const router = useRouter();
   const [openEliminarId, setOpenEliminarId] = useState<number | null>(null);
+  const [openSubir, setOpenSubir] = useState(false);
   const confirmandoEliminarRef = useRef(false);
 
   const [uploadState, uploadAction] = useActionState(
@@ -94,6 +118,7 @@ export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoP
       const legible = formData.get("legible") === "on";
       const r = await subirOrdenComparendo(procesoId, archivo, legible);
       if (r?.error) return r;
+      setOpenSubir(false);
       router.refresh();
       return {};
     },
@@ -102,14 +127,26 @@ export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoP
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Comparendo</CardTitle>
-        <CardDescription>
-          Documento Físico del comparendo.
-        </CardDescription>
+      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
+        <div>
+          <CardTitle>Comparendo</CardTitle>
+          <CardDescription>Documento físico del comparendo.</CardDescription>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-1.5 shrink-0"
+          onClick={() => setOpenSubir(true)}
+        >
+          <Plus className="size-3.5" aria-hidden />
+          Agregar archivo
+        </Button>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {ordenes.length > 0 && (
+      <CardContent>
+        {ordenes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hay documentos subidos aún.</p>
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -117,7 +154,7 @@ export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoP
                 <TableHead>Creador</TableHead>
                 <TableHead>Fecha de creación</TableHead>
                 <TableHead className="w-[100px]">Legible</TableHead>
-                <TableHead className="w-[200px] text-right">Acciones</TableHead>
+                <TableHead className="w-[120px] text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -230,13 +267,16 @@ export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoP
             </TableBody>
           </Table>
         )}
+      </CardContent>
 
-        <div className="space-y-4 pt-2 border-t border-border">
-          <p className="text-muted-foreground text-sm font-medium">
-            {ordenes.length === 0 ? "Subir documento" : "Subir otro documento"}
-          </p>
+      {/* Upload modal */}
+      <Dialog open={openSubir} onOpenChange={setOpenSubir}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agregar archivo de comparendo</DialogTitle>
+          </DialogHeader>
           <form action={uploadAction} className="space-y-4">
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
               <Label htmlFor="archivo-orden-comparendo-new">Archivo</Label>
               <FileInputDropzone
                 id="archivo-orden-comparendo-new"
@@ -254,17 +294,24 @@ export function CardOrdenComparendo({ procesoId, ordenes }: CardOrdenComparendoP
               />
               <Label htmlFor="legible-new-oc">Documento legible</Label>
             </div>
-            <Button type="submit">
-              {ordenes.length === 0 ? "Subir comparendo" : "Subir otro comparendo"}
-            </Button>
             {uploadState?.error && (
               <p className="text-destructive text-sm" role="alert">
                 {uploadState.error}
               </p>
             )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpenSubir(false)}
+              >
+                Cancelar
+              </Button>
+              <SubmitButton />
+            </DialogFooter>
           </form>
-        </div>
-      </CardContent>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

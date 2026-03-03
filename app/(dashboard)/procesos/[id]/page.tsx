@@ -509,25 +509,6 @@ export default async function DetalleProcesoPage({ params }: Props) {
             <div className="w-full space-y-6">
               <CardOrdenComparendo procesoId={row.id} ordenes={ordenesComparendoList} />
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Bitácora del proceso</CardTitle>
-                  <CardDescription>
-                    Registra llamadas, acuerdos y seguimiento que no correspondan a una etapa concreta. Útil para dejar trazabilidad y que el equipo vea el historial de gestión.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div>
-                    <h4 className="text-sm font-medium text-foreground mb-2">Añadir nota</h4>
-                    <AgregarNotaForm procesoId={row.id} categoria="general" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-foreground mb-2">Notas recientes</h4>
-                    <ListaNotas notas={notasPorCategoria.general} procesoId={row.id} sessionUser={sessionUser} />
-                  </div>
-                </CardContent>
-              </Card>
-
               <CardOrdenResolucion procesoId={row.id} orden={ordenResolucion} />
             </div>
 
@@ -565,6 +546,25 @@ export default async function DetalleProcesoPage({ params }: Props) {
                     puedeEliminar
                     variant="table"
                   />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Bitácora del proceso</CardTitle>
+                  <CardDescription>
+                    Registra llamadas, acuerdos y seguimiento que no correspondan a una etapa concreta. Útil para dejar trazabilidad y que el equipo vea el historial de gestión.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <h4 className="text-sm font-medium text-foreground mb-2">Añadir nota</h4>
+                    <AgregarNotaForm procesoId={row.id} categoria="general" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-foreground mb-2">Notas recientes</h4>
+                    <ListaNotas notas={notasPorCategoria.general} procesoId={row.id} sessionUser={sessionUser} />
+                  </div>
                 </CardContent>
               </Card>
             </div>

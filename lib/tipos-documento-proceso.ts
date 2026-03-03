@@ -29,7 +29,7 @@ const VALUE_TO_ENTRY = Object.fromEntries(
 
 /** Tipos permitidos por categoría: en cada etapa solo se ofrecen los relevantes. */
 const TIPOS_POR_CATEGORIA: Record<CategoriaDocumentoNota, TipoDocumentoProceso[]> = {
-  general: ["orden_resolucion", "acta_notificacion", "liquidacion", "constancia_pago", "otro"],
+  general: ["acta_notificacion", "liquidacion", "constancia_pago", "otro"],
   en_contacto: ["acta_notificacion", "liquidacion", "otro"],
   acuerdo_pago: ["acuerdo_pago_firmado", "liquidacion", "constancia_pago", "otro"],
   cobro_coactivo: [
