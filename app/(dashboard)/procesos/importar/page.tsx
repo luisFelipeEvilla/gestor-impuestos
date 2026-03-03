@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth-server";
 import { ImportarProcesosForm } from "@/components/procesos/importar-procesos-form";
 import { ImportarAcuerdosForm } from "@/components/procesos/importar-acuerdos-form";
+import { ImportarComparendosForm } from "@/components/procesos/importar-comparendos-form";
+import { ImportarResolucionesForm } from "@/components/procesos/importar-resoluciones-form";
 import { ImportarTabs } from "../../../../components/procesos/importar-tabs";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
@@ -29,13 +31,15 @@ export default async function ImportarProcesosPage() {
           </h1>
         </div>
         <p className="text-muted-foreground">
-          Importe procesos desde CSV/Excel o acuerdos de pago desde CSV.
+          Importe procesos desde CSV/Excel, acuerdos de pago desde CSV, o documentos PDF de comparendo y resolución en masa.
         </p>
       </div>
 
       <ImportarTabs
         procesosTab={<ImportarProcesosForm />}
         acuerdosTab={<ImportarAcuerdosForm />}
+        comparendosTab={<ImportarComparendosForm />}
+        resolucionesTab={<ImportarResolucionesForm />}
       />
     </div>
   );

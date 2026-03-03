@@ -45,3 +45,39 @@ export const importacionesAcuerdos = pgTable("importaciones_acuerdos", {
 
 export type ImportacionAcuerdos = typeof importacionesAcuerdos.$inferSelect;
 export type NewImportacionAcuerdos = typeof importacionesAcuerdos.$inferInsert;
+
+// Tabla: importaciones_comparendos (registro de cada importación masiva de PDFs de comparendo)
+export const importacionesComparendos = pgTable("importaciones_comparendos", {
+  id: serial("id").primaryKey(),
+  usuarioId: integer("usuario_id").references(() => usuarios.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+  totalArchivos: integer("total_archivos").notNull().default(0),
+  importados: integer("importados").notNull().default(0),
+  omitidos: integer("omitidos").notNull().default(0),
+  fallidos: integer("fallidos").notNull().default(0),
+  estado: text("estado").notNull().default("procesando"),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type ImportacionComparendos = typeof importacionesComparendos.$inferSelect;
+export type NewImportacionComparendos = typeof importacionesComparendos.$inferInsert;
+
+// Tabla: importaciones_resoluciones (registro de cada importación masiva de PDFs de orden de resolución)
+export const importacionesResoluciones = pgTable("importaciones_resoluciones", {
+  id: serial("id").primaryKey(),
+  usuarioId: integer("usuario_id").references(() => usuarios.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+  totalArchivos: integer("total_archivos").notNull().default(0),
+  importados: integer("importados").notNull().default(0),
+  omitidos: integer("omitidos").notNull().default(0),
+  fallidos: integer("fallidos").notNull().default(0),
+  estado: text("estado").notNull().default("procesando"),
+  creadoEn: timestamp("creado_en", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type ImportacionResoluciones = typeof importacionesResoluciones.$inferSelect;
+export type NewImportacionResoluciones = typeof importacionesResoluciones.$inferInsert;
