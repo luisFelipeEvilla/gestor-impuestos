@@ -14,6 +14,8 @@ import {
   usuarios,
   historialProceso,
   ordenesResolucion,
+  acuerdosPago,
+  ordenComparendo,
 } from "@/lib/db/schema";
 import { asc, desc, eq, and, inArray, notInArray, sql, count, ilike } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
@@ -69,6 +71,9 @@ const ANTIGUEDAD_VALIDOS = [
 const ORDER_BY_VALIDOS = ["fechaLimite", "creadoEn", "montoCop", "vigencia", "estadoActual"] as const;
 const ORDER_VALIDOS = ["asc", "desc"] as const;
 
+const PRESENCIA_VALIDOS = ["con", "sin"] as const;
+type Presencia = (typeof PRESENCIA_VALIDOS)[number];
+
 function buildProcesosUrl(filtros: {
   estado?: string | null;
   vigencia?: number | null;
@@ -78,6 +83,9 @@ function buildProcesosUrl(filtros: {
   noComparendo?: string | null;
   documento?: string | null;
   nombre?: string | null;
+  acuerdoPago?: Presencia | null;
+  comprobante?: Presencia | null;
+  ordenResolucion?: Presencia | null;
   page?: number;
   perPage?: number;
   orderBy?: (typeof ORDER_BY_VALIDOS)[number];
@@ -93,6 +101,9 @@ function buildProcesosUrl(filtros: {
   if (filtros.noComparendo?.trim()) search.set("noComparendo", filtros.noComparendo.trim());
   if (filtros.documento?.trim()) search.set("documento", filtros.documento.trim());
   if (filtros.nombre?.trim()) search.set("nombre", filtros.nombre.trim());
+  if (filtros.acuerdoPago) search.set("acuerdoPago", filtros.acuerdoPago);
+  if (filtros.comprobante) search.set("comprobante", filtros.comprobante);
+  if (filtros.ordenResolucion) search.set("ordenResolucion", filtros.ordenResolucion);
   if (filtros.perPage != null) search.set("perPage", String(filtros.perPage));
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
   if (filtros.orderBy && ORDER_BY_VALIDOS.includes(filtros.orderBy)) search.set("orderBy", filtros.orderBy);
@@ -111,6 +122,9 @@ type Props = {
     noComparendo?: string;
     documento?: string;
     nombre?: string;
+    acuerdoPago?: string;
+    comprobante?: string;
+    ordenResolucion?: string;
     page?: string;
     perPage?: string;
     orderBy?: string;
@@ -156,6 +170,13 @@ export default async function ProcesosPage({ searchParams }: Props) {
     antiguedadParam != null && ANTIGUEDAD_VALIDOS.includes(antiguedadParam as (typeof ANTIGUEDAD_VALIDOS)[number])
       ? (antiguedadParam as (typeof ANTIGUEDAD_VALIDOS)[number])
       : null;
+  const acuerdoPagoActual: Presencia | null =
+    PRESENCIA_VALIDOS.includes(params.acuerdoPago as Presencia) ? (params.acuerdoPago as Presencia) : null;
+  const comprobanteActual: Presencia | null =
+    PRESENCIA_VALIDOS.includes(params.comprobante as Presencia) ? (params.comprobante as Presencia) : null;
+  const ordenResolucionActual: Presencia | null =
+    PRESENCIA_VALIDOS.includes(params.ordenResolucion as Presencia) ? (params.ordenResolucion as Presencia) : null;
+
   const orderByParam = params.orderBy;
   const orderByActual: (typeof ORDER_BY_VALIDOS)[number] =
     orderByParam != null && ORDER_BY_VALIDOS.includes(orderByParam as (typeof ORDER_BY_VALIDOS)[number])
@@ -245,6 +266,21 @@ export default async function ProcesosPage({ searchParams }: Props) {
         condiciones.push(sql`${procesos.fechaLimite} IS NULL`);
         break;
     }
+  }
+  if (acuerdoPagoActual === "con") {
+    condiciones.push(sql`EXISTS (SELECT 1 FROM acuerdos_pago WHERE proceso_id = ${procesos.id})`);
+  } else if (acuerdoPagoActual === "sin") {
+    condiciones.push(sql`NOT EXISTS (SELECT 1 FROM acuerdos_pago WHERE proceso_id = ${procesos.id})`);
+  }
+  if (comprobanteActual === "con") {
+    condiciones.push(sql`EXISTS (SELECT 1 FROM orden_comparendo WHERE proceso_id = ${procesos.id})`);
+  } else if (comprobanteActual === "sin") {
+    condiciones.push(sql`NOT EXISTS (SELECT 1 FROM orden_comparendo WHERE proceso_id = ${procesos.id})`);
+  }
+  if (ordenResolucionActual === "con") {
+    condiciones.push(sql`EXISTS (SELECT 1 FROM ordenes_resolucion WHERE proceso_id = ${procesos.id})`);
+  } else if (ordenResolucionActual === "sin") {
+    condiciones.push(sql`NOT EXISTS (SELECT 1 FROM ordenes_resolucion WHERE proceso_id = ${procesos.id})`);
   }
   if (session?.user?.rol !== "admin") {
     if (!session?.user?.id) {
@@ -374,7 +410,10 @@ export default async function ProcesosPage({ searchParams }: Props) {
     fechaAsignacion != null ||
     noComparendoActual != null ||
     documentoActual != null ||
-    nombreActual != null;
+    nombreActual != null ||
+    acuerdoPagoActual != null ||
+    comprobanteActual != null ||
+    ordenResolucionActual != null;
 
   const descripcionOrden =
     orderByActual === "fechaLimite"
@@ -398,6 +437,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
     ...(noComparendoActual ? { noComparendo: noComparendoActual } : {}),
     ...(documentoActual ? { documento: documentoActual } : {}),
     ...(nombreActual ? { nombre: nombreActual } : {}),
+    ...(acuerdoPagoActual ? { acuerdoPago: acuerdoPagoActual } : {}),
+    ...(comprobanteActual ? { comprobante: comprobanteActual } : {}),
+    ...(ordenResolucionActual ? { ordenResolucion: ordenResolucionActual } : {}),
     orderBy: orderByActual,
     order: orderActual,
   };
@@ -421,6 +463,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
                 usuarios={usuariosList}
                 asignadoIdActual={asignadoIdNum}
                 fechaAsignacionActual={fechaAsignacion}
+                acuerdoPagoActual={acuerdoPagoActual}
+                comprobanteActual={comprobanteActual}
+                ordenResolucionActual={ordenResolucionActual}
               />
             </Suspense>
           </div>
@@ -435,6 +480,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
               noComparendo={noComparendoActual}
               documento={documentoActual}
               nombre={nombreActual}
+              acuerdoPago={acuerdoPagoActual}
+              comprobante={comprobanteActual}
+              ordenResolucion={ordenResolucionActual}
               orderBy={orderByActual}
               order={orderActual}
               perPage={pageSize}
@@ -545,6 +593,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
             noComparendo: undefined,
             documento: undefined,
             nombre: undefined,
+            acuerdoPago: acuerdoPagoActual ?? undefined,
+            comprobante: comprobanteActual ?? undefined,
+            ordenResolucion: ordenResolucionActual ?? undefined,
             perPage: pageSize,
             page: 1,
             orderBy: orderByActual,
@@ -607,6 +658,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
                     noComparendo: noComparendoActual ?? undefined,
                     documento: documentoActual ?? undefined,
                     nombre: nombreActual ?? undefined,
+                    acuerdoPago: acuerdoPagoActual ?? undefined,
+                    comprobante: comprobanteActual ?? undefined,
+                    ordenResolucion: ordenResolucionActual ?? undefined,
                     perPage: pageSize,
                     page: p,
                     orderBy: orderByActual,

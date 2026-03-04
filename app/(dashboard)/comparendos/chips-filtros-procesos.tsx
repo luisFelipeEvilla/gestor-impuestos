@@ -37,6 +37,9 @@ interface ChipsFiltrosProcesosProps {
   noComparendo: string | null;
   documento: string | null;
   nombre: string | null;
+  acuerdoPago: "con" | "sin" | null;
+  comprobante: "con" | "sin" | null;
+  ordenResolucion: "con" | "sin" | null;
   orderBy?: string;
   order?: string;
   perPage?: number;
@@ -53,6 +56,9 @@ export function ChipsFiltrosProcesos({
   noComparendo,
   documento,
   nombre,
+  acuerdoPago,
+  comprobante,
+  ordenResolucion,
   orderBy,
   order,
   perPage,
@@ -67,6 +73,9 @@ export function ChipsFiltrosProcesos({
   if (noComparendo?.trim()) params.set("noComparendo", noComparendo.trim());
   if (documento?.trim()) params.set("documento", documento.trim());
   if (nombre?.trim()) params.set("nombre", nombre.trim());
+  if (acuerdoPago) params.set("acuerdoPago", acuerdoPago);
+  if (comprobante) params.set("comprobante", comprobante);
+  if (ordenResolucion) params.set("ordenResolucion", ordenResolucion);
   if (orderBy) params.set("orderBy", orderBy);
   if (order) params.set("order", order);
   if (perPage != null) params.set("perPage", String(perPage));
@@ -119,6 +128,24 @@ export function ChipsFiltrosProcesos({
     chips.push({
       label: `Nombre: ${nombre.trim()}`,
       href: buildUrl(params, { key: "nombre" }),
+    });
+  }
+  if (acuerdoPago) {
+    chips.push({
+      label: `Acuerdo de pago: ${acuerdoPago === "con" ? "Con" : "Sin"}`,
+      href: buildUrl(params, { key: "acuerdoPago" }),
+    });
+  }
+  if (comprobante) {
+    chips.push({
+      label: `Comprobante: ${comprobante === "con" ? "Con" : "Sin"}`,
+      href: buildUrl(params, { key: "comprobante" }),
+    });
+  }
+  if (ordenResolucion) {
+    chips.push({
+      label: `Ord. resolución: ${ordenResolucion === "con" ? "Con" : "Sin"}`,
+      href: buildUrl(params, { key: "ordenResolucion" }),
     });
   }
 

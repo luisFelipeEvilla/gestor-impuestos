@@ -43,6 +43,12 @@ const OPCIONES_ANTIGUEDAD = [
 
 type UsuarioOption = { id: number; nombre: string };
 
+const OPCIONES_PRESENCIA = [
+  { value: "todos", label: "Todos" },
+  { value: "con", label: "Con" },
+  { value: "sin", label: "Sin" },
+] as const;
+
 type FiltrosProcesosProps = {
   estadoActual: string | null;
   vigenciaActual: number | null;
@@ -50,6 +56,9 @@ type FiltrosProcesosProps = {
   usuarios: UsuarioOption[];
   asignadoIdActual: number | null;
   fechaAsignacionActual: string | null;
+  acuerdoPagoActual: "con" | "sin" | null;
+  comprobanteActual: "con" | "sin" | null;
+  ordenResolucionActual: "con" | "sin" | null;
 };
 
 export function FiltrosProcesos({
@@ -59,6 +68,9 @@ export function FiltrosProcesos({
   usuarios: usuariosList,
   asignadoIdActual,
   fechaAsignacionActual,
+  acuerdoPagoActual,
+  comprobanteActual,
+  ordenResolucionActual,
 }: FiltrosProcesosProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -70,6 +82,9 @@ export function FiltrosProcesos({
       antiguedad?: string | null;
       asignadoId?: number | null;
       fechaAsignacion?: string | null;
+      acuerdoPago?: string | null;
+      comprobante?: string | null;
+      ordenResolucion?: string | null;
     }) => {
       const params = new URLSearchParams(searchParams.toString());
       const estado =
@@ -86,18 +101,30 @@ export function FiltrosProcesos({
         updates.fechaAsignacion !== undefined
           ? updates.fechaAsignacion
           : fechaAsignacionActual;
+      const acuerdo =
+        updates.acuerdoPago !== undefined ? updates.acuerdoPago : acuerdoPagoActual;
+      const comprobante =
+        updates.comprobante !== undefined ? updates.comprobante : comprobanteActual;
+      const ordenRes =
+        updates.ordenResolucion !== undefined ? updates.ordenResolucion : ordenResolucionActual;
 
       params.delete("estado");
       params.delete("vigencia");
       params.delete("antiguedad");
       params.delete("asignado");
       params.delete("fechaAsignacion");
+      params.delete("acuerdoPago");
+      params.delete("comprobante");
+      params.delete("ordenResolucion");
       if (estado != null && estado !== "todos") params.set("estado", estado);
       if (vigencia != null) params.set("vigencia", String(vigencia));
       if (antig != null && antig !== "todos") params.set("antiguedad", antig);
       if (asigId != null && asigId > 0) params.set("asignado", String(asigId));
       if (fechaAsig != null && fechaAsig !== "")
         params.set("fechaAsignacion", fechaAsig);
+      if (acuerdo != null && acuerdo !== "todos") params.set("acuerdoPago", acuerdo);
+      if (comprobante != null && comprobante !== "todos") params.set("comprobante", comprobante);
+      if (ordenRes != null && ordenRes !== "todos") params.set("ordenResolucion", ordenRes);
       return params;
     },
     [
@@ -107,6 +134,9 @@ export function FiltrosProcesos({
       antiguedadActual,
       fechaAsignacionActual,
       asignadoIdActual,
+      acuerdoPagoActual,
+      comprobanteActual,
+      ordenResolucionActual,
     ]
   );
 
@@ -159,6 +189,30 @@ export function FiltrosProcesos({
     [router, buildParams]
   );
 
+  const handleAcuerdoPagoChange = useCallback(
+    (value: string) => {
+      const params = buildParams({ acuerdoPago: value === "todos" ? null : value });
+      router.push(`/comparendos?${params.toString()}`);
+    },
+    [router, buildParams]
+  );
+
+  const handleComprobanteChange = useCallback(
+    (value: string) => {
+      const params = buildParams({ comprobante: value === "todos" ? null : value });
+      router.push(`/comparendos?${params.toString()}`);
+    },
+    [router, buildParams]
+  );
+
+  const handleOrdenResolucionChange = useCallback(
+    (value: string) => {
+      const params = buildParams({ ordenResolucion: value === "todos" ? null : value });
+      router.push(`/comparendos?${params.toString()}`);
+    },
+    [router, buildParams]
+  );
+
   const handleLimpiar = useCallback(() => {
     router.push("/comparendos");
   }, [router]);
@@ -168,7 +222,10 @@ export function FiltrosProcesos({
     vigenciaActual != null ||
     (antiguedadActual != null && antiguedadActual !== "todos") ||
     asignadoIdActual != null ||
-    fechaAsignacionActual != null;
+    fechaAsignacionActual != null ||
+    acuerdoPagoActual != null ||
+    comprobanteActual != null ||
+    ordenResolucionActual != null;
 
   const fieldClass = "min-w-0 w-full h-10";
 
@@ -277,6 +334,66 @@ export function FiltrosProcesos({
           </SelectTrigger>
           <SelectContent>
             {OPCIONES_ANTIGUEDAD.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="filtro-acuerdo-pago" className="text-xs text-muted-foreground">
+          Acuerdo de pago
+        </Label>
+        <Select
+          value={acuerdoPagoActual ?? "todos"}
+          onValueChange={handleAcuerdoPagoChange}
+        >
+          <SelectTrigger id="filtro-acuerdo-pago" className={fieldClass}>
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            {OPCIONES_PRESENCIA.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="filtro-comprobante" className="text-xs text-muted-foreground">
+          Comprobante físico
+        </Label>
+        <Select
+          value={comprobanteActual ?? "todos"}
+          onValueChange={handleComprobanteChange}
+        >
+          <SelectTrigger id="filtro-comprobante" className={fieldClass}>
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            {OPCIONES_PRESENCIA.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="filtro-orden-resolucion" className="text-xs text-muted-foreground">
+          Orden de resolución
+        </Label>
+        <Select
+          value={ordenResolucionActual ?? "todos"}
+          onValueChange={handleOrdenResolucionChange}
+        >
+          <SelectTrigger id="filtro-orden-resolucion" className={fieldClass}>
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            {OPCIONES_PRESENCIA.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
               </SelectItem>
