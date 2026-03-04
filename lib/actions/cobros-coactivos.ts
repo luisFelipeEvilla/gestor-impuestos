@@ -73,8 +73,8 @@ export async function crearCobroCoactivo(
       activo: true,
     });
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
@@ -115,8 +115,8 @@ export async function actualizarCobroCoactivo(
       })
       .where(eq(cobrosCoactivos.id, cobroId));
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
@@ -158,8 +158,8 @@ export async function eliminarCobroCoactivo(
 
     await db.delete(cobrosCoactivos).where(eq(cobrosCoactivos.id, cobroId));
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;

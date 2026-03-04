@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText, ChevronRight } from "lucide-react";
+import { FileText, ChevronRight, Upload } from "lucide-react";
 import { db } from "@/lib/db";
 import { importacionesAcuerdos, usuarios } from "@/lib/db/schema";
 import { eq, desc, count } from "drizzle-orm";
@@ -72,7 +72,7 @@ export default async function ImportacionesAcuerdosPage({ searchParams }: Props)
   unstable_noStore();
   const session = await getSession();
   if (session?.user?.rol !== "admin") {
-    redirect("/procesos");
+    redirect("/comparendos");
   }
 
   const params = await searchParams;
@@ -191,6 +191,12 @@ export default async function ImportacionesAcuerdosPage({ searchParams }: Props)
             Importaciones de acuerdos de pago
           </h1>
         </div>
+        <Button asChild>
+          <Link href="/importaciones/importar-acuerdos">
+            <Upload className="size-4 mr-2" aria-hidden />
+            Importar
+          </Link>
+        </Button>
       </div>
 
       <Card>
@@ -211,6 +217,7 @@ export default async function ImportacionesAcuerdosPage({ searchParams }: Props)
             sinDatos={{
               icon: FileText,
               message: "No hay importaciones de acuerdos de pago.",
+              action: { href: "/importaciones/importar-acuerdos", label: "Importar →" },
             }}
           />
           <Paginacion

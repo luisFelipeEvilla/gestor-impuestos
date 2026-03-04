@@ -73,8 +73,8 @@ export async function subirOrdenComparendo(
       legible: !!legible,
     });
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
@@ -142,8 +142,8 @@ export async function actualizarOrdenComparendo(
       })
       .where(eq(ordenComparendo.id, documentoId));
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
@@ -182,8 +182,8 @@ export async function actualizarLegibleOrdenComparendo(
       .set({ legible, actualizadoEn: new Date() })
       .where(eq(ordenComparendo.id, documentoId));
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
@@ -219,8 +219,8 @@ export async function eliminarOrdenComparendo(
     await deleteProcesoDocument(orden.rutaArchivo);
     await db.delete(ordenComparendo).where(eq(ordenComparendo.id, documentoId));
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;

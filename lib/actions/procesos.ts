@@ -193,9 +193,9 @@ export async function crearProceso(
         comentario: "Proceso asignado al crear",
       });
     }
-    revalidatePath("/procesos");
+    revalidatePath("/comparendos");
     revalidatePath("/");
-    redirect(`/procesos/${inserted.id}`);
+    redirect(`/comparendos/${inserted.id}`);
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
       throw err;
@@ -322,11 +322,11 @@ export async function actualizarProceso(
       });
     }
 
-    revalidatePath("/procesos");
-    revalidatePath(`/procesos/${parsed.data.id}`);
-    revalidatePath(`/procesos/${parsed.data.id}/editar`);
+    revalidatePath("/comparendos");
+    revalidatePath(`/comparendos/${parsed.data.id}`);
+    revalidatePath(`/comparendos/${parsed.data.id}/editar`);
     revalidatePath("/");
-    redirect(`/procesos/${updated.id}`);
+    redirect(`/comparendos/${updated.id}`);
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
       throw err;
@@ -356,9 +356,9 @@ export async function eliminarProceso(formData: FormData): Promise<EstadoFormPro
     }
     const [deleted] = await db.delete(procesos).where(eq(procesos.id, id)).returning({ id: procesos.id });
     if (!deleted) return { error: "Proceso no encontrado." };
-    revalidatePath("/procesos");
+    revalidatePath("/comparendos");
     revalidatePath("/");
-    redirect("/procesos");
+    redirect("/comparendos");
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
       throw err;
@@ -430,8 +430,8 @@ export async function cambiarEstadoProceso(
       comentario,
     });
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
@@ -500,8 +500,8 @@ export async function asignarProceso(
       });
     }
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
@@ -561,8 +561,8 @@ export async function asignarProcesosEnLote(
       }
     }
 
-    for (const id of ids) revalidatePath(`/procesos/${id}`);
-    revalidatePath("/procesos");
+    for (const id of ids) revalidatePath(`/comparendos/${id}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
@@ -609,8 +609,8 @@ export async function agregarNotaProceso(
       categoriaNota,
     });
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
@@ -662,8 +662,8 @@ export async function eliminarNotaProceso(
       .delete(historialProceso)
       .where(eq(historialProceso.id, historialId));
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
@@ -719,8 +719,8 @@ export async function actualizarNotaProceso(
       .set({ comentario: comentarioTrim })
       .where(eq(historialProceso.id, historialId));
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
@@ -847,9 +847,9 @@ async function registrarNotificacion(procesoId: number): Promise<EstadoGestionPr
       metadata: { envios: [evidencia] },
     });
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
-    redirect(`/procesos/${procesoId}`);
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
+    redirect(`/comparendos/${procesoId}`);
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
       throw err;
@@ -931,9 +931,9 @@ async function registrarNotificacionFisica(
       metadata: { tipo: "fisica", documentoIds },
     });
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
-    redirect(`/procesos/${procesoId}`);
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
+    redirect(`/comparendos/${procesoId}`);
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
       throw err;

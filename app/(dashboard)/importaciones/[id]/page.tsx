@@ -109,7 +109,7 @@ export default async function ImportacionDetallePage({ params }: Props) {
           </div>
           {session?.user?.rol === "admin" && (
             <Button asChild>
-              <Link href="/procesos/importar">
+              <Link href="/comparendos/importar">
                 <Upload className="size-4 mr-2" aria-hidden />
                 Nueva importación
               </Link>
@@ -218,7 +218,7 @@ export default async function ImportacionDetallePage({ params }: Props) {
               listado de procesos.
             </p>
             <Button variant="outline" asChild>
-              <Link href="/procesos">
+              <Link href="/comparendos">
                 Ver procesos <ChevronRight className="size-4 ml-1" aria-hidden />
               </Link>
             </Button>

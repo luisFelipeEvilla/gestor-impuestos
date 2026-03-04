@@ -57,7 +57,7 @@ export default async function EditarProcesoPage({ params }: Props) {
     <div className="p-6 space-y-6">
       <div className="mb-6 flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href={`/procesos/${proceso.id}`}>← Ver proceso</Link>
+          <Link href={`/comparendos/${proceso.id}`}>← Ver proceso</Link>
         </Button>
       </div>
       <div className="mx-auto max-w-3xl">

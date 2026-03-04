@@ -76,7 +76,7 @@ export default async function ImportacionAcuerdosDetallePage({ params }: Props) 
   unstable_noStore();
   const session = await getSession();
   if (session?.user?.rol !== "admin") {
-    redirect("/procesos");
+    redirect("/comparendos");
   }
 
   const { id: idRaw } = await params;
@@ -144,7 +144,7 @@ export default async function ImportacionAcuerdosDetallePage({ params }: Props) 
             </h1>
           </div>
           <Button asChild>
-            <Link href="/procesos/importar">
+            <Link href="/comparendos/importar">
               <Upload className="size-4 mr-2" aria-hidden />
               Nueva importación
             </Link>
@@ -253,7 +253,7 @@ export default async function ImportacionAcuerdosDetallePage({ params }: Props) 
             </CardDescription>
           </div>
           <Button variant="outline" size="sm" asChild>
-            <Link href="/procesos">
+            <Link href="/comparendos">
               Ver procesos <ChevronRight className="size-4 ml-1" aria-hidden />
             </Link>
           </Button>
@@ -304,7 +304,7 @@ export default async function ImportacionAcuerdosDetallePage({ params }: Props) 
                       </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
-                          <Link href={`/procesos/${a.procesoId}`}>
+                          <Link href={`/comparendos/${a.procesoId}`}>
                             Ver <ChevronRight className="size-4" aria-hidden />
                           </Link>
                         </Button>

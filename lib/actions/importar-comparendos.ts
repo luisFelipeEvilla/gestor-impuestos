@@ -302,7 +302,7 @@ export async function ejecutarImportacionComparendos(
     .set({ importados, omitidos, fallidos, estado: estadoFinal })
     .where(eq(importacionesComparendos.id, importacionId));
 
-  revalidatePath("/procesos");
+  revalidatePath("/comparendos");
   revalidatePath("/");
 
   return {

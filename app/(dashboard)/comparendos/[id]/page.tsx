@@ -286,11 +286,11 @@ export default async function DetalleProcesoPage({ params }: Props) {
     <div className="p-6 space-y-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/procesos">← Procesos</Link>
+          <Link href="/comparendos">← Procesos</Link>
         </Button>
         <div className="flex gap-2">
           <Button asChild>
-            <Link href={`/procesos/${row.id}/editar`}>Editar</Link>
+            <Link href={`/comparendos/${row.id}/editar`}>Editar</Link>
           </Button>
           <EliminarProcesoButton id={row.id} />
         </div>

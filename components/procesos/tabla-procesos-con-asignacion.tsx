@@ -208,7 +208,7 @@ export function TablaProcesosConAsignacion({
       params.set("orderBy", nextOrderBy);
       params.set("order", nextOrder);
       params.set("page", "1");
-      return `/procesos?${params.toString()}`;
+      return `/comparendos?${params.toString()}`;
     },
     [searchParams]
   );
@@ -341,7 +341,7 @@ export function TablaProcesosConAsignacion({
             <DropdownMenuLabel>Mostrar columnas</DropdownMenuLabel>
             {COLUMNS.map((col) => {
               const visible = isColumnVisible(col.id);
-              const disabled = col.id === "seleccion" && !isAdmin;
+              const disabled = (col.id === "seleccion" || col.id === "asignado") && !isAdmin;
               return (
                 <DropdownMenuItem
                   key={col.id}
@@ -383,7 +383,7 @@ export function TablaProcesosConAsignacion({
                 />
               </TableHead>
             )}
-            {isColumnVisible("asignado") && <TableHead>Asignado</TableHead>}
+            {isAdmin && isColumnVisible("asignado") && <TableHead>Asignado</TableHead>}
             {isColumnVisible("noComparendo") && <TableHead>No. comparendo</TableHead>}
             {isColumnVisible("antiguedad") && (
               <SortableHead columnId="antiguedad" label="Antigüedad" className="text-center" />
@@ -433,7 +433,7 @@ export function TablaProcesosConAsignacion({
                   />
                 </TableCell>
               )}
-              {isColumnVisible("asignado") && (
+              {isAdmin && isColumnVisible("asignado") && (
                 <TableCell className="text-muted-foreground">
                   {p.asignadoNombre ?? "—"}
                 </TableCell>
@@ -483,7 +483,7 @@ export function TablaProcesosConAsignacion({
               {isColumnVisible("accion") && (
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
-                    <Link href={`/procesos/${p.id}`}>
+                    <Link href={`/comparendos/${p.id}`}>
                       Ver <ChevronRight className="size-4" aria-hidden />
                     </Link>
                   </Button>

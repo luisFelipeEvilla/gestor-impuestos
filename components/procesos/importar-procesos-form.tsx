@@ -312,7 +312,7 @@ export function ImportarProcesosForm() {
 
           <div className="flex flex-wrap gap-2">
             <Button asChild>
-              <Link href="/procesos">Ver procesos</Link>
+              <Link href="/comparendos">Ver procesos</Link>
             </Button>
             <Button variant="outline" onClick={handleReset}>
               Importar otro archivo

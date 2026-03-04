@@ -83,9 +83,9 @@ export async function crearOrdenResolucion(
       tamano,
     });
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath(`/procesos/${procesoId}/editar`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath(`/comparendos/${procesoId}/editar`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
@@ -151,9 +151,9 @@ export async function actualizarOrdenResolucion(
       })
       .where(eq(ordenesResolucion.procesoId, procesoId));
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath(`/procesos/${procesoId}/editar`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath(`/comparendos/${procesoId}/editar`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
@@ -181,9 +181,9 @@ export async function eliminarOrdenResolucion(procesoId: number): Promise<Estado
 
     await db.delete(ordenesResolucion).where(eq(ordenesResolucion.procesoId, procesoId));
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath(`/procesos/${procesoId}/editar`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath(`/comparendos/${procesoId}/editar`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;

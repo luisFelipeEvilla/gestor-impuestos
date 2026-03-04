@@ -348,7 +348,7 @@ export default async function DashboardPage({ searchParams }: Props) {
           <p className="text-muted-foreground text-sm">
             No hay procesos de cobro.{" "}
             <Link
-              href="/procesos"
+              href="/comparendos"
               className="text-primary font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
             >
               Crea uno desde Procesos
@@ -360,7 +360,7 @@ export default async function DashboardPage({ searchParams }: Props) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Link
-          href="/procesos"
+          href="/comparendos"
           className="block rounded-2xl transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="Ver procesos de cobro"
         >
@@ -381,7 +381,7 @@ export default async function DashboardPage({ searchParams }: Props) {
         </Link>
 
         <Link
-          href="/procesos"
+          href="/comparendos"
           className="block rounded-2xl transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="Ver procesos en gestión"
         >
@@ -492,7 +492,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                 {vencimientosProximos.map((p) => (
                   <li key={p.id}>
                     <Link
-                      href={`/procesos/${p.id}`}
+                      href={`/comparendos/${p.id}`}
                       className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-transparent px-3 py-2.5 text-sm transition-colors hover:border-border hover:bg-accent/50"
                     >
                       <span className="font-medium text-foreground">
@@ -515,7 +515,7 @@ export default async function DashboardPage({ searchParams }: Props) {
             )}
             <div className="mt-3">
               <Link
-                href="/procesos"
+                href="/comparendos"
                 className="text-primary text-sm font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
               >
                 Ver todos los procesos →
@@ -548,7 +548,7 @@ export default async function DashboardPage({ searchParams }: Props) {
                 {procesosRecientes.map((p) => (
                   <li key={p.id}>
                     <Link
-                      href={`/procesos/${p.id}`}
+                      href={`/comparendos/${p.id}`}
                       className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-transparent px-3 py-2.5 text-sm transition-colors hover:border-border hover:bg-accent/50"
                     >
                       <span className="font-medium text-foreground">
@@ -567,7 +567,7 @@ export default async function DashboardPage({ searchParams }: Props) {
             )}
             <div className="mt-3">
               <Link
-                href="/procesos"
+                href="/comparendos"
                 className="text-primary text-sm font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
               >
                 Ver todos los procesos →

@@ -468,7 +468,7 @@ export async function crearProcesosDesdeSinMatch(
     }
   }
 
-  revalidatePath("/procesos");
+  revalidatePath("/comparendos");
   revalidatePath("/");
   return { ok: true, creados, omitidos, errores };
 }
@@ -659,7 +659,7 @@ export async function ejecutarImportacionAcuerdos(
     })
     .where(eq(importacionesAcuerdos.id, importacionId));
 
-  revalidatePath("/procesos");
+  revalidatePath("/comparendos");
   revalidatePath("/");
   return {
     ok: true,

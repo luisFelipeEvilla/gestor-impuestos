@@ -24,7 +24,7 @@ function buildUrl(params: URLSearchParams, remove: { key: string }): string {
   const next = new URLSearchParams(params);
   next.delete(remove.key);
   const q = next.toString();
-  return q ? `/procesos?${q}` : "/procesos";
+  return q ? `/comparendos?${q}` : "/comparendos";
 }
 
 interface ChipsFiltrosProcesosProps {
@@ -36,6 +36,7 @@ interface ChipsFiltrosProcesosProps {
   fechaAsignacion: string | null;
   noComparendo: string | null;
   documento: string | null;
+  nombre: string | null;
   orderBy?: string;
   order?: string;
   perPage?: number;
@@ -51,6 +52,7 @@ export function ChipsFiltrosProcesos({
   fechaAsignacion,
   noComparendo,
   documento,
+  nombre,
   orderBy,
   order,
   perPage,
@@ -64,6 +66,7 @@ export function ChipsFiltrosProcesos({
   if (fechaAsignacion) params.set("fechaAsignacion", fechaAsignacion);
   if (noComparendo?.trim()) params.set("noComparendo", noComparendo.trim());
   if (documento?.trim()) params.set("documento", documento.trim());
+  if (nombre?.trim()) params.set("nombre", nombre.trim());
   if (orderBy) params.set("orderBy", orderBy);
   if (order) params.set("order", order);
   if (perPage != null) params.set("perPage", String(perPage));
@@ -110,6 +113,12 @@ export function ChipsFiltrosProcesos({
     chips.push({
       label: `NIT/doc.: ${documento.trim()}`,
       href: buildUrl(params, { key: "documento" }),
+    });
+  }
+  if (nombre?.trim()) {
+    chips.push({
+      label: `Nombre: ${nombre.trim()}`,
+      href: buildUrl(params, { key: "nombre" }),
     });
   }
 

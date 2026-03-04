@@ -93,7 +93,7 @@ export async function crearContribuyente(
     if (!inserted) throw new Error("No se pudo crear el contribuyente");
     revalidatePath("/contribuyentes");
     revalidatePath("/");
-    revalidatePath("/procesos");
+    revalidatePath("/comparendos");
     redirect(`/contribuyentes/${inserted.id}`);
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
@@ -165,7 +165,7 @@ export async function actualizarContribuyente(
     revalidatePath(`/contribuyentes/${parsed.data.id}`);
     revalidatePath(`/contribuyentes/${parsed.data.id}/editar`);
     revalidatePath("/");
-    revalidatePath("/procesos");
+    revalidatePath("/comparendos");
     redirect(`/contribuyentes/${updated.id}`);
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
@@ -187,7 +187,7 @@ export async function eliminarContribuyente(formData: FormData): Promise<EstadoF
     if (!deleted) return { error: "Contribuyente no encontrado." };
     revalidatePath("/contribuyentes");
     revalidatePath("/");
-    revalidatePath("/procesos");
+    revalidatePath("/comparendos");
     redirect("/contribuyentes");
   } catch (err) {
     if (err && typeof err === "object" && "code" in err && (err as { code?: string }).code === "23503") {

@@ -164,7 +164,7 @@ export default async function DetalleContribuyentePage({ params }: Props) {
                     <TableCell>{labelEstado(p.estadoActual)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
-                        <Link href={`/procesos/${p.id}`}>
+                        <Link href={`/comparendos/${p.id}`}>
                           Ver <ChevronRight className="size-4" aria-hidden />
                         </Link>
                       </Button>

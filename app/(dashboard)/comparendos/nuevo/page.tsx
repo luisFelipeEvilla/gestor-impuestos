@@ -21,7 +21,7 @@ export default async function NuevoProcesoPage() {
     <div className="p-6">
       <div className="mb-6 flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/procesos">← Procesos</Link>
+          <Link href="/comparendos">← Procesos</Link>
         </Button>
       </div>
       <div className="mx-auto max-w-3xl">

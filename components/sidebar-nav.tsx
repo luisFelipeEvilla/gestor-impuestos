@@ -27,7 +27,7 @@ const navItemsMain: {
   adminOnly?: boolean;
 }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/procesos", label: "Comparendos", icon: FolderOpen },
+  { href: "/comparendos", label: "Comparendos", icon: FolderOpen },
   { href: "/contribuyentes", label: "Contribuyentes", icon: Building2 },
   { href: "/clientes", label: "Clientes", icon: Briefcase },
   { href: "/impuestos", label: "Tipo de procesos", icon: Receipt },
@@ -36,6 +36,8 @@ const navItemsMain: {
 const importacionesMenuItems: { href: string; label: string }[] = [
   { href: "/importaciones/comparendos", label: "Comparendos" },
   { href: "/importaciones/acuerdos", label: "Acuerdos de pago" },
+  { href: "/importaciones/importar-comprobante-comparendo", label: "Docs. comparendo" },
+  { href: "/importaciones/importar-resoluciones", label: "Resoluciones" },
 ];
 
 const actasMenuItems: { href: string; label: string }[] = [

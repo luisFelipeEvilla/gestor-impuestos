@@ -267,7 +267,7 @@ export function ImportarComparendosForm() {
                             <TableCell className="max-w-[220px] truncate">
                               {fila.procesoId != null ? (
                                 <Link
-                                  href={`/procesos/${fila.procesoId}`}
+                                  href={`/comparendos/${fila.procesoId}`}
                                   className="text-primary hover:underline text-sm"
                                 >
                                   #{fila.procesoId}
@@ -331,7 +331,7 @@ export function ImportarComparendosForm() {
                             <TableCell className="max-w-[220px] truncate">
                               {fila.procesoId != null ? (
                                 <Link
-                                  href={`/procesos/${fila.procesoId}`}
+                                  href={`/comparendos/${fila.procesoId}`}
                                   className="text-primary hover:underline text-sm"
                                 >
                                   #{fila.procesoId}
@@ -469,7 +469,7 @@ export function ImportarComparendosForm() {
 
           <div className="flex flex-wrap gap-2">
             <Button asChild>
-              <Link href="/procesos">Ver procesos</Link>
+              <Link href="/comparendos">Ver procesos</Link>
             </Button>
             <Button variant="outline" onClick={handleReset}>
               Importar otros archivos

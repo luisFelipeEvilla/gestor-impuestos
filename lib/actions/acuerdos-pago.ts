@@ -92,8 +92,8 @@ export async function crearAcuerdoPago(
       diaCobroMes: rDia.value!,
     });
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
@@ -151,8 +151,8 @@ export async function actualizarAcuerdoPago(
       })
       .where(eq(acuerdosPago.id, id));
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
@@ -192,7 +192,7 @@ export async function marcarCuotaPagada(
       })
       .where(eq(cuotasAcuerdo.id, cuotaId));
 
-    revalidatePath(`/procesos/${procesoId}`);
+    revalidatePath(`/comparendos/${procesoId}`);
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;
@@ -220,8 +220,8 @@ export async function eliminarAcuerdoPago(id: number, procesoId: number): Promis
 
     await db.delete(acuerdosPago).where(eq(acuerdosPago.id, id));
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") throw err;

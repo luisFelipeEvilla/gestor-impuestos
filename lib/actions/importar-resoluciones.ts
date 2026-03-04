@@ -335,7 +335,7 @@ export async function ejecutarImportacionResoluciones(
     .set({ importados, omitidos, fallidos, estado: estadoFinal })
     .where(eq(importacionesResoluciones.id, importacionId));
 
-  revalidatePath("/procesos");
+  revalidatePath("/comparendos");
   revalidatePath("/");
 
   return { ok: true, importacionId, importados, omitidos, fallidos, errores };

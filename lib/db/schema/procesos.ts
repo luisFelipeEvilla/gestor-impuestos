@@ -24,8 +24,8 @@ import { usuarios } from "./usuarios";
 import { impuestos } from "./impuestos";
 import { importacionesProcesos, importacionesAcuerdos } from "./importaciones";
 
-// Tabla: procesos (trabajo de cobro)
-export const procesos = pgTable("procesos", {
+// Tabla: comparendos (trabajo de cobro)
+export const procesos = pgTable("comparendos", {
   id: serial("id").primaryKey(),
   contribuyenteId: integer("contribuyente_id")
     .notNull()

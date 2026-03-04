@@ -42,7 +42,7 @@ export function FiltroBusquedaListadoProcesos({
       else params.delete("comparendo");
       params.delete("page");
       params.set("page", "1");
-      router.push(`/procesos?${params.toString()}`, { scroll: false });
+      router.push(`/comparendos?${params.toString()}`, { scroll: false });
     },
     [router, baseParams, contribuyente, comparendo]
   );

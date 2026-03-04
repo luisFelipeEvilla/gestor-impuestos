@@ -11,7 +11,7 @@ import { ChevronRight } from "lucide-react";
 export default async function ImportarProcesosPage() {
   const session = await getSession();
   if (session?.user?.rol !== "admin") {
-    redirect("/procesos");
+    redirect("/comparendos");
   }
 
   return (

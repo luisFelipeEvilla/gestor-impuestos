@@ -29,7 +29,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Paginacion } from "@/components/ui/paginacion";
 import { TablaProcesosConAsignacion } from "@/components/procesos/tabla-procesos-con-asignacion";
 import { FiltrosProcesos } from "./filtros-procesos";
-import { ChipsFiltrosProcesos } from "@/app/(dashboard)/procesos/chips-filtros-procesos";
+import { ChipsFiltrosProcesos } from "./chips-filtros-procesos";
 import { BusquedaComparendoDocumento } from "./busqueda-comparendo-documento";
 import { parsePerPage } from "@/lib/pagination";
 import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafico-estados";
@@ -77,6 +77,7 @@ function buildProcesosUrl(filtros: {
   fechaAsignacion?: string | null;
   noComparendo?: string | null;
   documento?: string | null;
+  nombre?: string | null;
   page?: number;
   perPage?: number;
   orderBy?: (typeof ORDER_BY_VALIDOS)[number];
@@ -91,12 +92,13 @@ function buildProcesosUrl(filtros: {
   if (filtros.fechaAsignacion) search.set("fechaAsignacion", filtros.fechaAsignacion);
   if (filtros.noComparendo?.trim()) search.set("noComparendo", filtros.noComparendo.trim());
   if (filtros.documento?.trim()) search.set("documento", filtros.documento.trim());
+  if (filtros.nombre?.trim()) search.set("nombre", filtros.nombre.trim());
   if (filtros.perPage != null) search.set("perPage", String(filtros.perPage));
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
   if (filtros.orderBy && ORDER_BY_VALIDOS.includes(filtros.orderBy)) search.set("orderBy", filtros.orderBy);
   if (filtros.order && ORDER_VALIDOS.includes(filtros.order)) search.set("order", filtros.order);
   const q = search.toString();
-  return q ? `/procesos?${q}` : "/procesos";
+  return q ? `/comparendos?${q}` : "/comparendos";
 }
 
 type Props = {
@@ -108,6 +110,7 @@ type Props = {
     fechaAsignacion?: string;
     noComparendo?: string;
     documento?: string;
+    nombre?: string;
     page?: string;
     perPage?: string;
     orderBy?: string;
@@ -131,6 +134,8 @@ export default async function ProcesosPage({ searchParams }: Props) {
   const noComparendoActual = noComparendoParam && noComparendoParam.length > 0 ? noComparendoParam : null;
   const documentoParam = params.documento?.trim();
   const documentoActual = documentoParam && documentoParam.length > 0 ? documentoParam : null;
+  const nombreParam = params.nombre?.trim();
+  const nombreActual = nombreParam && nombreParam.length > 0 ? nombreParam : null;
   const pageParam = params.page ? Math.max(1, parseInt(params.page, 10) || 1) : 1;
   const pageSize = parsePerPage(params.perPage);
 
@@ -215,6 +220,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
   }
   if (documentoActual != null) {
     condiciones.push(ilike(contribuyentes.nit, `%${documentoActual}%`));
+  }
+  if (nombreActual != null) {
+    condiciones.push(ilike(contribuyentes.nombreRazonSocial, `%${nombreActual}%`));
   }
   if (antiguedadActual != null) {
     // Misma lógica que getSemáforoFechaLimite: 6 meses = 182 días, 12 meses = 365 días
@@ -365,7 +373,8 @@ export default async function ProcesosPage({ searchParams }: Props) {
     (asignadoIdNum != null && asignadoIdNum > 0) ||
     fechaAsignacion != null ||
     noComparendoActual != null ||
-    documentoActual != null;
+    documentoActual != null ||
+    nombreActual != null;
 
   const descripcionOrden =
     orderByActual === "fechaLimite"
@@ -388,6 +397,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
     ...(fechaAsignacion ? { fechaAsignacion } : {}),
     ...(noComparendoActual ? { noComparendo: noComparendoActual } : {}),
     ...(documentoActual ? { documento: documentoActual } : {}),
+    ...(nombreActual ? { nombre: nombreActual } : {}),
     orderBy: orderByActual,
     order: orderActual,
   };
@@ -424,6 +434,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
               fechaAsignacion={fechaAsignacion}
               noComparendo={noComparendoActual}
               documento={documentoActual}
+              nombre={nombreActual}
               orderBy={orderByActual}
               order={orderActual}
               perPage={pageSize}
@@ -524,6 +535,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
         <BusquedaComparendoDocumento
           noComparendoActual={noComparendoActual}
           documentoActual={documentoActual}
+          nombreActual={nombreActual}
           urlLimpiar={buildProcesosUrl({
             estado: estadoActual ?? undefined,
             vigencia: vigenciaNum,
@@ -532,6 +544,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
             fechaAsignacion: fechaAsignacion ?? undefined,
             noComparendo: undefined,
             documento: undefined,
+            nombre: undefined,
             perPage: pageSize,
             page: 1,
             orderBy: orderByActual,
@@ -551,7 +564,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild>
-              <Link href="/procesos/nuevo">Nuevo proceso</Link>
+              <Link href="/comparendos/nuevo">Nuevo proceso</Link>
             </Button>
           </div>
         </CardHeader>
@@ -561,13 +574,13 @@ export default async function ProcesosPage({ searchParams }: Props) {
               <EmptyState
                 icon={FolderOpen}
                 message="No hay procesos que coincidan con los filtros aplicados."
-                action={{ href: "/procesos", label: "Limpiar filtros →" }}
+                action={{ href: "/comparendos", label: "Limpiar filtros →" }}
               />
             ) : (
               <EmptyState
                 icon={FolderOpen}
                 message="No hay procesos. Crea uno desde el botón Nuevo proceso."
-                action={{ href: "/procesos/nuevo", label: "Crear proceso →" }}
+                action={{ href: "/comparendos/nuevo", label: "Crear proceso →" }}
               />
             )
           ) : (
@@ -593,13 +606,14 @@ export default async function ProcesosPage({ searchParams }: Props) {
                     fechaAsignacion: fechaAsignacion ?? undefined,
                     noComparendo: noComparendoActual ?? undefined,
                     documento: documentoActual ?? undefined,
+                    nombre: nombreActual ?? undefined,
                     perPage: pageSize,
                     page: p,
                     orderBy: orderByActual,
                     order: orderActual,
                   })
                 }
-                formAction="/procesos"
+                formAction="/comparendos"
                 selectorSearchParams={selectorSearchParams}
               />
             </>

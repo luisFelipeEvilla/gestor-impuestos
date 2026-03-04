@@ -118,9 +118,9 @@ export async function registrarDocumentoProceso(
       tamano,
     });
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath(`/procesos/${procesoId}/editar`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath(`/comparendos/${procesoId}/editar`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     console.error("[registrarDocumentoProceso]", err);
@@ -200,9 +200,9 @@ export async function subirDocumentoProceso(
       tamano: file.size,
     });
 
-    revalidatePath(`/procesos/${procesoId}`);
-    revalidatePath(`/procesos/${procesoId}/editar`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${procesoId}`);
+    revalidatePath(`/comparendos/${procesoId}/editar`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     console.error("[subirDocumentoProceso]", err);
@@ -255,9 +255,9 @@ export async function eliminarDocumentoProceso(
 
     await db.delete(documentosProceso).where(eq(documentosProceso.id, docId));
 
-    revalidatePath(`/procesos/${doc.procesoId}`);
-    revalidatePath(`/procesos/${doc.procesoId}/editar`);
-    revalidatePath("/procesos");
+    revalidatePath(`/comparendos/${doc.procesoId}`);
+    revalidatePath(`/comparendos/${doc.procesoId}/editar`);
+    revalidatePath("/comparendos");
     return {};
   } catch (err) {
     console.error("[eliminarDocumentoProceso]", err);

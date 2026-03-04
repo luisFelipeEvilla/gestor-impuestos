@@ -256,7 +256,7 @@ export function ProcesoForm({
           <div className="flex gap-2 pt-2">
             <Button type="submit">{submitLabel}</Button>
             <Button type="button" variant="outline" asChild>
-              <Link href={initialData ? `/procesos/${initialData.id}` : "/procesos"}>
+              <Link href={initialData ? `/comparendos/${initialData.id}` : "/comparendos"}>
                 Cancelar
               </Link>
             </Button>

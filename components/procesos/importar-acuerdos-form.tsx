@@ -352,7 +352,7 @@ export function ImportarAcuerdosForm() {
                             <TableCell className="max-w-[200px] truncate">
                               {fila.procesoId != null ? (
                                 <Link
-                                  href={`/procesos/${fila.procesoId}`}
+                                  href={`/comparendos/${fila.procesoId}`}
                                   className="text-primary hover:underline text-sm"
                                 >
                                   #{fila.procesoId}
@@ -433,7 +433,7 @@ export function ImportarAcuerdosForm() {
                             <TableCell className="max-w-[200px] truncate">
                               {fila.procesoId != null ? (
                                 <Link
-                                  href={`/procesos/${fila.procesoId}`}
+                                  href={`/comparendos/${fila.procesoId}`}
                                   className="text-primary hover:underline text-sm"
                                 >
                                   #{fila.procesoId}
@@ -662,7 +662,7 @@ export function ImportarAcuerdosForm() {
 
           <div className="flex flex-wrap gap-2">
             <Button asChild>
-              <Link href="/procesos">Ver procesos</Link>
+              <Link href="/comparendos">Ver procesos</Link>
             </Button>
             <Button variant="outline" onClick={handleReset}>
               Importar otro archivo

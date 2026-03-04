@@ -115,7 +115,7 @@ export function FiltrosProcesos({
       const params = buildParams({
         estado: value === "todos" ? null : value,
       });
-      router.push(`/procesos?${params.toString()}`);
+      router.push(`/comparendos?${params.toString()}`);
     },
     [router, buildParams]
   );
@@ -125,7 +125,7 @@ export function FiltrosProcesos({
       const params = buildParams({
         vigencia: value === "todos" ? null : parseInt(value, 10),
       });
-      router.push(`/procesos?${params.toString()}`);
+      router.push(`/comparendos?${params.toString()}`);
     },
     [router, buildParams]
   );
@@ -135,7 +135,7 @@ export function FiltrosProcesos({
       const params = buildParams({
         antiguedad: value === "todos" ? null : value,
       });
-      router.push(`/procesos?${params.toString()}`);
+      router.push(`/comparendos?${params.toString()}`);
     },
     [router, buildParams]
   );
@@ -145,7 +145,7 @@ export function FiltrosProcesos({
       const params = buildParams({
         asignadoId: value === "todos" ? null : parseInt(value, 10),
       });
-      router.push(`/procesos?${params.toString()}`);
+      router.push(`/comparendos?${params.toString()}`);
     },
     [router, buildParams]
   );
@@ -154,13 +154,13 @@ export function FiltrosProcesos({
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value || null;
       const params = buildParams({ fechaAsignacion: value });
-      router.push(`/procesos?${params.toString()}`);
+      router.push(`/comparendos?${params.toString()}`);
     },
     [router, buildParams]
   );
 
   const handleLimpiar = useCallback(() => {
-    router.push("/procesos");
+    router.push("/comparendos");
   }, [router]);
 
   const tieneFiltros =

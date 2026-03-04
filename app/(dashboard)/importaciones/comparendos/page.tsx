@@ -72,7 +72,7 @@ export default async function ImportacionesComparendosPage({ searchParams }: Pro
   unstable_noStore();
   const session = await getSession();
   if (session?.user?.rol !== "admin") {
-    redirect("/procesos");
+    redirect("/comparendos");
   }
 
   const params = await searchParams;
@@ -192,7 +192,7 @@ export default async function ImportacionesComparendosPage({ searchParams }: Pro
           </h1>
         </div>
         <Button asChild>
-          <Link href="/procesos/importar">
+          <Link href="/importaciones/importar-comparendos">
             <Upload className="size-4 mr-2" aria-hidden />
             Importar
           </Link>
@@ -214,7 +214,7 @@ export default async function ImportacionesComparendosPage({ searchParams }: Pro
             sinDatos={{
               icon: Upload,
               message: "No hay importaciones de comparendos.",
-              action: { href: "/procesos/importar", label: "Importar →" },
+              action: { href: "/importaciones/importar-comparendos", label: "Importar →" },
             }}
           />
           <Paginacion
