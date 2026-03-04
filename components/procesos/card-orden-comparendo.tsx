@@ -38,7 +38,7 @@ import { Eye, Download, Trash2, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DOCUMENTO_URL = (procesoId: number, docId: number, descargar?: boolean) => {
-  const base = `/api/procesos/${procesoId}/orden-comparendo/${docId}/documento`;
+  const base = `/api/comparendos/${procesoId}/orden-comparendo/${docId}/documento`;
   return descargar ? `${base}?descargar=1` : base;
 };
 

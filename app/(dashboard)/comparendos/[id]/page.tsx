@@ -482,7 +482,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
                                 .map((doc) => (
                                   <p key={doc.id} className="mt-0.5">
                                     <a
-                                      href={`/api/procesos/${id}/documentos/${doc.id}`}
+                                      href={`/api/comparendos/${id}/documentos/${doc.id}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="text-primary hover:underline"

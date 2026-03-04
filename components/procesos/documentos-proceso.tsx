@@ -256,7 +256,7 @@ export function ListaDocumentos({
               <TableRow key={doc.id} className="border-border/60">
                 <TableCell className="font-medium">
                   <a
-                    href={`/api/procesos/${procesoId}/documentos/${doc.id}`}
+                    href={`/api/comparendos/${procesoId}/documentos/${doc.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline"
@@ -295,7 +295,7 @@ export function ListaDocumentos({
         >
           <div className="min-w-0 flex-1">
             <a
-              href={`/api/procesos/${procesoId}/documentos/${doc.id}`}
+              href={`/api/comparendos/${procesoId}/documentos/${doc.id}`}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-primary hover:underline truncate block"

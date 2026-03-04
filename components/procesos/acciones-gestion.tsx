@@ -377,7 +377,7 @@ export function BotonesNotificacion({
             {docs.map((doc) => (
               <li key={doc.id}>
                 <a
-                  href={`/api/procesos/${procesoId}/documentos/${doc.id}`}
+                  href={`/api/comparendos/${procesoId}/documentos/${doc.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline"

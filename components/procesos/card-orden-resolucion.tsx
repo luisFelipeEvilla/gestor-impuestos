@@ -24,7 +24,7 @@ const TIPO_RESOLUCION_OPTIONS: { value: "sancion" | "resumen_ap"; label: string 
 ];
 
 const DOCUMENTO_URL = (procesoId: number, descargar?: boolean) => {
-  const base = `/api/procesos/${procesoId}/orden-resolucion/documento`;
+  const base = `/api/comparendos/${procesoId}/orden-resolucion/documento`;
   return descargar ? `${base}?descargar=1` : base;
 };
 
