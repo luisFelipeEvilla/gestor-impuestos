@@ -46,6 +46,7 @@ import { cn } from "@/lib/utils";
 const COLUMNS_STORAGE_KEY = "procesos-tabla-columnas-visible";
 
 const COLUMNS: { id: string; label: string }[] = [
+  { id: "indice", label: "#" },
   { id: "seleccion", label: "Selección" },
   { id: "asignado", label: "Asignado" },
   { id: "noComparendo", label: "No. comparendo" },
@@ -110,6 +111,7 @@ interface TablaProcesosConAsignacionProps {
   isAdmin: boolean;
   orderBy?: string;
   order?: "asc" | "desc";
+  offset?: number;
 }
 
 export function TablaProcesosConAsignacion({
@@ -118,6 +120,7 @@ export function TablaProcesosConAsignacion({
   isAdmin,
   orderBy = "fechaLimite",
   order = "asc",
+  offset = 0,
 }: TablaProcesosConAsignacionProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -371,6 +374,9 @@ export function TablaProcesosConAsignacion({
       <Table>
         <TableHeader>
           <TableRow>
+            {isColumnVisible("indice") && (
+              <TableHead className="w-10 text-muted-foreground">#</TableHead>
+            )}
             {isColumnVisible("seleccion") && (
               <TableHead className="w-10 pr-0" onClick={(e) => e.stopPropagation()}>
                 <input
@@ -407,7 +413,7 @@ export function TablaProcesosConAsignacion({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {lista.map((p) => {
+          {lista.map((p, index) => {
             const semaforo = getSemáforoFechaLimite(p.fechaLimite);
             const rowUrgente = semaforo === "rojo";
             return (
@@ -421,6 +427,11 @@ export function TablaProcesosConAsignacion({
               onClick={(e) => handleRowClick(e, p.id)}
               aria-selected={selectedIds.has(p.id)}
             >
+              {isColumnVisible("indice") && (
+                <TableCell className="text-muted-foreground text-sm tabular-nums">
+                  {offset + index + 1}
+                </TableCell>
+              )}
               {isColumnVisible("seleccion") && (
                 <TableCell className="pr-0" onClick={(e) => e.stopPropagation()}>
                   <input

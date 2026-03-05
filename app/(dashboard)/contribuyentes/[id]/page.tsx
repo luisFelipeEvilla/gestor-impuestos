@@ -148,6 +148,7 @@ export default async function DetalleContribuyentePage({ params }: Props) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10 text-muted-foreground">#</TableHead>
                   <TableHead>Vigencia</TableHead>
                   <TableHead>Monto (COP)</TableHead>
                   <TableHead>Estado</TableHead>
@@ -155,8 +156,9 @@ export default async function DetalleContribuyentePage({ params }: Props) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {procesosList.map((p) => (
+                {procesosList.map((p, index) => (
                   <TableRow key={p.id}>
+                    <TableCell className="text-muted-foreground text-sm tabular-nums">{index + 1}</TableCell>
                     <TableCell>{p.vigencia}</TableCell>
                     <TableCell>
                       {Number(p.montoCop).toLocaleString("es-CO")}

@@ -642,6 +642,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                 isAdmin={session?.user?.rol === "admin"}
                 orderBy={orderByActual}
                 order={orderActual}
+                offset={offset}
               />
               <Paginacion
                 currentPage={page}
