@@ -9,7 +9,6 @@ import {
   text,
   timestamp,
   unique,
-  uuid,
 } from "drizzle-orm/pg-core";
 import {
   estadoProcesoEnum,
@@ -21,7 +20,6 @@ import {
 } from "./enums";
 import { contribuyentes } from "./contribuyentes";
 import { usuarios } from "./usuarios";
-import { impuestos } from "./impuestos";
 import { importacionesProcesos, importacionesAcuerdos } from "./importaciones";
 
 // Tabla: comparendos (trabajo de cobro)
@@ -45,11 +43,6 @@ export const procesos = pgTable("comparendos", {
     onUpdate: "cascade",
   }),
   fechaLimite: date("fecha_limite"),
-  /** Tipo de impuesto (catálogo). Opcional para procesos existentes o sin clasificar. */
-  impuestoId: uuid("impuesto_id").references(() => impuestos.id, {
-    onDelete: "set null",
-    onUpdate: "cascade",
-  }),
   /** Fecha de creación o aplicación del impuesto (origen del proceso) */
   fechaAplicacionImpuesto: date("fecha_aplicacion_impuesto"),
   /** true si el proceso fue importado desde cartera (CSV); false si se creó manualmente. */

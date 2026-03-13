@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { clientes, impuestos } from "@/lib/db/schema";
+import { clientes } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   Card,
@@ -29,13 +29,7 @@ export default async function DetalleClientePage({ params }: Props) {
   const [cliente] = await db.select().from(clientes).where(eq(clientes.id, id));
   if (!cliente) notFound();
 
-  const [impuestosDelCliente, miembros] = await Promise.all([
-    db
-      .select({ id: impuestos.id, nombre: impuestos.nombre, activo: impuestos.activo })
-      .from(impuestos)
-      .where(eq(impuestos.clienteId, id)),
-    obtenerMiembrosPorCliente(id),
-  ]);
+  const miembros = await obtenerMiembrosPorCliente(id);
 
   return (
     <div className="p-6">
@@ -102,26 +96,6 @@ export default async function DetalleClientePage({ params }: Props) {
               </dd>
             </div>
           </dl>
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-2">Impuestos asociados</h3>
-            {impuestosDelCliente.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Ningún impuesto asociado.</p>
-            ) : (
-              <ul className="space-y-1">
-                {impuestosDelCliente.map((i) => (
-                  <li key={i.id}>
-                    <Link
-                      href={`/impuestos/${i.id}`}
-                      className="text-primary hover:underline"
-                    >
-                      {i.nombre}
-                      {!i.activo && " (inactivo)"}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
         </CardContent>
       </Card>
       <MiembrosCliente clienteId={id} miembros={miembros} />

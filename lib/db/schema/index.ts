@@ -8,6 +8,7 @@ export * from "./empresa";
 export * from "./clientes";
 export * from "./impuestos";
 export * from "./contribuyentes";
+export * from "./vehiculos";
 export * from "./procesos";
 export * from "./importaciones";
 export * from "./obligaciones";

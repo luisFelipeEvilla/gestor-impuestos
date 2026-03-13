@@ -576,6 +576,10 @@ export async function ejecutarImportacion(formData: FormData): Promise<ImportRes
             ciudad: null,
             departamento: null,
           })
+          .onConflictDoUpdate({
+            target: [contribuyentes.tipoDocumento, contribuyentes.nit],
+            set: { nombreRazonSocial: contribuyentes.nombreRazonSocial },
+          })
           .returning({ id: contribuyentes.id });
         if (!inserted) {
           omitidos++;

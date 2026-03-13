@@ -529,6 +529,10 @@ async function main(): Promise<void> {
           ciudad: null,
           departamento: null,
         })
+        .onConflictDoUpdate({
+          target: [contribuyentes.tipoDocumento, contribuyentes.nit],
+          set: { nombreRazonSocial: contribuyentes.nombreRazonSocial },
+        })
         .returning({ id: contribuyentes.id });
       if (!inserted) {
         console.warn(`⚠ No se pudo crear contribuyente: ${nit}`);

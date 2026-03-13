@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { getTipoDocumentoLabel } from "@/lib/constants/tipo-documento";
 import { db } from "@/lib/db";
-import { contribuyentes, procesos } from "@/lib/db/schema";
+import { contribuyentes, procesos, impuestos, vehiculos } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import {
@@ -25,6 +25,16 @@ import {
 import { EliminarContribuyenteButton } from "./botones-contribuyente";
 import { labelEstado } from "@/lib/estados-proceso";
 import { unstable_noStore } from "next/cache";
+
+const ETIQUETAS_ESTADO_IMPUESTO: Record<string, { label: string; className: string }> = {
+  pendiente: { label: "Pendiente", className: "bg-muted text-muted-foreground" },
+  declarado: { label: "Declarado", className: "bg-blue-500/15 text-blue-700" },
+  liquidado: { label: "Liquidado", className: "bg-yellow-500/15 text-yellow-700" },
+  notificado: { label: "Notificado", className: "bg-orange-500/15 text-orange-700" },
+  en_cobro_coactivo: { label: "Cobro coactivo", className: "bg-destructive/15 text-destructive" },
+  pagado: { label: "Pagado", className: "bg-green-500/15 text-green-700" },
+  cerrado: { label: "Cerrado", className: "bg-muted text-muted-foreground" },
+};
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -62,6 +72,27 @@ export default async function DetalleContribuyentePage({ params }: Props) {
     .from(procesos)
     .where(whereCond)
     .orderBy(desc(procesos.vigencia));
+
+  const impuestosList = await db
+    .select({
+      id: impuestos.id,
+      tipoImpuesto: impuestos.tipoImpuesto,
+      vigencia: impuestos.vigencia,
+      impuestoDeterminado: impuestos.impuestoDeterminado,
+      intereses: impuestos.intereses,
+      totalAPagar: impuestos.totalAPagar,
+      estadoActual: impuestos.estadoActual,
+      placa: vehiculos.placa,
+    })
+    .from(impuestos)
+    .leftJoin(vehiculos, eq(impuestos.vehiculoId, vehiculos.id))
+    .where(eq(impuestos.contribuyenteId, id))
+    .orderBy(desc(impuestos.vigencia));
+
+  const cop = (v: string | number | null | undefined) =>
+    v != null
+      ? Number(v).toLocaleString("es-CO", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+      : "—";
 
   return (
     <div className="p-6 space-y-6">
@@ -173,6 +204,80 @@ export default async function DetalleContribuyentePage({ params }: Props) {
                     </TableCell>
                   </TableRow>
                 ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mx-auto max-w-4xl">
+        <CardHeader>
+          <CardTitle>Impuestos</CardTitle>
+          <CardDescription>
+            Registros de impuesto asociados a este contribuyente
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {impuestosList.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-4">
+              No hay impuestos asociados.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Vigencia</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Placa</TableHead>
+                  <TableHead className="text-right">Capital</TableHead>
+                  <TableHead className="text-right">Intereses</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="w-[80px]">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {impuestosList.map((imp) => {
+                  const estadoInfo = ETIQUETAS_ESTADO_IMPUESTO[imp.estadoActual] ?? {
+                    label: imp.estadoActual,
+                    className: "bg-muted text-muted-foreground",
+                  };
+                  return (
+                    <TableRow key={imp.id}>
+                      <TableCell className="tabular-nums font-medium">{imp.vigencia}</TableCell>
+                      <TableCell className="capitalize">{imp.tipoImpuesto.replace(/_/g, " ")}</TableCell>
+                      <TableCell>
+                        {imp.placa ? (
+                          <Link
+                            href={`/vehiculos?q=${imp.placa}`}
+                            className="font-mono text-xs hover:underline text-primary"
+                          >
+                            {imp.placa}
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{cop(imp.impuestoDeterminado)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{cop(imp.intereses)}</TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">{cop(imp.totalAPagar)}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${estadoInfo.className}`}
+                        >
+                          {estadoInfo.label}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" className="gap-1 text-primary" asChild>
+                          <Link href={`/impuestos/${imp.id}`}>
+                            Ver <ChevronRight className="size-4" aria-hidden />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

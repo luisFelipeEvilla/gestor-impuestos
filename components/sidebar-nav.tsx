@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Settings,
   Upload,
+  Car,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/sidebar-provider";
@@ -29,8 +30,9 @@ const navItemsMain: {
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/comparendos", label: "Comparendos", icon: FolderOpen },
   { href: "/contribuyentes", label: "Contribuyentes", icon: Building2 },
+  { href: "/vehiculos", label: "Vehículos", icon: Car },
   { href: "/clientes", label: "Clientes", icon: Briefcase },
-  { href: "/impuestos", label: "Tipo de procesos", icon: Receipt },
+  { href: "/impuestos", label: "Impuestos", icon: Receipt, adminOnly: true },
 ];
 
 const importacionesMenuItems: { href: string; label: string }[] = [

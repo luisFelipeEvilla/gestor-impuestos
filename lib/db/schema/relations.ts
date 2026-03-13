@@ -3,8 +3,9 @@ import { usuarios } from "./usuarios";
 import { cargosEmpresa } from "./cargos-empresa";
 import { empresa } from "./empresa";
 import { clientes, clientesMiembros } from "./clientes";
-import { impuestos } from "./impuestos";
+import { impuestos, historialImpuesto } from "./impuestos";
 import { contribuyentes } from "./contribuyentes";
+import { vehiculos } from "./vehiculos";
 import {
   procesos,
   historialProceso,
@@ -45,7 +46,6 @@ export const cargosEmpresaRelations = relations(cargosEmpresa, ({ many }) => ({
 export const empresaRelations = relations(empresa, () => ({}));
 
 export const clientesRelations = relations(clientes, ({ many }) => ({
-  impuestos: many(impuestos),
   miembros: many(clientesMiembros),
   actasReunionClientes: many(actasReunionClientes),
 }));
@@ -54,12 +54,45 @@ export const clientesMiembrosRelations = relations(clientesMiembros, ({ one }) =
   cliente: one(clientes),
 }));
 
-export const impuestosRelations = relations(impuestos, ({ one }) => ({
-  cliente: one(clientes, { fields: [impuestos.clienteId], references: [clientes.id] }),
+export const impuestosRelations = relations(impuestos, ({ one, many }) => ({
+  contribuyente: one(contribuyentes, {
+    fields: [impuestos.contribuyenteId],
+    references: [contribuyentes.id],
+  }),
+  asignadoA: one(usuarios, {
+    fields: [impuestos.asignadoAId],
+    references: [usuarios.id],
+  }),
+  vehiculo: one(vehiculos, {
+    fields: [impuestos.vehiculoId],
+    references: [vehiculos.id],
+  }),
+  historial: many(historialImpuesto),
+}));
+
+export const vehiculosRelations = relations(vehiculos, ({ one, many }) => ({
+  contribuyente: one(contribuyentes, {
+    fields: [vehiculos.contribuyenteId],
+    references: [contribuyentes.id],
+  }),
+  impuestos: many(impuestos),
+}));
+
+export const historialImpuestoRelations = relations(historialImpuesto, ({ one }) => ({
+  impuesto: one(impuestos, {
+    fields: [historialImpuesto.impuestoId],
+    references: [impuestos.id],
+  }),
+  usuario: one(usuarios, {
+    fields: [historialImpuesto.usuarioId],
+    references: [usuarios.id],
+  }),
 }));
 
 export const contribuyentesRelations = relations(contribuyentes, ({ many }) => ({
   procesos: many(procesos),
+  impuestos: many(impuestos),
+  vehiculos: many(vehiculos),
 }));
 
 export const procesosRelations = relations(procesos, ({ one, many }) => ({

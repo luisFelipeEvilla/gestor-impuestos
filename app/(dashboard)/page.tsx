@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { ClipboardList, Wallet, FileText } from "lucide-react";
+import { ClipboardList, Wallet, FileText, Receipt } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -13,11 +13,13 @@ import { DashboardGraficoEstados } from "@/components/dashboard/dashboard-grafic
 import { DashboardGraficoEstadosActas } from "@/components/dashboard/dashboard-grafico-estados-actas";
 import { DashboardGraficoMontoEstados } from "@/components/dashboard/dashboard-grafico-monto-estados";
 import { DashboardGraficoResponsables } from "@/components/dashboard/dashboard-grafico-responsables";
+import { DashboardGraficoEstadosImpuestos } from "@/components/dashboard/dashboard-grafico-estados-impuestos";
+import { DashboardGraficoTipoImpuesto, DashboardGraficoMontoTipoImpuesto } from "@/components/dashboard/dashboard-grafico-tipo-impuesto";
 import { DashboardFiltros } from "@/components/dashboard/dashboard-filtros";
 import { DashboardPolling } from "@/components/dashboard/dashboard-polling";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
 import { db } from "@/lib/db";
-import { procesos, contribuyentes, usuarios, actasReunion } from "@/lib/db/schema";
+import { procesos, contribuyentes, usuarios, actasReunion, impuestos } from "@/lib/db/schema";
 import { eq, desc, and, gte, lte, sql, notInArray, count } from "drizzle-orm";
 import { unstable_noStore } from "next/cache";
 import { labelEstado } from "@/lib/estados-proceso";
@@ -38,7 +40,7 @@ const ESTADOS_VALIDOS = [
   "finalizado",
 ] as const;
 
-const TAB_VALIDOS = ["procesos", "actas"] as const;
+const TAB_VALIDOS = ["procesos", "actas", "impuestos"] as const;
 
 const ESTADO_ACTA_LABEL: Record<string, string> = {
   borrador: "Borrador",
@@ -278,6 +280,130 @@ export default async function DashboardPage({ searchParams }: Props) {
   searchBase.set("tab", "procesos");
   const urlProcesos = `/?${searchBase.toString()}`;
   const urlActas = "/?tab=actas";
+  const urlImpuestos = "/?tab=impuestos";
+
+  const ESTADOS_CERRADOS_IMPUESTO = ["pagado", "cerrado"] as const;
+  const ordenEstadosImpuesto = [
+    "pendiente",
+    "declarado",
+    "liquidado",
+    "notificado",
+    "en_cobro_coactivo",
+    "pagado",
+    "cerrado",
+  ];
+
+  const [
+    totalImpuestos,
+    impuestosPorEstado,
+    montoTotalImpuestos,
+    montoPorEstadoImpuestos,
+    impuestosPorTipo,
+    montoPorTipoImpuestos,
+    vencimientosProximosImpuestos,
+    impuestosRecientes,
+  ] =
+    tabActual === "impuestos"
+      ? await Promise.all([
+          db.select({ count: sql<number>`count(*)::int` }).from(impuestos),
+          db
+            .select({ estado: impuestos.estadoActual, count: sql<number>`count(*)::int` })
+            .from(impuestos)
+            .groupBy(impuestos.estadoActual),
+          db
+            .select({
+              total: sql<string>`coalesce(sum(${impuestos.totalAPagar}), 0)::text`,
+            })
+            .from(impuestos)
+            .where(notInArray(impuestos.estadoActual, [...ESTADOS_CERRADOS_IMPUESTO])),
+          db
+            .select({
+              estado: impuestos.estadoActual,
+              total: sql<string>`coalesce(sum(${impuestos.totalAPagar}), 0)::text`,
+            })
+            .from(impuestos)
+            .where(notInArray(impuestos.estadoActual, [...ESTADOS_CERRADOS_IMPUESTO]))
+            .groupBy(impuestos.estadoActual),
+          db
+            .select({ tipo: impuestos.tipoImpuesto, count: sql<number>`count(*)::int` })
+            .from(impuestos)
+            .groupBy(impuestos.tipoImpuesto)
+            .orderBy(desc(sql`count(*)::int`))
+            .limit(10),
+          db
+            .select({
+              tipo: impuestos.tipoImpuesto,
+              total: sql<string>`coalesce(sum(${impuestos.totalAPagar}), 0)::text`,
+            })
+            .from(impuestos)
+            .groupBy(impuestos.tipoImpuesto)
+            .orderBy(desc(sql`sum(${impuestos.totalAPagar})`))
+            .limit(10),
+          db
+            .select({
+              id: impuestos.id,
+              tipoImpuesto: impuestos.tipoImpuesto,
+              vigencia: impuestos.vigencia,
+              estadoActual: impuestos.estadoActual,
+              fechaVencimiento: impuestos.fechaVencimiento,
+              totalAPagar: impuestos.totalAPagar,
+              contribuyenteNombre: contribuyentes.nombreRazonSocial,
+            })
+            .from(impuestos)
+            .innerJoin(contribuyentes, eq(impuestos.contribuyenteId, contribuyentes.id))
+            .where(
+              and(
+                gte(impuestos.fechaVencimiento, todayStr),
+                lte(impuestos.fechaVencimiento, in30DaysStr)
+              )
+            )
+            .orderBy(impuestos.fechaVencimiento)
+            .limit(10),
+          db
+            .select({
+              id: impuestos.id,
+              tipoImpuesto: impuestos.tipoImpuesto,
+              vigencia: impuestos.vigencia,
+              estadoActual: impuestos.estadoActual,
+              creadoEn: impuestos.creadoEn,
+              contribuyenteNombre: contribuyentes.nombreRazonSocial,
+            })
+            .from(impuestos)
+            .innerJoin(contribuyentes, eq(impuestos.contribuyenteId, contribuyentes.id))
+            .orderBy(desc(impuestos.creadoEn))
+            .limit(5),
+        ])
+      : [
+          [{ count: 0 }],
+          [],
+          [{ total: "0" }],
+          [],
+          [],
+          [],
+          [],
+          [],
+        ];
+
+  const totalI = totalImpuestos[0]?.count ?? 0;
+  const montoGestionImpuestos = montoTotalImpuestos[0]?.total ?? "0";
+
+  const impuestosPorEstadoOrdenado = ordenEstadosImpuesto
+    .map((e) => impuestosPorEstado.find((r) => r.estado === e))
+    .filter((r): r is NonNullable<typeof r> => Boolean(r));
+  const seenImpuestoEstados = new Set(ordenEstadosImpuesto);
+  for (const r of impuestosPorEstado) {
+    if (r.estado && !seenImpuestoEstados.has(r.estado)) {
+      impuestosPorEstadoOrdenado.push(r);
+    }
+  }
+
+  const montoPorEstadoImpuestosOrdenado: { estado: string; total: number }[] = [];
+  for (const e of ordenEstadosImpuesto) {
+    const row = montoPorEstadoImpuestos.find((r) => r.estado === e);
+    if (row && Number(row.total) > 0) {
+      montoPorEstadoImpuestosOrdenado.push({ estado: row.estado, total: Number(row.total) });
+    }
+  }
 
   return (
     <div className="p-6 space-y-8 animate-fade-in">
@@ -308,7 +434,9 @@ export default async function DashboardPage({ searchParams }: Props) {
           <p className="text-muted-foreground text-sm pl-14">
             {tabActual === "procesos"
               ? "Resumen de procesos de cobro, vencimientos y montos en gestión (COP)."
-              : "Resumen de actas de reunión."}
+              : tabActual === "actas"
+              ? "Resumen de actas de reunión."
+              : "Monitoreo de obligaciones tributarias por estado, tipo y vencimiento."}
           </p>
         </div>
       </div>
@@ -338,6 +466,17 @@ export default async function DashboardPage({ searchParams }: Props) {
           )}
         >
           Actas
+        </Link>
+        <Link
+          href={urlImpuestos}
+          className={cn(
+            "px-4 py-3 text-sm font-medium border-b-2 transition-colors",
+            tabActual === "impuestos"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+          )}
+        >
+          Impuestos
         </Link>
       </nav>
 
@@ -576,6 +715,229 @@ export default async function DashboardPage({ searchParams }: Props) {
           </CardContent>
         </Card>
       </div>
+        </>
+      )}
+
+      {tabActual === "impuestos" && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Link
+              href="/impuestos"
+              className="block rounded-2xl transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label="Ver impuestos"
+            >
+              <Card className="border-l-4 border-l-primary/80 h-full">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Obligaciones tributarias
+                  </CardTitle>
+                  <Receipt className="size-5 text-primary/70" aria-hidden />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-foreground">{totalI}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Total de impuestos registrados
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link
+              href="/impuestos"
+              className="block rounded-2xl transition-shadow duration-200 hover:shadow-lg hover:shadow-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              aria-label="Ver monto pendiente de impuestos"
+            >
+              <Card className="border-l-4 border-l-primary/80 h-full">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Monto pendiente de cobro
+                  </CardTitle>
+                  <Wallet className="size-5 text-primary/70" aria-hidden />
+                </CardHeader>
+                <CardContent>
+                  <p className="text-2xl font-bold text-primary">{formatMonto(montoGestionImpuestos)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Suma de impuestos no pagados ni cerrados
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+
+          {totalI === 0 && (
+            <div className="rounded-xl border border-border/80 bg-muted/30 px-4 py-4 text-center">
+              <p className="text-muted-foreground text-sm">
+                No hay impuestos registrados.{" "}
+                <Link
+                  href="/impuestos/nuevo"
+                  className="text-primary font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+                >
+                  Registra uno desde Impuestos
+                </Link>
+                .
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <h2 className="text-lg font-semibold leading-none tracking-tight">
+                  Impuestos por estado
+                </h2>
+                <CardDescription>
+                  Distribución por estado del proceso fiscal
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DashboardGraficoEstadosImpuestos data={impuestosPorEstadoOrdenado} />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <h2 className="text-lg font-semibold leading-none tracking-tight">
+                  Impuestos por tipo de tributo
+                </h2>
+                <CardDescription>
+                  Cantidad de obligaciones por tipo (top 10)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DashboardGraficoTipoImpuesto
+                  data={impuestosPorTipo.map((r) => ({ tipo: r.tipo, count: r.count }))}
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-1">
+            <Card>
+              <CardHeader>
+                <h2 className="text-lg font-semibold leading-none tracking-tight">
+                  Monto pendiente por tipo de tributo
+                </h2>
+                <CardDescription>
+                  Total a pagar (COP) agrupado por tipo de impuesto
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DashboardGraficoMontoTipoImpuesto
+                  data={montoPorTipoImpuestos.map((r) => ({
+                    tipo: r.tipo,
+                    total: Number(r.total),
+                  }))}
+                />
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <h2 className="text-lg font-semibold leading-none tracking-tight">
+                  Vencimientos próximos
+                </h2>
+                <CardDescription>
+                  Impuestos con fecha de vencimiento en los próximos 30 días
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {vencimientosProximosImpuestos.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+                    <div className="rounded-full bg-muted p-3" aria-hidden>
+                      <Receipt className="size-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground text-sm max-w-[240px]">
+                      No hay vencimientos en los próximos 30 días.
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="space-y-3" role="list">
+                    {vencimientosProximosImpuestos.map((imp) => (
+                      <li key={imp.id}>
+                        <Link
+                          href={`/impuestos/${imp.id}`}
+                          className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-transparent px-3 py-2.5 text-sm transition-colors hover:border-border hover:bg-accent/50"
+                        >
+                          <span className="font-medium text-foreground">
+                            {imp.contribuyenteNombre}
+                          </span>
+                          <span className="text-muted-foreground text-xs tabular-nums">
+                            {formatDate(imp.fechaVencimiento)}
+                          </span>
+                          <span className="w-full text-xs text-muted-foreground">
+                            {imp.tipoImpuesto} · {imp.vigencia} ·{" "}
+                            {imp.totalAPagar ? formatMonto(imp.totalAPagar) : "—"}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-3">
+                  <Link
+                    href="/impuestos"
+                    className="text-primary text-sm font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+                  >
+                    Ver todos los impuestos →
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <h2 className="text-lg font-semibold leading-none tracking-tight">
+                  Impuestos recientes
+                </h2>
+                <CardDescription>
+                  Últimas obligaciones tributarias registradas
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {impuestosRecientes.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+                    <div className="rounded-full bg-muted p-3" aria-hidden>
+                      <Receipt className="size-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground text-sm max-w-[240px]">
+                      No hay impuestos registrados.
+                    </p>
+                  </div>
+                ) : (
+                  <ul className="space-y-3" role="list">
+                    {impuestosRecientes.map((imp) => (
+                      <li key={imp.id}>
+                        <Link
+                          href={`/impuestos/${imp.id}`}
+                          className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-transparent px-3 py-2.5 text-sm transition-colors hover:border-border hover:bg-accent/50"
+                        >
+                          <span className="font-medium text-foreground">
+                            {imp.contribuyenteNombre}
+                          </span>
+                          <span className="text-muted-foreground text-xs tabular-nums">
+                            {formatDate(imp.creadoEn)}
+                          </span>
+                          <span className="w-full text-xs text-muted-foreground">
+                            {imp.tipoImpuesto} · {imp.vigencia} · {imp.estadoActual.replace(/_/g, " ")}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-3">
+                  <Link
+                    href="/impuestos"
+                    className="text-primary text-sm font-medium hover:underline focus:outline-none focus:ring-2 focus:ring-primary/20 rounded"
+                  >
+                    Ver todos los impuestos →
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </>
       )}
 

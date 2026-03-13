@@ -1,22 +1,24 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { clientes } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { contribuyentes } from "@/lib/db/schema";
 import { crearImpuesto } from "@/lib/actions/impuestos";
 import { ImpuestoForm } from "@/components/impuestos/impuesto-form";
 import { Button } from "@/components/ui/button";
 import { unstable_noStore } from "next/cache";
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export default async function NuevoImpuestoPage() {
   unstable_noStore();
-  const clientesList = await db
-    .select({ id: clientes.id, nombre: clientes.nombre, codigo: clientes.codigo })
-    .from(clientes)
-    .where(eq(clientes.activo, true))
-    .orderBy(clientes.nombre);
+  const contribuyentesList = await db
+    .select({
+      id: contribuyentes.id,
+      nit: contribuyentes.nit,
+      nombreRazonSocial: contribuyentes.nombreRazonSocial,
+    })
+    .from(contribuyentes)
+    .orderBy(contribuyentes.nombreRazonSocial);
 
   return (
     <div className="p-6">
@@ -29,7 +31,7 @@ export default async function NuevoImpuestoPage() {
         <ImpuestoForm
           action={crearImpuesto}
           submitLabel="Crear impuesto"
-          clientes={clientesList}
+          contribuyentes={contribuyentesList}
         />
       </div>
     </div>

@@ -7,56 +7,48 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Props = {
-  valorActual: string;
-  estadoActual?: string;
-};
+type Props = { valorActual: string; claseActual?: string };
 
-export function FiltroBusquedaImpuestos({ valorActual, estadoActual }: Props) {
+export function FiltroBusquedaVehiculos({ valorActual, claseActual }: Props) {
   const router = useRouter();
   const [valor, setValor] = useState(valorActual);
 
-  useEffect(() => {
-    setValor(valorActual);
-  }, [valorActual]);
+  useEffect(() => { setValor(valorActual); }, [valorActual]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       const params = new URLSearchParams();
-      if (estadoActual) params.set("estado", estadoActual);
       const q = valor.trim();
       if (q) params.set("q", q);
-      router.push(`/impuestos${params.size > 0 ? `?${params.toString()}` : ""}`);
+      if (claseActual) params.set("clase", claseActual);
+      router.push(`/vehiculos${params.size > 0 ? `?${params.toString()}` : ""}`);
     },
-    [router, valor, estadoActual]
+    [router, valor, claseActual]
   );
 
   const handleLimpiar = useCallback(() => {
     setValor("");
     const params = new URLSearchParams();
-    if (estadoActual) params.set("estado", estadoActual);
-    router.push(`/impuestos${params.size > 0 ? `?${params.toString()}` : ""}`);
-  }, [router, estadoActual]);
+    if (claseActual) params.set("clase", claseActual);
+    router.push(`/vehiculos${params.size > 0 ? `?${params.toString()}` : ""}`);
+  }, [router, claseActual]);
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="impuestos-q" className="sr-only text-xs text-muted-foreground">
-          Buscar contribuyente, tipo o expediente
+        <Label htmlFor="vehiculos-q" className="sr-only">
+          Buscar por placa, marca o contribuyente
         </Label>
         <div className="relative">
-          <Search
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
-            aria-hidden
-          />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" aria-hidden />
           <Input
-            id="impuestos-q"
+            id="vehiculos-q"
             type="search"
-            placeholder="Contribuyente, tipo, NIT..."
+            placeholder="Placa, marca, contribuyente..."
             value={valor}
             onChange={(e) => setValor(e.target.value)}
-            className="w-[200px] pl-8"
+            className="w-[220px] pl-8"
           />
         </div>
       </div>
@@ -65,13 +57,7 @@ export function FiltroBusquedaImpuestos({ valorActual, estadoActual }: Props) {
         Buscar
       </Button>
       {valorActual && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={handleLimpiar}
-          aria-label="Limpiar búsqueda"
-        >
+        <Button type="button" variant="ghost" size="sm" onClick={handleLimpiar} aria-label="Limpiar búsqueda">
           <X className="size-4" aria-hidden />
         </Button>
       )}

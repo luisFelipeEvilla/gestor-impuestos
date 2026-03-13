@@ -3,10 +3,30 @@ import { pgEnum } from "drizzle-orm/pg-core";
 // Enums según definición del proyecto (Colombia)
 export const rolUsuarioEnum = pgEnum("rol_usuario", ["admin", "empleado"]);
 
-/** Naturaleza del impuesto: tributario (tributos) o no tributario (tasas, multas, etc.). */
-export const naturalezaImpuestoEnum = pgEnum("naturaleza_impuesto", [
-  "tributario",
-  "no_tributario",
+/** Estado del proceso fiscal de un impuesto (Colombia). */
+export const estadoImpuestoEnum = pgEnum("estado_impuesto", [
+  "pendiente",
+  "declarado",
+  "liquidado",
+  "notificado",
+  "en_cobro_coactivo",
+  "pagado",
+  "cerrado",
+]);
+
+/** Tipo de período tributario. */
+export const tipoPeriodoImpuestoEnum = pgEnum("tipo_periodo_impuesto", [
+  "bimestral",
+  "trimestral",
+  "semestral",
+  "anual",
+]);
+
+/** Tipo de evento en el historial de un impuesto. */
+export const tipoEventoImpuestoEnum = pgEnum("tipo_evento_impuesto", [
+  "cambio_estado",
+  "asignacion",
+  "nota",
 ]);
 
 export const tipoDocumentoEnum = pgEnum("tipo_documento", [
