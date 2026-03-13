@@ -765,6 +765,7 @@ async function main(): Promise<void> {
               asignadoAId: null,
               fechaVencimiento: null,
               fechaDeclaracion: null,
+              fechaPrescripcion: sql`${`${año + 5}-12-31`}::date`,
               noExpediente: null,
               observaciones: null,
             })),
@@ -811,6 +812,7 @@ async function main(): Promise<void> {
                 asignadoAId: null,
                 fechaVencimiento: null,
                 fechaDeclaracion: null,
+                fechaPrescripcion: sql`${`${row.año + 5}-12-31`}::date`,
                 noExpediente: null,
                 observaciones: null,
               })

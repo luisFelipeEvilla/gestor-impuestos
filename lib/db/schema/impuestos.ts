@@ -45,6 +45,8 @@ export const impuestos = pgTable("impuestos", {
   }),
   fechaVencimiento: date("fecha_vencimiento"),
   fechaDeclaracion: date("fecha_declaracion"),
+  /** Fecha en que prescribe la acción de cobro (5 años desde la vigencia). */
+  fechaPrescripcion: date("fecha_prescripcion"),
   /** FK al vehículo asociado (solo para impuesto vehicular). */
   vehiculoId: integer("vehiculo_id").references(() => vehiculos.id, {
     onDelete: "set null",

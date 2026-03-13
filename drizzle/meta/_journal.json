@@ -407,6 +407,13 @@
       "when": 1773359825477,
       "tag": "0057_mysterious_leech",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1773365131601,
+      "tag": "0058_bored_stone_men",
+      "breakpoints": true
     }
   ]
 }

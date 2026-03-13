@@ -1,0 +1,1 @@
+ALTER TABLE "impuestos" ADD COLUMN "fecha_prescripcion" date;

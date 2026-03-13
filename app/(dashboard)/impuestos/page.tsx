@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Receipt, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
 import { impuestos, contribuyentes } from "@/lib/db/schema";
-import { eq, and, or, ilike, desc } from "drizzle-orm";
+import { eq, and, or, ilike, desc, count } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -21,8 +21,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Paginacion } from "@/components/ui/paginacion";
 import { FiltroBusquedaImpuestos } from "./filtro-busqueda";
 import { FiltroEstadoImpuestos } from "./filtro-estado";
+import { parsePerPage } from "@/lib/pagination";
 import { unstable_noStore } from "next/cache";
 
 export const dynamic = "force-dynamic";
@@ -39,13 +41,26 @@ const ETIQUETAS_ESTADO: Record<string, { label: string; className: string }> = {
 };
 
 type Props = {
-  searchParams: Promise<{ estado?: string; q?: string }>;
+  searchParams: Promise<{ estado?: string; q?: string; page?: string; perPage?: string }>;
 };
+
+function buildUrl(params: { q?: string; estado?: string; page?: number; perPage?: number }): string {
+  const sp = new URLSearchParams();
+  if (params.q?.trim()) sp.set("q", params.q.trim());
+  if (params.estado) sp.set("estado", params.estado);
+  if (params.perPage != null) sp.set("perPage", String(params.perPage));
+  if (params.page != null && params.page > 1) sp.set("page", String(params.page));
+  const s = sp.toString();
+  return s ? `/impuestos?${s}` : "/impuestos";
+}
 
 export default async function ImpuestosPage({ searchParams }: Props) {
   unstable_noStore();
-  const { estado: estadoParam, q: query } = await searchParams;
+  const { estado: estadoParam, q: query, page: pageParam, perPage: perPageParam } = await searchParams;
   const busqueda = (query ?? "").trim();
+  const pageSize = parsePerPage(perPageParam);
+  const pageRaw = pageParam ? parseInt(pageParam, 10) : 1;
+  const page = Number.isNaN(pageRaw) || pageRaw < 1 ? 1 : pageRaw;
 
   const condiciones = [];
   if (estadoParam && estadoParam in ETIQUETAS_ESTADO) {
@@ -66,8 +81,21 @@ export default async function ImpuestosPage({ searchParams }: Props) {
       )
     );
   }
+  const where = condiciones.length > 0 ? and(...condiciones) : undefined;
 
-  const lista = await db
+  // Total count
+  const countBase = db
+    .select({ count: count() })
+    .from(impuestos)
+    .leftJoin(contribuyentes, eq(impuestos.contribuyenteId, contribuyentes.id));
+  const [countResult] = where ? await countBase.where(where) : await countBase;
+  const total = Number(countResult?.count ?? 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const offset = (currentPage - 1) * pageSize;
+
+  // Paginated data
+  const listaBase = db
     .select({
       id: impuestos.id,
       tipoImpuesto: impuestos.tipoImpuesto,
@@ -81,8 +109,15 @@ export default async function ImpuestosPage({ searchParams }: Props) {
     })
     .from(impuestos)
     .leftJoin(contribuyentes, eq(impuestos.contribuyenteId, contribuyentes.id))
-    .where(condiciones.length > 0 ? and(...condiciones) : undefined)
-    .orderBy(desc(impuestos.creadoEn));
+    .orderBy(desc(impuestos.creadoEn))
+    .limit(pageSize)
+    .offset(offset);
+
+  const lista = where ? await listaBase.where(where) : await listaBase;
+
+  const selectorSearchParams: Record<string, string> = {};
+  if (busqueda) selectorSearchParams.q = busqueda;
+  if (estadoParam) selectorSearchParams.estado = estadoParam;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -108,6 +143,7 @@ export default async function ImpuestosPage({ searchParams }: Props) {
             Gestión del ciclo de vida del impuesto de vehículos automotores
             {estadoParam && ` · Estado: ${ETIQUETAS_ESTADO[estadoParam]?.label ?? estadoParam}`}
             {busqueda && " · Búsqueda aplicada"}
+            {" · "}{total.toLocaleString("es-CO")} resultado{total !== 1 ? "s" : ""}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -178,6 +214,15 @@ export default async function ImpuestosPage({ searchParams }: Props) {
               </TableBody>
             </Table>
           )}
+          <Paginacion
+            currentPage={currentPage}
+            totalPages={totalPages}
+            total={total}
+            pageSize={pageSize}
+            buildPageUrl={(p) => buildUrl({ q: busqueda || undefined, estado: estadoParam, perPage: pageSize, page: p })}
+            formAction="/impuestos"
+            selectorSearchParams={selectorSearchParams}
+          />
         </CardContent>
       </Card>
     </div>
