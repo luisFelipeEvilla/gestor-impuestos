@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { procesos, contribuyentes, usuarios, documentosProceso } from "@/lib/db/schema";
+import { procesos, contribuyentes, usuarios, documentosProceso, vehiculos } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { actualizarProceso } from "@/lib/actions/procesos";
@@ -37,9 +37,20 @@ export default async function EditarProcesoPage({ params }: Props) {
     }
   }
 
-  const [contribuyentesList, usuariosList, documentosRows] = await Promise.all([
-    db.select({ id: contribuyentes.id, nit: contribuyentes.nit, nombreRazonSocial: contribuyentes.nombreRazonSocial }).from(contribuyentes),
+  const [usuariosList, contribuyenteRow, vehiculoRow, documentosRows] = await Promise.all([
     db.select({ id: usuarios.id, nombre: usuarios.nombre }).from(usuarios).where(eq(usuarios.activo, true)),
+    db
+      .select({ nit: contribuyentes.nit, nombreRazonSocial: contribuyentes.nombreRazonSocial })
+      .from(contribuyentes)
+      .where(eq(contribuyentes.id, proceso.contribuyenteId))
+      .then((r) => r[0] ?? null),
+    proceso.vehiculoId
+      ? db
+          .select({ placa: vehiculos.placa })
+          .from(vehiculos)
+          .where(eq(vehiculos.id, proceso.vehiculoId))
+          .then((r) => r[0] ?? null)
+      : Promise.resolve(null),
     db
       .select({
         id: documentosProceso.id,
@@ -53,6 +64,11 @@ export default async function EditarProcesoPage({ params }: Props) {
       .orderBy(desc(documentosProceso.creadoEn)),
   ]);
 
+  const initialContribuyenteLabel = contribuyenteRow
+    ? `${contribuyenteRow.nit} – ${contribuyenteRow.nombreRazonSocial}`
+    : null;
+  const initialVehiculoLabel = vehiculoRow?.placa ?? null;
+
   return (
     <div className="p-6 space-y-6">
       <div className="mb-6 flex items-center gap-4">
@@ -65,8 +81,9 @@ export default async function EditarProcesoPage({ params }: Props) {
           action={actualizarProceso}
           initialData={proceso}
           submitLabel="Guardar cambios"
-          contribuyentes={contribuyentesList}
           usuarios={usuariosList}
+          initialContribuyenteLabel={initialContribuyenteLabel}
+          initialVehiculoLabel={initialVehiculoLabel}
         />
       </div>
 

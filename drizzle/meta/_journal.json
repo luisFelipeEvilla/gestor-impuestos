@@ -414,6 +414,13 @@
       "when": 1773365131601,
       "tag": "0058_bored_stone_men",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1773686239799,
+      "tag": "0059_nifty_luke_cage",
+      "breakpoints": true
     }
   ]
 }

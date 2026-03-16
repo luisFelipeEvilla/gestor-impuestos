@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import type { EstadoFormProceso } from "@/lib/actions/procesos";
 import type { Proceso } from "@/lib/db/schema";
 import { cn } from "@/lib/utils";
+import { ContribuyenteSelector } from "./contribuyente-selector";
+import { VehiculoSelector } from "./vehiculo-selector";
 
 const ESTADOS = [
   { value: "pendiente", label: "Pendiente" },
@@ -25,15 +27,17 @@ const ESTADOS = [
   { value: "finalizado", label: "Finalizado" },
 ] as const;
 
-type ContribuyenteOption = { id: number; nit: string; nombreRazonSocial: string };
 type UsuarioOption = { id: number; nombre: string };
 
 type ProcesoFormProps = {
   action: (prev: EstadoFormProceso | null, formData: FormData) => Promise<EstadoFormProceso>;
   initialData?: Proceso | null;
   submitLabel: string;
-  contribuyentes: ContribuyenteOption[];
   usuarios: UsuarioOption[];
+  /** Label inicial del contribuyente (solo para edición, evita refetch) */
+  initialContribuyenteLabel?: string | null;
+  /** Label inicial del vehículo (solo para edición, evita refetch) */
+  initialVehiculoLabel?: string | null;
 };
 
 function formatDateForInput(value: Date | string | null | undefined): string {
@@ -46,11 +50,19 @@ export function ProcesoForm({
   action,
   initialData,
   submitLabel,
-  contribuyentes: contribuyentesList,
   usuarios: usuariosList,
+  initialContribuyenteLabel,
+  initialVehiculoLabel,
 }: ProcesoFormProps) {
   const [state, formAction] = useActionState(action, null);
   const isEdit = initialData != null;
+
+  const [contribuyenteId, setContribuyenteId] = useState<number | null>(
+    initialData?.contribuyenteId ?? null
+  );
+  const [vehiculoId, setVehiculoId] = useState<number | null>(
+    initialData?.vehiculoId ?? null
+  );
 
   return (
     <form action={formAction} key={initialData?.id ?? "nuevo"}>
@@ -73,27 +85,23 @@ export function ProcesoForm({
             </p>
           )}
           <div className="grid gap-2">
-            <Label htmlFor="contribuyenteId">Contribuyente</Label>
-            <select
-              id="contribuyenteId"
-              name="contribuyenteId"
-              defaultValue={initialData?.contribuyenteId ?? ""}
-              className={cn(
-                "border-input bg-transparent focus-visible:border-ring focus-visible:ring-ring/50 h-9 w-full rounded-md border px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
-              )}
-              aria-invalid={!!state?.errores?.contribuyenteId}
-              aria-required="true"
-            >
-              <option value="">Selecciona un contribuyente</option>
-              {contribuyentesList.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nit} – {c.nombreRazonSocial}
-                </option>
-              ))}
-            </select>
+            <Label>Contribuyente</Label>
+            <ContribuyenteSelector
+              value={contribuyenteId}
+              initialLabel={initialContribuyenteLabel}
+              onChange={(id) => setContribuyenteId(id)}
+            />
             {state?.errores?.contribuyenteId && (
               <p className="text-destructive text-xs">{state.errores.contribuyenteId[0]}</p>
             )}
+          </div>
+          <div className="grid gap-2">
+            <Label>Vehículo (placa, opcional)</Label>
+            <VehiculoSelector
+              value={vehiculoId}
+              initialLabel={initialVehiculoLabel}
+              onChange={(id) => setVehiculoId(id)}
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">

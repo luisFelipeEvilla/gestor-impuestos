@@ -1,0 +1,2 @@
+ALTER TABLE "comparendos" ADD COLUMN "vehiculo_id" integer;--> statement-breakpoint
+ALTER TABLE "comparendos" ADD CONSTRAINT "comparendos_vehiculo_id_vehiculos_id_fk" FOREIGN KEY ("vehiculo_id") REFERENCES "public"."vehiculos"("id") ON DELETE set null ON UPDATE cascade;

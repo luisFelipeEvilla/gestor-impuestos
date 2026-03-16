@@ -12,6 +12,7 @@ import {
   acuerdosPago,
   cuotasAcuerdo,
   cobrosCoactivos,
+  vehiculos,
 } from "@/lib/db/schema";
 import { eq, desc, asc, inArray } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
@@ -123,13 +124,16 @@ export default async function DetalleProcesoPage({ params }: Props) {
       fechaLimite: procesos.fechaLimite,
       fechaAplicacionImpuesto: procesos.fechaAplicacionImpuesto,
       creadoEn: procesos.creadoEn,
+      vehiculoId: procesos.vehiculoId,
       contribuyenteNit: contribuyentes.nit,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
       asignadoNombre: usuarios.nombre,
+      vehiculoPlaca: vehiculos.placa,
     })
     .from(procesos)
     .innerJoin(contribuyentes, eq(procesos.contribuyenteId, contribuyentes.id))
     .leftJoin(usuarios, eq(procesos.asignadoAId, usuarios.id))
+    .leftJoin(vehiculos, eq(procesos.vehiculoId, vehiculos.id))
     .where(eq(procesos.id, id));
 
   if (!row) notFound();
@@ -289,6 +293,11 @@ export default async function DetalleProcesoPage({ params }: Props) {
           <Link href="/comparendos">← Procesos</Link>
         </Button>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a href={`/api/comparendos/${row.id}/mandamiento-pago`} target="_blank" rel="noopener noreferrer">
+              Mandamiento de pago
+            </a>
+          </Button>
           <Button asChild>
             <Link href={`/comparendos/${row.id}/editar`}>Editar</Link>
           </Button>
@@ -340,6 +349,12 @@ export default async function DetalleProcesoPage({ params }: Props) {
                   <div>
                     <dt className="text-muted-foreground">No. comparendo</dt>
                     <dd className="font-medium">{row.noComparendo}</dd>
+                  </div>
+                )}
+                {row.vehiculoPlaca != null && (
+                  <div>
+                    <dt className="text-muted-foreground">Placa vehículo</dt>
+                    <dd className="font-medium">{row.vehiculoPlaca}</dd>
                   </div>
                 )}
                 <div>
