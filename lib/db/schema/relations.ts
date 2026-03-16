@@ -76,6 +76,7 @@ export const vehiculosRelations = relations(vehiculos, ({ one, many }) => ({
     references: [contribuyentes.id],
   }),
   impuestos: many(impuestos),
+  procesos: many(procesos),
 }));
 
 export const historialImpuestoRelations = relations(historialImpuesto, ({ one }) => ({
@@ -98,6 +99,10 @@ export const contribuyentesRelations = relations(contribuyentes, ({ many }) => (
 export const procesosRelations = relations(procesos, ({ one, many }) => ({
   contribuyente: one(contribuyentes),
   asignadoA: one(usuarios),
+  vehiculo: one(vehiculos, {
+    fields: [procesos.vehiculoId],
+    references: [vehiculos.id],
+  }),
   historial: many(historialProceso),
   documentos: many(documentosProceso),
   ordenResolucion: one(ordenesResolucion),

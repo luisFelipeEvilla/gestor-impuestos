@@ -90,6 +90,11 @@ const schemaCrear = z.object({
     .optional()
     .transform((v) => (v === "" || v === undefined ? undefined : parseInt(v, 10)))
     .refine((v) => v === undefined || (Number.isInteger(v) && v! > 0), "Usuario inválido"),
+  vehiculoId: z
+    .string()
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? undefined : parseInt(v, 10)))
+    .refine((v) => v === undefined || (Number.isInteger(v) && v! > 0), "Vehículo inválido"),
   fechaLimite: z.string().optional().or(z.literal("")),
   fechaAplicacionImpuesto: z.string().optional().or(z.literal("")),
 });
@@ -124,6 +129,7 @@ export async function crearProceso(
     montoInteresesCop: formData.get("montoInteresesCop") || undefined,
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
+    vehiculoId: formData.get("vehiculoId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
     fechaAplicacionImpuesto: formData.get("fechaAplicacionImpuesto") || undefined,
   };
@@ -148,6 +154,7 @@ export async function crearProceso(
     montoInteresesCop,
     estadoActual: estadoForm,
     asignadoAId,
+    vehiculoId,
     fechaLimite,
     fechaAplicacionImpuesto,
   } = parsed.data;
@@ -173,6 +180,7 @@ export async function crearProceso(
         montoInteresesCop: montoInteresesCop ?? null,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
+        vehiculoId: vehiculoId ?? null,
         fechaLimite: fechaLimiteCalculada,
         fechaAplicacionImpuesto: fechaAplicacion,
       })
@@ -227,6 +235,7 @@ export async function actualizarProceso(
     montoInteresesCop: formData.get("montoInteresesCop") || undefined,
     estadoActual: formData.get("estadoActual") || "pendiente",
     asignadoAId: formData.get("asignadoAId") || undefined,
+    vehiculoId: formData.get("vehiculoId") || undefined,
     fechaLimite: formData.get("fechaLimite") || undefined,
     fechaAplicacionImpuesto: formData.get("fechaAplicacionImpuesto") || undefined,
   };
@@ -251,6 +260,7 @@ export async function actualizarProceso(
     montoInteresesCop,
     estadoActual,
     asignadoAId,
+    vehiculoId,
     fechaLimite,
     fechaAplicacionImpuesto,
   } = parsed.data;
@@ -289,6 +299,7 @@ export async function actualizarProceso(
         montoInteresesCop: montoInteresesCop ?? null,
         estadoActual,
         asignadoAId: asignadoAId ?? null,
+        vehiculoId: vehiculoId ?? null,
         fechaLimite: fechaLimiteFinal,
         fechaAplicacionImpuesto: fechaAplicacion,
         actualizadoEn: new Date(),

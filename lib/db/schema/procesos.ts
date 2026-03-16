@@ -21,6 +21,7 @@ import {
 import { contribuyentes } from "./contribuyentes";
 import { usuarios } from "./usuarios";
 import { importacionesProcesos, importacionesAcuerdos } from "./importaciones";
+import { vehiculos } from "./vehiculos";
 
 // Tabla: comparendos (trabajo de cobro)
 export const procesos = pgTable("comparendos", {
@@ -51,6 +52,11 @@ export const procesos = pgTable("comparendos", {
   fechaImportacion: timestamp("fecha_importacion", { withTimezone: true }),
   /** Referencia al registro de importación masiva que creó este proceso. */
   importacionId: integer("importacion_id").references(() => importacionesProcesos.id, {
+    onDelete: "set null",
+    onUpdate: "cascade",
+  }),
+  /** Vehículo asociado al comparendo (opcional). */
+  vehiculoId: integer("vehiculo_id").references(() => vehiculos.id, {
     onDelete: "set null",
     onUpdate: "cascade",
   }),
