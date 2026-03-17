@@ -73,6 +73,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const data: MandamientoPagoData = {
     proyectorNombre: session.user.name ?? null,
+    firmadorNombre: null,
     proceso: {
       id: row.id,
       noComparendo: row.noComparendo,

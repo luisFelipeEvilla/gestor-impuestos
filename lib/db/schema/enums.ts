@@ -1,7 +1,7 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
 // Enums según definición del proyecto (Colombia)
-export const rolUsuarioEnum = pgEnum("rol_usuario", ["admin", "empleado"]);
+export const rolUsuarioEnum = pgEnum("rol_usuario", ["admin", "empleado", "usuario_cliente"]);
 
 /** Estado del proceso fiscal de un impuesto (Colombia). */
 export const estadoImpuestoEnum = pgEnum("estado_impuesto", [

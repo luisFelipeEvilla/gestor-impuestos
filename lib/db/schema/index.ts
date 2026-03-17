@@ -10,6 +10,7 @@ export * from "./impuestos";
 export * from "./contribuyentes";
 export * from "./vehiculos";
 export * from "./procesos";
+export * from "./mandamientos-pago";
 export * from "./importaciones";
 export * from "./obligaciones";
 export * from "./actas";

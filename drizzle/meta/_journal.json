@@ -421,6 +421,20 @@
       "when": 1773686239799,
       "tag": "0059_nifty_luke_cage",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1773689312721,
+      "tag": "0060_chemical_centennial",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1773754999344,
+      "tag": "0061_pretty_frightful_four",
+      "breakpoints": true
     }
   ]
 }

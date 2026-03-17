@@ -40,6 +40,7 @@ interface ChipsFiltrosProcesosProps {
   acuerdoPago: "con" | "sin" | null;
   comprobante: "con" | "sin" | null;
   ordenResolucion: "con" | "sin" | null;
+  mandamientoPago: "con" | "sin" | null;
   orderBy?: string;
   order?: string;
   perPage?: number;
@@ -59,6 +60,7 @@ export function ChipsFiltrosProcesos({
   acuerdoPago,
   comprobante,
   ordenResolucion,
+  mandamientoPago,
   orderBy,
   order,
   perPage,
@@ -76,6 +78,7 @@ export function ChipsFiltrosProcesos({
   if (acuerdoPago) params.set("acuerdoPago", acuerdoPago);
   if (comprobante) params.set("comprobante", comprobante);
   if (ordenResolucion) params.set("ordenResolucion", ordenResolucion);
+  if (mandamientoPago) params.set("mandamientoPago", mandamientoPago);
   if (orderBy) params.set("orderBy", orderBy);
   if (order) params.set("order", order);
   if (perPage != null) params.set("perPage", String(perPage));
@@ -146,6 +149,12 @@ export function ChipsFiltrosProcesos({
     chips.push({
       label: `Ord. resolución: ${ordenResolucion === "con" ? "Con" : "Sin"}`,
       href: buildUrl(params, { key: "ordenResolucion" }),
+    });
+  }
+  if (mandamientoPago) {
+    chips.push({
+      label: `Mandamiento de pago: ${mandamientoPago === "con" ? "Con" : "Sin"}`,
+      href: buildUrl(params, { key: "mandamientoPago" }),
     });
   }
 

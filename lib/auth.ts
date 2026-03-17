@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { usuarios } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 
-export type RolUsuario = "admin" | "empleado";
+export type RolUsuario = "admin" | "empleado" | "usuario_cliente";
 
 declare module "next-auth" {
   interface User {
@@ -13,6 +13,7 @@ declare module "next-auth" {
     email: string;
     nombre: string;
     rol: RolUsuario;
+    clienteId: number | null;
   }
 
   interface Session {
@@ -21,6 +22,7 @@ declare module "next-auth" {
       email: string;
       name: string;
       rol: RolUsuario;
+      clienteId: number | null;
     };
   }
 }
@@ -29,6 +31,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: number;
     rol: RolUsuario;
+    clienteId: number | null;
   }
 }
 
@@ -61,6 +64,7 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           nombre: user.nombre,
           rol: user.rol,
+          clienteId: user.clienteId ?? null,
         };
       },
     }),
@@ -76,6 +80,7 @@ export const authOptions: NextAuthOptions = {
         token.email = user.email;
         token.name = user.nombre;
         token.rol = user.rol;
+        token.clienteId = user.clienteId ?? null;
       }
       return token;
     },
@@ -85,6 +90,7 @@ export const authOptions: NextAuthOptions = {
         session.user.email = token.email ?? "";
         session.user.name = token.name ?? "";
         session.user.rol = token.rol;
+        session.user.clienteId = token.clienteId ?? null;
       }
       return session;
     },

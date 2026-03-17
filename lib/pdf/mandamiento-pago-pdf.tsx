@@ -13,6 +13,7 @@ Font.registerHyphenationCallback((word: string) => [word]);
 
 export type MandamientoPagoData = {
   proyectorNombre: string | null;
+  firmadorNombre: string | null;
   proceso: {
     id: number;
     noComparendo: string | null;
@@ -38,6 +39,8 @@ export type MandamientoPagoData = {
   } | null;
   logoPath: string;
   fechaGeneracion: Date;
+  /** Imagen de firma en base64 data URL (ej: data:image/png;base64,...) para embeber en el PDF */
+  signatureImageBase64?: string | null;
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -269,10 +272,10 @@ const s = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: C.border,
   },
-  colNo: { width: 28 },
+  colNo: { width: 93 },
   colFecha: { width: 52 },
   colNoRes: { width: 115 },
-  colFechaRes: { flex: 1 },
+  colFechaRes: { width: 80 },
   colValor: { width: 78 },
   colCodigo: { width: 72, borderRightWidth: 0 },
 
@@ -389,9 +392,9 @@ function PageFooter() {
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData }) {
-  const { proceso, contribuyente, ordenResolucion, logoPath, fechaGeneracion, proyectorNombre } = data;
+  const { proceso, contribuyente, ordenResolucion, logoPath, fechaGeneracion, proyectorNombre, firmadorNombre, signatureImageBase64 } = data;
 
-  const expedienteNo = proceso.noComparendo ?? `${proceso.id}`;
+  const expedienteNo = proceso.noComparendo ?? "—";
   const resolucionNo = ordenResolucion?.numeroResolucion ?? proceso.noComparendo ?? "—";
   const fechaResolucionStr = ordenResolucion?.fechaResolucion
     ? formatFechaCorta(ordenResolucion.fechaResolucion)
@@ -404,7 +407,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
   const identificacion = `${tipoDocLabel} ${contribuyente.nit}`;
   const montoFormateado = formatMonto(proceso.montoCop);
   const codigoInfraccion = ordenResolucion?.codigoInfraccion ?? proceso.periodo ?? "—";
-  const placa = proceso.vehiculoPlaca ?? proceso.noComparendo ?? "—";
+  const placa = proceso.vehiculoPlaca ?? "";
 
   return (
     <Document>
@@ -511,7 +514,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
             <Text style={[s.tHCell, s.colCodigo]}>CÓDIGO DE{"\n"}INFRACCIÓN</Text>
           </View>
           <View style={s.tRow}>
-            <Text style={[s.tCell, s.colNo]}>{proceso.id}</Text>
+            <Text style={[s.tCell, s.colNo]}>{proceso.noComparendo ?? "—"}</Text>
             <Text style={[s.tCell, s.colFecha]}>
               {proceso.fechaAplicacionImpuesto
                 ? formatFechaCorta(proceso.fechaAplicacionImpuesto)
@@ -633,23 +636,37 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
 
         {/* Signature */}
         <View style={s.signBlock}>
-          <Text style={s.signLine}>(-)</Text>
+          {signatureImageBase64 ? (
+            <Image src={signatureImageBase64} style={{ width: 160, height: 60, objectFit: "contain" }} />
+          ) : (
+            <Text style={s.signLine}>(-)</Text>
+          )}
           <Text style={[s.signLine, s.bold]}>
             SECRETARIO(A) DE HACIENDA DEL DEPARTAMENTO DEL MAGDALENA
           </Text>
         </View>
 
-        {/* ════════════════════════════════════════
-            PAGE 3 CONTENT (author attribution)
-            ════════════════════════════════════════ */}
-        <View style={s.authorBlock} break>
+      </Page>
+
+      {/* ════════════════════════════════════════
+          ÚLTIMA PÁGINA: atribución de autoría
+          ════════════════════════════════════════ */}
+      <Page size="A4" style={s.page}>
+        <PageHeader
+          logoPath={logoPath}
+          expediente={expedienteNo}
+          resolucion={resolucionNo}
+          fechaResolucion={fechaResolucionStr}
+        />
+        <PageFooter />
+        <View style={s.authorBlock}>
           <View style={s.authorRow}>
             <Text style={s.authorLabel}>Proyectó: {proyectorNombre ?? "(-)"}</Text>
-            <Text style={[s.authorLabel, s.bold]}>Abogado(a) Sustanciador(a) {proyectorNombre ?? "(-)"}</Text>
+            <Text style={[s.authorLabel, s.bold]}>Abogado R&R Consultorías SAS.</Text>
           </View>
           <View style={s.authorRow}>
-            <Text style={s.authorLabel}>Revisó: (-)</Text>
-            <Text style={[s.authorLabel, s.bold]}>Abogado(a) contratista Secretaría de Hacienda.</Text>
+            <Text style={s.authorLabel}>Revisó: {firmadorNombre ?? "(-)"}</Text>
+            <Text style={[s.authorLabel, s.bold]}>Abogado Secretaría de Hacienda.</Text>
           </View>
         </View>
       </Page>

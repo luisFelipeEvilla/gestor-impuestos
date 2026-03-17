@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Users, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
 import { usuarios, cargosEmpresa } from "@/lib/db/schema";
-import { eq, and, or, ilike, desc } from "drizzle-orm";
+import { eq, and, or, ilike, desc, inArray } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -37,6 +37,8 @@ export default async function UsuariosPage({ searchParams }: Props) {
   const busqueda = (query ?? "").trim();
 
   const condiciones = [];
+  // Solo usuarios internos; los usuarios_cliente se gestionan desde su cliente
+  condiciones.push(inArray(usuarios.rol, ["admin", "empleado"]));
   if (!verInactivos) condiciones.push(eq(usuarios.activo, true));
   if (busqueda.length > 0) {
     condiciones.push(

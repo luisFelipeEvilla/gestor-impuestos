@@ -238,6 +238,71 @@ export async function activarUsuario(formData: FormData): Promise<EstadoFormUsua
   }
 }
 
+const schemaCrearUsuarioCliente = z.object({
+  nombre: z.string().min(1, "El nombre es obligatorio").max(200),
+  email: z.string().email("Email no válido"),
+  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+  clienteId: z.coerce.number().int().positive("Cliente requerido"),
+  activo: z.boolean().default(true),
+});
+
+export async function crearUsuarioCliente(
+  _prev: EstadoFormUsuario | null,
+  formData: FormData
+): Promise<EstadoFormUsuario> {
+  const session = await requireAdminSession();
+  if (!session) return { error: "No tienes permiso para realizar esta acción." };
+
+  const raw = {
+    nombre: formData.get("nombre"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    clienteId: formData.get("clienteId"),
+    activo: formData.get("activo") === "on",
+  };
+
+  const parsed = schemaCrearUsuarioCliente.safeParse(raw);
+  if (!parsed.success) {
+    const flat = parsed.error.flatten();
+    const errores = flat.fieldErrors as Record<string, string[] | undefined>;
+    return {
+      error: flat.formErrors.join(" ") || "Datos inválidos",
+      errores: Object.keys(errores).length ? (errores as Record<string, string[]>) : undefined,
+    };
+  }
+
+  const { nombre, email, password, clienteId, activo } = parsed.data;
+
+  try {
+    const passwordHash = await hashPassword(password);
+    const [inserted] = await db
+      .insert(usuarios)
+      .values({
+        nombre,
+        email: email.trim().toLowerCase(),
+        passwordHash,
+        rol: "usuario_cliente",
+        clienteId,
+        activo,
+      })
+      .returning({ id: usuarios.id });
+
+    if (!inserted) throw new Error("No se pudo crear el usuario");
+    revalidatePath(`/clientes/${clienteId}`);
+    revalidatePath("/usuarios");
+    redirect(`/clientes/${clienteId}`);
+  } catch (err) {
+    if (err instanceof Error && "code" in err && (err as { code?: string }).code === "23505") {
+      return { error: "Ya existe un usuario con ese email.", errores: { email: ["Email duplicado"] } };
+    }
+    if (err && typeof err === "object" && "digest" in err && typeof (err as { digest?: string }).digest === "string") {
+      throw err;
+    }
+    console.error(err);
+    return { error: "Error al crear el usuario. Intenta de nuevo." };
+  }
+}
+
 export async function eliminarUsuario(formData: FormData): Promise<EstadoFormUsuario> {
   const session = await requireAdminSession();
   if (!session) return { error: "No tienes permiso para realizar esta acción." };
