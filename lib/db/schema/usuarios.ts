@@ -8,6 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { rolUsuarioEnum } from "./enums";
 import { cargosEmpresa } from "./cargos-empresa";
+import { clientes } from "./clientes";
 
 // Tabla: usuarios
 export const usuarios = pgTable("usuarios", {
@@ -20,6 +21,10 @@ export const usuarios = pgTable("usuarios", {
   cargoId: integer("cargo_id").references(() => cargosEmpresa.id, {
     onDelete: "set null",
     onUpdate: "cascade",
+  }),
+  /** Cliente al que pertenece este usuario (solo para rol usuario_cliente). */
+  clienteId: integer("cliente_id").references(() => clientes.id, {
+    onDelete: "set null",
   }),
   activo: boolean("activo").notNull().default(true),
   /** Hash del token de recuperación de contraseña (SHA-256). Se limpia al restablecer o al expirar. */

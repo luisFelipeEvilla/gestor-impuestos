@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { clientes } from "@/lib/db/schema";
+import { clientes, usuarios } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   Card,
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { MiembrosCliente } from "@/components/clientes/miembros-cliente";
 import { obtenerMiembrosPorCliente } from "@/lib/actions/clientes-miembros";
 import { unstable_noStore } from "next/cache";
+import { UserPlus } from "lucide-react";
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -29,7 +30,14 @@ export default async function DetalleClientePage({ params }: Props) {
   const [cliente] = await db.select().from(clientes).where(eq(clientes.id, id));
   if (!cliente) notFound();
 
-  const miembros = await obtenerMiembrosPorCliente(id);
+  const [miembros, usuariosCliente] = await Promise.all([
+    obtenerMiembrosPorCliente(id),
+    db
+      .select({ id: usuarios.id, nombre: usuarios.nombre, email: usuarios.email, activo: usuarios.activo })
+      .from(usuarios)
+      .where(eq(usuarios.clienteId, id))
+      .orderBy(usuarios.nombre),
+  ]);
 
   return (
     <div className="p-6">
@@ -99,6 +107,54 @@ export default async function DetalleClientePage({ params }: Props) {
         </CardContent>
       </Card>
       <MiembrosCliente clienteId={id} miembros={miembros} />
+
+      {/* Usuarios del cliente */}
+      <Card className="mx-auto max-w-2xl mt-6">
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <div>
+            <CardTitle>Usuarios del cliente</CardTitle>
+            <CardDescription>
+              Accesos de login para personal de {cliente.nombre}.
+            </CardDescription>
+          </div>
+          <Button size="sm" asChild>
+            <Link href={`/clientes/${id}/usuarios/nuevo`}>
+              <UserPlus className="mr-2 size-4" />
+              Nuevo usuario
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {usuariosCliente.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No hay usuarios creados para este cliente.
+            </p>
+          ) : (
+            <div className="divide-y rounded-md border">
+              {usuariosCliente.map((u) => (
+                <div
+                  key={u.id}
+                  className="flex items-center justify-between gap-4 px-4 py-3 text-sm"
+                >
+                  <div>
+                    <p className="font-medium">{u.nombre}</p>
+                    <p className="text-muted-foreground text-xs">{u.email}</p>
+                  </div>
+                  {u.activo ? (
+                    <span className="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success">
+                      Activo
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      Inactivo
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -38,7 +38,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const rol = (token as { rol?: "admin" | "empleado" }).rol;
+  const rol = (token as { rol?: "admin" | "empleado" | "usuario_cliente" }).rol;
+
+  // Rutas solo para admin
   if (
     (pathname.startsWith("/usuarios") ||
       pathname.startsWith("/cargos") ||
@@ -46,6 +48,17 @@ export async function middleware(req: NextRequest) {
     rol !== "admin"
   ) {
     return NextResponse.redirect(new URL("/", req.nextUrl.origin));
+  }
+
+  // Usuarios de clientes: acceso restringido a comparendos y APIs relacionadas
+  if (rol === "usuario_cliente") {
+    const esPermitida =
+      pathname.startsWith("/comparendos") ||
+      pathname.startsWith("/api/comparendos") ||
+      pathname === "/";
+    if (!esPermitida) {
+      return NextResponse.redirect(new URL("/comparendos", req.nextUrl.origin));
+    }
   }
 
   return NextResponse.next();

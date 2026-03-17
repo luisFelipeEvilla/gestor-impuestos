@@ -86,6 +86,7 @@ function buildProcesosUrl(filtros: {
   acuerdoPago?: Presencia | null;
   comprobante?: Presencia | null;
   ordenResolucion?: Presencia | null;
+  mandamientoPago?: Presencia | null;
   page?: number;
   perPage?: number;
   orderBy?: (typeof ORDER_BY_VALIDOS)[number];
@@ -104,6 +105,7 @@ function buildProcesosUrl(filtros: {
   if (filtros.acuerdoPago) search.set("acuerdoPago", filtros.acuerdoPago);
   if (filtros.comprobante) search.set("comprobante", filtros.comprobante);
   if (filtros.ordenResolucion) search.set("ordenResolucion", filtros.ordenResolucion);
+  if (filtros.mandamientoPago) search.set("mandamientoPago", filtros.mandamientoPago);
   if (filtros.perPage != null) search.set("perPage", String(filtros.perPage));
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
   if (filtros.orderBy && ORDER_BY_VALIDOS.includes(filtros.orderBy)) search.set("orderBy", filtros.orderBy);
@@ -125,6 +127,7 @@ type Props = {
     acuerdoPago?: string;
     comprobante?: string;
     ordenResolucion?: string;
+    mandamientoPago?: string;
     page?: string;
     perPage?: string;
     orderBy?: string;
@@ -135,6 +138,7 @@ type Props = {
 export default async function ProcesosPage({ searchParams }: Props) {
   unstable_noStore();
   const session = await getSession();
+  const esUsuarioCliente = session?.user?.rol === "usuario_cliente";
   const params = await searchParams;
   const estadoParam = params.estado;
   const vigenciaParam = params.vigencia;
@@ -176,6 +180,8 @@ export default async function ProcesosPage({ searchParams }: Props) {
     PRESENCIA_VALIDOS.includes(params.comprobante as Presencia) ? (params.comprobante as Presencia) : null;
   const ordenResolucionActual: Presencia | null =
     PRESENCIA_VALIDOS.includes(params.ordenResolucion as Presencia) ? (params.ordenResolucion as Presencia) : null;
+  const mandamientoPagoActual: Presencia | null =
+    PRESENCIA_VALIDOS.includes(params.mandamientoPago as Presencia) ? (params.mandamientoPago as Presencia) : null;
 
   const orderByParam = params.orderBy;
   const orderByActual: (typeof ORDER_BY_VALIDOS)[number] =
@@ -215,14 +221,24 @@ export default async function ProcesosPage({ searchParams }: Props) {
     .where(eq(usuarios.activo, true))
     .orderBy(usuarios.nombre);
 
-  // Empleados solo ven procesos que tienen asignados; admin ve todos; sin sesión no se ve nada.
-  const condicionesSoloPermisos: ReturnType<typeof eq>[] = [];
-  if (session?.user?.rol !== "admin") {
+  // Permisos de visibilidad:
+  // - admin: ve todo
+  // - empleado: solo sus procesos asignados
+  // - usuario_cliente: solo procesos con mandamiento pendiente de firma
+  const condicionesSoloPermisos = [];
+  if (session?.user?.rol === "empleado") {
     if (!session?.user?.id) {
       condicionesSoloPermisos.push(eq(procesos.id, -1));
     } else {
       condicionesSoloPermisos.push(eq(procesos.asignadoAId, session.user.id));
     }
+  } else if (!session?.user) {
+    condicionesSoloPermisos.push(eq(procesos.id, -1));
+  }
+  if (esUsuarioCliente) {
+    condicionesSoloPermisos.push(
+      sql`EXISTS (SELECT 1 FROM mandamientos_pago WHERE proceso_id = ${procesos.id} AND firmado_en IS NULL)`
+    );
   }
   const whereSoloPermisos =
     condicionesSoloPermisos.length > 0 ? and(...condicionesSoloPermisos) : undefined;
@@ -282,12 +298,24 @@ export default async function ProcesosPage({ searchParams }: Props) {
   } else if (ordenResolucionActual === "sin") {
     condiciones.push(sql`NOT EXISTS (SELECT 1 FROM ordenes_resolucion WHERE proceso_id = ${procesos.id})`);
   }
-  if (session?.user?.rol !== "admin") {
+  if (mandamientoPagoActual === "con") {
+    condiciones.push(sql`EXISTS (SELECT 1 FROM mandamientos_pago WHERE proceso_id = ${procesos.id})`);
+  } else if (mandamientoPagoActual === "sin") {
+    condiciones.push(sql`NOT EXISTS (SELECT 1 FROM mandamientos_pago WHERE proceso_id = ${procesos.id})`);
+  }
+  if (session?.user?.rol === "empleado") {
     if (!session?.user?.id) {
       condiciones.push(eq(procesos.id, -1));
     } else {
       condiciones.push(eq(procesos.asignadoAId, session.user.id));
     }
+  } else if (!session?.user) {
+    condiciones.push(eq(procesos.id, -1));
+  }
+  if (esUsuarioCliente) {
+    condiciones.push(
+      sql`EXISTS (SELECT 1 FROM mandamientos_pago WHERE proceso_id = ${procesos.id} AND firmado_en IS NULL)`
+    );
   }
   const whereCond =
     condiciones.length > 0 ? and(...condiciones) : undefined;
@@ -413,7 +441,8 @@ export default async function ProcesosPage({ searchParams }: Props) {
     nombreActual != null ||
     acuerdoPagoActual != null ||
     comprobanteActual != null ||
-    ordenResolucionActual != null;
+    ordenResolucionActual != null ||
+    mandamientoPagoActual != null;
 
   const descripcionOrden =
     orderByActual === "fechaLimite"
@@ -440,6 +469,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
     ...(acuerdoPagoActual ? { acuerdoPago: acuerdoPagoActual } : {}),
     ...(comprobanteActual ? { comprobante: comprobanteActual } : {}),
     ...(ordenResolucionActual ? { ordenResolucion: ordenResolucionActual } : {}),
+    ...(mandamientoPagoActual ? { mandamientoPago: mandamientoPagoActual } : {}),
     orderBy: orderByActual,
     order: orderActual,
   };
@@ -453,43 +483,47 @@ export default async function ProcesosPage({ searchParams }: Props) {
             Comparendos de Transito
           </h1>
         </div>
-        <div className="flex flex-col gap-2 w-full">
-          <div className="flex flex-wrap items-center gap-2 w-full">
-            <Suspense fallback={null}>
-              <FiltrosProcesos
-                estadoActual={estadoActual}
-                vigenciaActual={vigenciaNum}
-                antiguedadActual={antiguedadActual}
-                usuarios={usuariosList}
-                asignadoIdActual={asignadoIdNum}
-                fechaAsignacionActual={fechaAsignacion}
-                acuerdoPagoActual={acuerdoPagoActual}
-                comprobanteActual={comprobanteActual}
-                ordenResolucionActual={ordenResolucionActual}
+        {!esUsuarioCliente && (
+          <div className="flex flex-col gap-2 w-full">
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <Suspense fallback={null}>
+                <FiltrosProcesos
+                  estadoActual={estadoActual}
+                  vigenciaActual={vigenciaNum}
+                  antiguedadActual={antiguedadActual}
+                  usuarios={usuariosList}
+                  asignadoIdActual={asignadoIdNum}
+                  fechaAsignacionActual={fechaAsignacion}
+                  acuerdoPagoActual={acuerdoPagoActual}
+                  comprobanteActual={comprobanteActual}
+                  ordenResolucionActual={ordenResolucionActual}
+                  mandamientoPagoActual={mandamientoPagoActual}
+                />
+              </Suspense>
+            </div>
+            {tieneFiltros && (
+              <ChipsFiltrosProcesos
+                estado={estadoActual}
+                vigencia={vigenciaNum}
+                antiguedad={antiguedadActual}
+                asignadoId={asignadoIdNum}
+                asignadoNombre={asignadoIdNum != null ? usuariosList.find((u) => u.id === asignadoIdNum)?.nombre ?? null : null}
+                fechaAsignacion={fechaAsignacion}
+                noComparendo={noComparendoActual}
+                documento={documentoActual}
+                nombre={nombreActual}
+                acuerdoPago={acuerdoPagoActual}
+                comprobante={comprobanteActual}
+                ordenResolucion={ordenResolucionActual}
+                mandamientoPago={mandamientoPagoActual}
+                orderBy={orderByActual}
+                order={orderActual}
+                perPage={pageSize}
+                page={page}
               />
-            </Suspense>
+            )}
           </div>
-          {tieneFiltros && (
-            <ChipsFiltrosProcesos
-              estado={estadoActual}
-              vigencia={vigenciaNum}
-              antiguedad={antiguedadActual}
-              asignadoId={asignadoIdNum}
-              asignadoNombre={asignadoIdNum != null ? usuariosList.find((u) => u.id === asignadoIdNum)?.nombre ?? null : null}
-              fechaAsignacion={fechaAsignacion}
-              noComparendo={noComparendoActual}
-              documento={documentoActual}
-              nombre={nombreActual}
-              acuerdoPago={acuerdoPagoActual}
-              comprobante={comprobanteActual}
-              ordenResolucion={ordenResolucionActual}
-              orderBy={orderByActual}
-              order={orderActual}
-              perPage={pageSize}
-              page={page}
-            />
-          )}
-        </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -553,7 +587,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
         </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {!esUsuarioCliente && <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Procesos por estado</CardTitle>
@@ -576,10 +610,10 @@ export default async function ProcesosPage({ searchParams }: Props) {
             <GraficoProcesosPorVigencia data={procesosPorVigenciaOrdenado} />
           </CardContent>
         </Card>
-      </div>
+      </div>}
 
       {/* Filtrar listado por Nº comparendo o Nº documento (siempre permanece en el listado) */}
-      <Suspense fallback={null}>
+      {!esUsuarioCliente && <Suspense fallback={null}>
         <BusquedaComparendoDocumento
           noComparendoActual={noComparendoActual}
           documentoActual={documentoActual}
@@ -596,32 +630,43 @@ export default async function ProcesosPage({ searchParams }: Props) {
             acuerdoPago: acuerdoPagoActual ?? undefined,
             comprobante: comprobanteActual ?? undefined,
             ordenResolucion: ordenResolucionActual ?? undefined,
+            mandamientoPago: mandamientoPagoActual ?? undefined,
             perPage: pageSize,
             page: 1,
             orderBy: orderByActual,
             order: orderActual,
           })}
         />
-      </Suspense>
+      </Suspense>}
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
           <div>
-            <CardTitle>Listado</CardTitle>
+            <CardTitle>
+              {esUsuarioCliente ? "Mandamientos pendientes de firma" : "Listado"}
+            </CardTitle>
             <CardDescription>
-              {descripcionOrden}
-              {tieneFiltros && " · Filtros aplicados"}
+              {esUsuarioCliente
+                ? "Comparendos con mandamiento de pago pendiente de tu firma"
+                : descripcionOrden + (tieneFiltros ? " · Filtros aplicados" : "")}
             </CardDescription>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild>
-              <Link href="/comparendos/nuevo">Nuevo proceso</Link>
-            </Button>
-          </div>
+          {!esUsuarioCliente && (
+            <div className="flex flex-wrap gap-2">
+              <Button asChild>
+                <Link href="/comparendos/nuevo">Nuevo proceso</Link>
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {lista.length === 0 ? (
-            tieneFiltros ? (
+            esUsuarioCliente ? (
+              <EmptyState
+                icon={FolderOpen}
+                message="No hay mandamientos de pago pendientes de firma en este momento."
+              />
+            ) : tieneFiltros ? (
               <EmptyState
                 icon={FolderOpen}
                 message="No hay procesos que coincidan con los filtros aplicados."
@@ -662,6 +707,7 @@ export default async function ProcesosPage({ searchParams }: Props) {
                     acuerdoPago: acuerdoPagoActual ?? undefined,
                     comprobante: comprobanteActual ?? undefined,
                     ordenResolucion: ordenResolucionActual ?? undefined,
+                    mandamientoPago: mandamientoPagoActual ?? undefined,
                     perPage: pageSize,
                     page: p,
                     orderBy: orderByActual,

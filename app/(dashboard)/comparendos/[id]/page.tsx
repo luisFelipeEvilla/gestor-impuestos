@@ -13,8 +13,10 @@ import {
   cuotasAcuerdo,
   cobrosCoactivos,
   vehiculos,
+  mandamientosPago,
 } from "@/lib/db/schema";
 import { eq, desc, asc, inArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { getSession } from "@/lib/auth-server";
 import {
   Card,
@@ -41,6 +43,7 @@ import { CardOrdenResolucion } from "@/components/procesos/card-orden-resolucion
 import { CardOrdenComparendo } from "@/components/procesos/card-orden-comparendo";
 import { CardAcuerdosPagoList } from "@/components/procesos/card-acuerdos-pago-list";
 import { SemaforoFechaLimite } from "@/components/procesos/semaforo-fecha-limite";
+import { MandamientosPagoSection } from "@/components/procesos/mandamientos-pago";
 import { DetalleConHistorial } from "./detalle-con-historial";
 import { TabsGestionProceso } from "./tabs-gestion-proceso";
 import { unstable_noStore } from "next/cache";
@@ -139,13 +142,20 @@ export default async function DetalleProcesoPage({ params }: Props) {
   if (!row) notFound();
 
   const session = await getSession();
-  if (session?.user?.rol !== "admin") {
+  const esUsuarioCliente = session?.user?.rol === "usuario_cliente";
+  // Admin ve todo; empleado solo sus asignados; usuario_cliente puede ver cualquier proceso
+  if (session?.user?.rol === "empleado") {
     if (!session?.user?.id || row.asignadoAId !== session.user.id) {
       notFound();
     }
+  } else if (!session?.user) {
+    notFound();
   }
 
-  const [historialRows, usuariosList, documentosRows, ordenResolucion, ordenesComparendoList, acuerdosPagoList, cobrosCoactivosList] = await Promise.all([
+  const usuariosGeneradoPor = alias(usuarios, "generado_por");
+  const usuariosFirmadoPor = alias(usuarios, "firmado_por");
+
+  const [historialRows, usuariosList, documentosRows, ordenResolucion, ordenesComparendoList, acuerdosPagoList, cobrosCoactivosList, mandamientosRows] = await Promise.all([
     db
       .select({
         id: historialProceso.id,
@@ -200,6 +210,25 @@ export default async function DetalleProcesoPage({ params }: Props) {
       .orderBy(desc(ordenComparendo.creadoEn)),
     db.select().from(acuerdosPago).where(eq(acuerdosPago.procesoId, id)).orderBy(desc(acuerdosPago.creadoEn)),
     db.select().from(cobrosCoactivos).where(eq(cobrosCoactivos.procesoId, id)).orderBy(desc(cobrosCoactivos.creadoEn)),
+    db
+      .select({
+        id: mandamientosPago.id,
+        procesoId: mandamientosPago.procesoId,
+        generadoPorId: mandamientosPago.generadoPorId,
+        firmadoPorId: mandamientosPago.firmadoPorId,
+        rutaArchivo: mandamientosPago.rutaArchivo,
+        nombreOriginal: mandamientosPago.nombreOriginal,
+        tamano: mandamientosPago.tamano,
+        firmadoEn: mandamientosPago.firmadoEn,
+        creadoEn: mandamientosPago.creadoEn,
+        generadoPorNombre: usuariosGeneradoPor.nombre,
+        firmadoPorNombre: usuariosFirmadoPor.nombre,
+      })
+      .from(mandamientosPago)
+      .leftJoin(usuariosGeneradoPor, eq(mandamientosPago.generadoPorId, usuariosGeneradoPor.id))
+      .leftJoin(usuariosFirmadoPor, eq(mandamientosPago.firmadoPorId, usuariosFirmadoPor.id))
+      .where(eq(mandamientosPago.procesoId, id))
+      .orderBy(desc(mandamientosPago.creadoEn)),
   ]);
 
   const acuerdoIds = acuerdosPagoList.map((a) => a.id);
@@ -286,26 +315,28 @@ export default async function DetalleProcesoPage({ params }: Props) {
     ? { id: session.user.id, rol: session.user.rol }
     : null;
 
+  const esAdmin = session?.user?.rol === "admin";
+  const esAsignado = !!session?.user?.id && row.asignadoAId === session.user.id;
+  const puedeGenerar = esAdmin || esAsignado;
+  const puedeFirmar = puedeGenerar || esUsuarioCliente;
+
   return (
     <div className="p-6 space-y-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <Button variant="ghost" size="sm" asChild>
           <Link href="/comparendos">← Procesos</Link>
         </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <a href={`/api/comparendos/${row.id}/mandamiento-pago`} target="_blank" rel="noopener noreferrer">
-              Mandamiento de pago
-            </a>
-          </Button>
-          <Button asChild>
-            <Link href={`/comparendos/${row.id}/editar`}>Editar</Link>
-          </Button>
-          <EliminarProcesoButton id={row.id} />
-        </div>
+        {!esUsuarioCliente && (
+          <div className="flex gap-2">
+            <Button asChild>
+              <Link href={`/comparendos/${row.id}/editar`}>Editar</Link>
+            </Button>
+            <EliminarProcesoButton id={row.id} />
+          </div>
+        )}
       </div>
 
-      <DetalleConHistorial
+      {!esUsuarioCliente && <DetalleConHistorial
         formCard={
           <Card className="w-full">
             <CardHeader>
@@ -516,9 +547,16 @@ export default async function DetalleProcesoPage({ params }: Props) {
             </CardContent>
           </Card>
         }
+      />}
+
+      <MandamientosPagoSection
+        procesoId={row.id}
+        mandamientos={mandamientosRows}
+        puedeGenerar={puedeGenerar}
+        puedeFirmar={puedeFirmar}
       />
 
-      <TabsGestionProceso
+      {!esUsuarioCliente && <TabsGestionProceso
         generalContent={
           <>
             <div className="w-full space-y-6">
@@ -618,7 +656,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
             sessionUser={sessionUser}
           />
         }
-      />
+      />}
     </div>
   );
 }

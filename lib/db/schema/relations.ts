@@ -16,6 +16,7 @@ import {
   cuotasAcuerdo,
   cobrosCoactivos,
 } from "./procesos";
+import { mandamientosPago } from "./mandamientos-pago";
 import { importacionesProcesos, importacionesAcuerdos } from "./importaciones";
 import { obligaciones, actividades } from "./obligaciones";
 import {
@@ -33,6 +34,7 @@ import {
 
 export const usuariosRelations = relations(usuarios, ({ one, many }) => ({
   cargo: one(cargosEmpresa, { fields: [usuarios.cargoId], references: [cargosEmpresa.id] }),
+  cliente: one(clientes, { fields: [usuarios.clienteId], references: [clientes.id] }),
   procesosAsignados: many(procesos),
   historiales: many(historialProceso),
   actasCreadas: many(actasReunion),
@@ -48,6 +50,7 @@ export const empresaRelations = relations(empresa, () => ({}));
 export const clientesRelations = relations(clientes, ({ many }) => ({
   miembros: many(clientesMiembros),
   actasReunionClientes: many(actasReunionClientes),
+  usuariosCliente: many(usuarios),
 }));
 
 export const clientesMiembrosRelations = relations(clientesMiembros, ({ one }) => ({
@@ -109,10 +112,17 @@ export const procesosRelations = relations(procesos, ({ one, many }) => ({
   ordenesComparendo: many(ordenComparendo),
   acuerdosPago: many(acuerdosPago),
   cobrosCoactivos: many(cobrosCoactivos),
+  mandamientosPago: many(mandamientosPago),
   importacion: one(importacionesProcesos, {
     fields: [procesos.importacionId],
     references: [importacionesProcesos.id],
   }),
+}));
+
+export const mandamientosPagoRelations = relations(mandamientosPago, ({ one }) => ({
+  proceso: one(procesos, { fields: [mandamientosPago.procesoId], references: [procesos.id] }),
+  generadoPor: one(usuarios, { fields: [mandamientosPago.generadoPorId], references: [usuarios.id] }),
+  firmadoPor: one(usuarios, { fields: [mandamientosPago.firmadoPorId], references: [usuarios.id] }),
 }));
 
 export const importacionesProcesosRelations = relations(importacionesProcesos, ({ one, many }) => ({
