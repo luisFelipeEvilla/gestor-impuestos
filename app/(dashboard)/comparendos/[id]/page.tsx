@@ -549,12 +549,16 @@ export default async function DetalleProcesoPage({ params }: Props) {
         }
       />}
 
-      <MandamientosPagoSection
-        procesoId={row.id}
-        mandamientos={mandamientosRows}
-        puedeGenerar={puedeGenerar}
-        puedeFirmar={puedeFirmar}
-      />
+      {/* usuario_cliente: acceso directo para firmar (no tiene acceso a los tabs) */}
+      {esUsuarioCliente && (
+        <MandamientosPagoSection
+          procesoId={row.id}
+          mandamientos={mandamientosRows}
+          puedeGenerar={false}
+          puedeFirmar={puedeFirmar}
+          puedeEliminar={false}
+        />
+      )}
 
       {!esUsuarioCliente && <TabsGestionProceso
         generalContent={
@@ -647,14 +651,23 @@ export default async function DetalleProcesoPage({ params }: Props) {
           />
         }
         cobroContent={
-          <CardCobroCoactivo
-            procesoId={row.id}
-            estadoActual={row.estadoActual ?? ""}
-            documentos={documentosPorCategoria.cobro_coactivo}
-            notas={notasPorCategoria.cobro_coactivo}
-            cobrosCoactivos={cobrosCoactivosList}
-            sessionUser={sessionUser}
-          />
+          <>
+            <MandamientosPagoSection
+              procesoId={row.id}
+              mandamientos={mandamientosRows}
+              puedeGenerar={puedeGenerar}
+              puedeFirmar={puedeFirmar}
+              puedeEliminar={esAdmin}
+            />
+            <CardCobroCoactivo
+              procesoId={row.id}
+              estadoActual={row.estadoActual ?? ""}
+              documentos={documentosPorCategoria.cobro_coactivo}
+              notas={notasPorCategoria.cobro_coactivo}
+              cobrosCoactivos={cobrosCoactivosList}
+              sessionUser={sessionUser}
+            />
+          </>
         }
       />}
     </div>

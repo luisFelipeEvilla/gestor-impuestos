@@ -16,7 +16,7 @@ import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { MandamientoPagoPdfDocument } from "@/lib/pdf/mandamiento-pago-pdf";
 import type { MandamientoPagoData } from "@/lib/pdf/mandamiento-pago-pdf";
-import { saveProcesoDocument, getRelativePath, readProcesoDocument } from "@/lib/uploads";
+import { saveProcesoDocument, getRelativePath, readProcesoDocument, deleteProcesoDocument } from "@/lib/uploads";
 
 const FIRMA_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 const FIRMA_MIMES = ["image/png", "image/jpeg", "image/jpg"];
@@ -209,6 +209,33 @@ export async function firmarMandamiento(
       firmadoEn: new Date(),
     })
     .where(eq(mandamientosPago.id, mandamientoId));
+
+  revalidatePath(`/comparendos/${mandamiento.procesoId}`);
+  return {};
+}
+
+export async function eliminarMandamiento(
+  mandamientoId: number
+): Promise<{ error?: string }> {
+  const session = await getSession();
+  if (!session?.user) return { error: "No autorizado" };
+  if (session.user.rol !== "admin") return { error: "Solo administradores pueden eliminar mandamientos" };
+
+  const [mandamiento] = await db
+    .select()
+    .from(mandamientosPago)
+    .where(eq(mandamientosPago.id, mandamientoId));
+
+  if (!mandamiento) return { error: "Mandamiento no encontrado" };
+
+  // Eliminar archivo físico (no lanzar si ya no existe)
+  try {
+    await deleteProcesoDocument(mandamiento.rutaArchivo);
+  } catch {
+    // El archivo puede haber sido eliminado manualmente; continuamos
+  }
+
+  await db.delete(mandamientosPago).where(eq(mandamientosPago.id, mandamientoId));
 
   revalidatePath(`/comparendos/${mandamiento.procesoId}`);
   return {};

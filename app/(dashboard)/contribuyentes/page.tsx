@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Building2, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
 import { contribuyentes } from "@/lib/db/schema";
-import { count, desc, or, ilike } from "drizzle-orm";
+import { count, desc, or, and, ilike } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -21,14 +21,31 @@ import { unstable_noStore } from "next/cache";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-type Props = { searchParams: Promise<{ q?: string; page?: string; perPage?: string }> };
+type Props = { searchParams: Promise<{ q?: string; page?: string; perPage?: string; telefono?: string; correo?: string; direccion?: string }> };
 
 type Fila = typeof contribuyentes.$inferSelect;
 
-function buildUrl(params: { q?: string; page?: number; perPage?: number }): string {
+function labelTipoDoc(tipo: string): string {
+  const map: Record<string, string> = {
+    nit: "NIT",
+    cedula: "C.C.",
+    cedula_extranjeria: "C.E.",
+    cedula_ecuatoriana: "C.C. Ecuatoriana",
+    cedula_venezolana: "C.C. Venezolana",
+    pasaporte: "Pasaporte",
+    permiso_proteccion_temporal: "PPT",
+    tarjeta_identidad: "T.I.",
+  };
+  return map[tipo] ?? tipo;
+}
+
+function buildUrl(params: { q?: string; telefono?: string; correo?: string; direccion?: string; page?: number; perPage?: number }): string {
   const sp = new URLSearchParams();
-  if (params.q?.trim()) sp.set("q", params.q.trim());
-  if (params.perPage != null) sp.set("perPage", String(params.perPage));
+  if (params.q?.trim())         sp.set("q",         params.q.trim());
+  if (params.telefono?.trim())  sp.set("telefono",  params.telefono.trim());
+  if (params.correo?.trim())    sp.set("correo",    params.correo.trim());
+  if (params.direccion?.trim()) sp.set("direccion", params.direccion.trim());
+  if (params.perPage != null)   sp.set("perPage",   String(params.perPage));
   if (params.page != null && params.page > 1) sp.set("page", String(params.page));
   const s = sp.toString();
   return s ? `/contribuyentes?${s}` : "/contribuyentes";
@@ -37,8 +54,13 @@ function buildUrl(params: { q?: string; page?: number; perPage?: number }): stri
 const columnas: ColumnaTabla<Fila>[] = [
   {
     key: "nit",
-    encabezado: "NIT",
+    encabezado: "No. Identificación",
     celda: (c) => c.nit,
+  },
+  {
+    key: "tipoDocumento",
+    encabezado: "Tipo identificación",
+    celda: (c) => labelTipoDoc(c.tipoDocumento),
   },
   {
     key: "nombre",
@@ -46,9 +68,9 @@ const columnas: ColumnaTabla<Fila>[] = [
     celda: (c) => c.nombreRazonSocial,
   },
   {
-    key: "ciudad",
-    encabezado: "Ciudad",
-    celda: (c) => c.ciudad ?? "—",
+    key: "email",
+    encabezado: "Correo",
+    celda: (c) => c.email ?? "—",
   },
   {
     key: "accion",
@@ -67,18 +89,27 @@ const columnas: ColumnaTabla<Fila>[] = [
 export default async function ContribuyentesPage({ searchParams }: Props) {
   unstable_noStore();
   const params = await searchParams;
-  const busqueda = (params.q ?? "").trim();
+  const busqueda  = (params.q         ?? "").trim();
+  const telefono  = (params.telefono  ?? "").trim();
+  const correo    = (params.correo    ?? "").trim();
+  const direccion = (params.direccion ?? "").trim();
   const pageSize = parsePerPage(params.perPage);
   const pageRaw = params.page ? parseInt(params.page, 10) : 1;
   const page = Number.isNaN(pageRaw) || pageRaw < 1 ? 1 : pageRaw;
 
-  const whereCond =
-    busqueda.length > 0
-      ? or(
-          ilike(contribuyentes.nombreRazonSocial, `%${busqueda}%`),
-          ilike(contribuyentes.nit, `%${busqueda}%`)
-        )
-      : undefined;
+  const condiciones = [];
+  if (busqueda.length > 0)
+    condiciones.push(or(
+      ilike(contribuyentes.nombreRazonSocial, `%${busqueda}%`),
+      ilike(contribuyentes.nit, `%${busqueda}%`)
+    ));
+  if (telefono.length > 0)
+    condiciones.push(ilike(contribuyentes.telefono, `%${telefono}%`));
+  if (correo.length > 0)
+    condiciones.push(ilike(contribuyentes.email, `%${correo}%`));
+  if (direccion.length > 0)
+    condiciones.push(ilike(contribuyentes.direccion, `%${direccion}%`));
+  const whereCond = condiciones.length > 0 ? and(...condiciones) : undefined;
 
   const countQuery = db.select({ count: count() }).from(contribuyentes);
   const [countResult] = whereCond
@@ -95,7 +126,11 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
     .limit(pageSize)
     .offset(offset);
 
-  const selectorSearchParams: Record<string, string> = busqueda ? { q: busqueda } : {};
+  const selectorSearchParams: Record<string, string> = {};
+  if (busqueda)  selectorSearchParams.q         = busqueda;
+  if (telefono)  selectorSearchParams.telefono  = telefono;
+  if (correo)    selectorSearchParams.correo    = correo;
+  if (direccion) selectorSearchParams.direccion = direccion;
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -108,7 +143,12 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Suspense fallback={null}>
-            <FiltroBusquedaContribuyentes valorActual={busqueda} />
+            <FiltroBusquedaContribuyentes
+              valorActual={busqueda}
+              telefonoActual={telefono}
+              correoActual={correo}
+              direccionActual={direccion}
+            />
           </Suspense>
           <Button asChild>
             <Link href="/contribuyentes/nuevo">Nuevo contribuyente</Link>
@@ -120,7 +160,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
           <CardTitle>Listado</CardTitle>
           <CardDescription>
             Personas o entidades a las que se realiza el cobro (NIT / cédula)
-            {busqueda && " · Búsqueda aplicada"}
+            {(busqueda || telefono || correo || direccion) && " · Filtros aplicados"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -139,7 +179,7 @@ export default async function ContribuyentesPage({ searchParams }: Props) {
             totalPages={totalPages}
             total={total}
             pageSize={pageSize}
-            buildPageUrl={(p) => buildUrl({ q: busqueda || undefined, perPage: pageSize, page: p })}
+            buildPageUrl={(p) => buildUrl({ q: busqueda || undefined, telefono: telefono || undefined, correo: correo || undefined, direccion: direccion || undefined, perPage: pageSize, page: p })}
             formAction="/contribuyentes"
             selectorSearchParams={selectorSearchParams}
           />
