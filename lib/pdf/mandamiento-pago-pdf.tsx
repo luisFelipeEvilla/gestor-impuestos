@@ -561,7 +561,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
           <Text style={s.italic}>{'"Por medio de la cual se impone una medida correctiva de una Multa a un conductor infractor"'}</Text>
           <Text>{", contra el señor(a) "}</Text>
           <Text style={s.bold}>{contribuyente.nombreRazonSocial}</Text>
-          <Text>{", identificado(a) con cédula de ciudadanía y/o Nit No. "}</Text>
+          <Text>{`, identificado(a) con ${labelTipoDoc(contribuyente.tipoDocumento)} No. `}</Text>
           <Text style={s.bold}>{contribuyente.nit}</Text>
           <Text>{", en calidad de conductor del vehículo de placa "}</Text>
           <Text style={s.bold}>{placa}</Text>
@@ -588,7 +588,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
             {"Que según el acervo probatorio y la base de datos que reposa en la Oficina de Tránsito y Transporte del Departamento del Magdalena, se encuentran registradas como obligaciones impagadas por el ciudadano "}
           </Text>
           <Text style={s.bold}>{contribuyente.nombreRazonSocial}</Text>
-          <Text>{", identificado(a) con cédula de ciudadanía y/o Nit No. "}</Text>
+          <Text>{`, identificado(a) con ${labelTipoDoc(contribuyente.tipoDocumento)} No. `}</Text>
           <Text style={s.bold}>{contribuyente.nit}</Text>
           <Text>{", la Multa impuesta por violación a las normas del Código Nacional de Tránsito que a continuación se detalla:"}</Text>
         </Text>
@@ -676,7 +676,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
           <Text style={s.bold}>800.103.920-6 </Text>
           <Text>{" y en contra de "}</Text>
           <Text style={s.bold}>{contribuyente.nombreRazonSocial}</Text>
-          <Text>{", identificado(a) con cédula de ciudadanía y/o Nit No. "}</Text>
+          <Text>{`, identificado(a) con ${labelTipoDoc(contribuyente.tipoDocumento)} No. `}</Text>
           <Text style={s.bold}>{contribuyente.nit}</Text>
           <Text>{", por la suma de "}</Text>
           <Text style={s.bold}>{formatMontoEnLetras(proceso.montoMultaCop)} M/L</Text>
