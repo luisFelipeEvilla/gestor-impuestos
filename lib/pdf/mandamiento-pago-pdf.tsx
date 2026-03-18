@@ -596,8 +596,8 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
         {/* Table */}
         <View style={s.table} wrap={false}>
           <View style={s.tHRow}>
-            <Text style={[s.tHCell, s.colNo]}>No. Comparendo</Text>
-            <Text style={[s.tHCell, s.colFecha]}>FECHA{"\n"} Comparendo</Text>
+            <Text style={[s.tHCell, s.colNo]}>No. COMPARENDO</Text>
+            <Text style={[s.tHCell, s.colFecha]}>FECHA{"\n"} COMPARENDO</Text>
             <Text style={[s.tHCell, s.colNoRes]}>No. RESOLUCIÓN{"\n"}SANCIÓN</Text>
             <Text style={[s.tHCell, s.colFechaRes]}>FECHA DE RESOLUCIÓN{"\n"}SANCIÓN</Text>
             <Text style={[s.tHCell, s.colValor]}>VALOR INFRACCIÓN</Text>
