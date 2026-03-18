@@ -401,11 +401,16 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
     : proceso.fechaAplicacionImpuesto
     ? formatFechaCorta(proceso.fechaAplicacionImpuesto)
     : "—";
+  const fechaResolucionLargaStr = ordenResolucion?.fechaResolucion
+    ? formatFechaLarga(ordenResolucion.fechaResolucion)
+    : proceso.fechaAplicacionImpuesto
+    ? formatFechaLarga(proceso.fechaAplicacionImpuesto)
+    : "—";
 
   const ciudadFecha = `${contribuyente.ciudad ?? "SANTA MARTA"}, ${formatFechaLarga(fechaGeneracion)}`;
   const tipoDocLabel = labelTipoDoc(contribuyente.tipoDocumento);
   const identificacion = `${tipoDocLabel} ${contribuyente.nit}`;
-  const montoFormateado = formatMonto(proceso.montoCop);
+  const montoFormateado = formatMonto(proceso.montoMultaCop);
   const codigoInfraccion = ordenResolucion?.codigoInfraccion ?? proceso.periodo ?? "—";
   const placa = proceso.vehiculoPlaca ?? "";
 
@@ -468,12 +473,12 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
           <Text>{" de fecha "}</Text>
           <Text style={s.bold}>{fechaResolucionStr}</Text>
           <Text>{", "}</Text>
-          <Text style={s.italic}>{'"Por medio de la cual (-)"'}</Text>
+          <Text style={s.italic}>{'"Por medio de la cual se impone una medida correctiva de una Multa a un conductor infractor"'}</Text>
           <Text>{", contra el señor(a) "}</Text>
           <Text style={s.bold}>{contribuyente.nombreRazonSocial}</Text>
           <Text>{", identificado(a) con cédula de ciudadanía y/o Nit No. "}</Text>
           <Text style={s.bold}>{contribuyente.nit}</Text>
-          <Text>{", en calidad de (-) del vehículo de placa "}</Text>
+          <Text>{", en calidad de conductor del vehículo de placa "}</Text>
           <Text style={s.bold}>{placa}</Text>
           <Text>{" con el cual se realizó la infracción."}</Text>
         </Text>
@@ -500,7 +505,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
           <Text style={s.bold}>{contribuyente.nombreRazonSocial}</Text>
           <Text>{", identificado(a) con cédula de ciudadanía y/o Nit No. "}</Text>
           <Text style={s.bold}>{contribuyente.nit}</Text>
-          <Text>{", la (-) impuesta por (-) que a continuación se detalla:"}</Text>
+          <Text>{", la Multa impuesta por violación a las normas del Código Nacional de Tránsito que a continuación se detalla:"}</Text>
         </Text>
 
         {/* Table */}
@@ -531,7 +536,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
         <Text style={s.para}>
           <Text style={s.bold}>CUARTO.- </Text>
           <Text>
-            Que la multa impuesta al infractor (-) fue notificada (-), sin que dentro del término de
+            Que la multa impuesta al infractor {contribuyente.nombreRazonSocial} fue notificada {fechaResolucionLargaStr}, sin que dentro del término de
             Ley se presentara recurso alguno por el deudor, razón por la cual el acto administrativo
             se encuentra debidamente ejecutoriado. Que la obligación contenida en el acto
             administrativo en referencia no ha sido cancelada por el deudor debiéndose liquidar la
@@ -579,7 +584,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
         {/* RESUELVE PRIMERO */}
         <Text style={s.para}>
           <Text style={s.bold}>PRIMERO: </Text>
-          <Text style={s.bold}>LIBRAR MANDAMIENTO DE PAGO</Text>
+          <Text style={s.bold}>LÍBRESE MANDAMIENTO DE PAGO</Text>
           <Text>{" en favor del "}</Text>
           <Text style={s.bold}>DEPARTAMENTO DEL MAGDALENA</Text>
           <Text>{" y en contra de "}</Text>
@@ -587,10 +592,10 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
           <Text>{", identificado(a) con cédula de ciudadanía y/o Nit No. "}</Text>
           <Text style={s.bold}>{contribuyente.nit}</Text>
           <Text>{", por la suma de "}</Text>
-          <Text style={s.bold}>${montoFormateado} M/L</Text>
+          <Text style={s.bold}>{montoFormateado} M/L</Text>
           <Text>
-            {", por concepto de (-), según consta en los documentos relacionados en el (3) TERCER considerando de este acto administrativo que obran en la actuación, más los intereses moratorios que se causen desde la fecha de vencimiento de la obligación y hasta su pago total, liquidados conforme al "}
           </Text>
+            {", por concepto de multas impuestas por la Oficina de Tránsito, según consta en los documentos relacionados en el (3) TERCER considerando de este acto administrativo que obran en la actuación, más los intereses moratorios que se causen desde la fecha de vencimiento de la obligación y hasta su pago total, liquidados conforme al "}
           <Text style={s.bold}>artículo 836-1 del Estatuto Tributario Nacional</Text>
           <Text>
             {", más los gastos que ha demandado el trámite pertinente para hacer efectiva la deuda y las costas del presente proceso."}

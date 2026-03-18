@@ -299,9 +299,15 @@ export default async function ProcesosPage({ searchParams }: Props) {
     condiciones.push(sql`NOT EXISTS (SELECT 1 FROM ordenes_resolucion WHERE proceso_id = ${procesos.id})`);
   }
   if (mandamientoPagoActual === "con") {
-    condiciones.push(sql`EXISTS (SELECT 1 FROM mandamientos_pago WHERE proceso_id = ${procesos.id})`);
+    condiciones.push(sql`(
+      EXISTS (SELECT 1 FROM mandamientos_pago WHERE proceso_id = ${procesos.id})
+      OR EXISTS (SELECT 1 FROM documentos_proceso WHERE proceso_id = ${procesos.id} AND tipo_documento = 'mandamiento_pago')
+    )`);
   } else if (mandamientoPagoActual === "sin") {
-    condiciones.push(sql`NOT EXISTS (SELECT 1 FROM mandamientos_pago WHERE proceso_id = ${procesos.id})`);
+    condiciones.push(sql`(
+      NOT EXISTS (SELECT 1 FROM mandamientos_pago WHERE proceso_id = ${procesos.id})
+      AND NOT EXISTS (SELECT 1 FROM documentos_proceso WHERE proceso_id = ${procesos.id} AND tipo_documento = 'mandamiento_pago')
+    )`);
   }
   if (session?.user?.rol === "empleado") {
     if (!session?.user?.id) {
