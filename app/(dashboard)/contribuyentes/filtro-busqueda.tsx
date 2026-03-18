@@ -9,31 +9,45 @@ import { Label } from "@/components/ui/label";
 
 type FiltroBusquedaContribuyentesProps = {
   valorActual: string;
+  telefonoActual: string;
+  correoActual: string;
+  direccionActual: string;
 };
 
 export function FiltroBusquedaContribuyentes({
   valorActual,
+  telefonoActual,
+  correoActual,
+  direccionActual,
 }: FiltroBusquedaContribuyentesProps) {
   const router = useRouter();
   const [valor, setValor] = useState(valorActual);
+  const [telefono, setTelefono] = useState(telefonoActual);
+  const [correo, setCorreo] = useState(correoActual);
+  const [direccion, setDireccion] = useState(direccionActual);
 
-  useEffect(() => {
-    setValor(valorActual);
-  }, [valorActual]);
+  useEffect(() => { setValor(valorActual); }, [valorActual]);
+  useEffect(() => { setTelefono(telefonoActual); }, [telefonoActual]);
+  useEffect(() => { setCorreo(correoActual); }, [correoActual]);
+  useEffect(() => { setDireccion(direccionActual); }, [direccionActual]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
       const params = new URLSearchParams();
-      const q = valor.trim();
-      if (q) params.set("q", q);
+      if (valor.trim())     params.set("q",         valor.trim());
+      if (telefono.trim())  params.set("telefono",  telefono.trim());
+      if (correo.trim())    params.set("correo",    correo.trim());
+      if (direccion.trim()) params.set("direccion", direccion.trim());
       router.push(`/contribuyentes${params.toString() ? `?${params.toString()}` : ""}`);
     },
-    [router, valor]
+    [router, valor, telefono, correo, direccion]
   );
 
+  const hayFiltros = !!(valorActual || telefonoActual || correoActual || direccionActual);
+
   const handleLimpiar = useCallback(() => {
-    setValor("");
+    setValor(""); setTelefono(""); setCorreo(""); setDireccion("");
     router.push("/contribuyentes");
   }, [router]);
 
@@ -59,17 +73,41 @@ export function FiltroBusquedaContribuyentes({
           />
         </div>
       </div>
+      <Input
+        type="search"
+        placeholder="Teléfono..."
+        value={telefono}
+        onChange={(e) => setTelefono(e.target.value)}
+        className="w-36"
+        aria-label="Filtrar por teléfono"
+      />
+      <Input
+        type="search"
+        placeholder="Correo..."
+        value={correo}
+        onChange={(e) => setCorreo(e.target.value)}
+        className="w-44"
+        aria-label="Filtrar por correo"
+      />
+      <Input
+        type="search"
+        placeholder="Dirección..."
+        value={direccion}
+        onChange={(e) => setDireccion(e.target.value)}
+        className="w-44"
+        aria-label="Filtrar por dirección"
+      />
       <Button type="submit" variant="secondary" size="sm" className="gap-1.5">
         <Search className="size-4" aria-hidden />
         Buscar
       </Button>
-      {valorActual && (
+      {hayFiltros && (
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={handleLimpiar}
-          aria-label="Limpiar búsqueda"
+          aria-label="Limpiar filtros"
         >
           <X className="size-4" aria-hidden />
         </Button>

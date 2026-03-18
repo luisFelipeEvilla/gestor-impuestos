@@ -16,9 +16,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { generarMandamiento, firmarMandamiento } from "@/lib/actions/mandamientos-pago";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { generarMandamiento, firmarMandamiento, eliminarMandamiento } from "@/lib/actions/mandamientos-pago";
 import type { MandamientoPago } from "@/lib/db/schema";
-import { FileText, Loader2, PenLine, Download } from "lucide-react";
+import { FileText, Loader2, PenLine, Download, Trash2 } from "lucide-react";
 
 type MandamientoConUsuarios = MandamientoPago & {
   generadoPorNombre: string | null;
@@ -30,6 +40,7 @@ type Props = {
   mandamientos: MandamientoConUsuarios[];
   puedeGenerar: boolean;
   puedeFirmar: boolean;
+  puedeEliminar: boolean;
 };
 
 function formatDateTime(value: Date | string | null | undefined): string {
@@ -142,10 +153,26 @@ function FirmarMandamientoDialog({
   );
 }
 
-export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar }: Props) {
+export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar, puedeEliminar }: Props) {
   const [isGenerating, startGenerating] = useTransition();
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [firmarId, setFirmarId] = useState<number | null>(null);
+  const [eliminarId, setEliminarId] = useState<number | null>(null);
+  const [isDeleting, startDeleting] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleEliminarConfirm = () => {
+    if (eliminarId === null) return;
+    setDeleteError(null);
+    startDeleting(async () => {
+      const result = await eliminarMandamiento(eliminarId);
+      if (result.error) {
+        setDeleteError(result.error);
+      } else {
+        setEliminarId(null);
+      }
+    });
+  };
 
   const handleGenerar = () => {
     setGenerateError(null);
@@ -170,7 +197,8 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
               size="sm"
               variant="outline"
               onClick={handleGenerar}
-              disabled={isGenerating}
+              disabled={isGenerating || mandamientos.length > 0}
+              title={mandamientos.length > 0 ? "Ya existe un mandamiento de pago para este proceso" : undefined}
             >
               {isGenerating ? (
                 <Loader2 className="mr-2 size-4 animate-spin" />
@@ -234,6 +262,17 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
                         Firmar
                       </Button>
                     )}
+                    {puedeEliminar && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => { setDeleteError(null); setEliminarId(m.id); }}
+                      >
+                        <Trash2 className="size-4" />
+                        <span className="sr-only">Eliminar</span>
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -250,6 +289,31 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
           onClose={() => setFirmarId(null)}
         />
       )}
+
+      <AlertDialog open={eliminarId !== null} onOpenChange={(v) => { if (!v) setEliminarId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar mandamiento de pago?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará el documento PDF de forma permanente. No se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deleteError && (
+            <p className="text-destructive text-sm px-1">{deleteError}</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleEliminarConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
