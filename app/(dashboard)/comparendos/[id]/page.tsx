@@ -660,6 +660,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
               puedeGenerar={puedeGenerar}
               puedeFirmar={puedeFirmar}
               puedeEliminar={esAdmin}
+              puedeEliminarSinFirmar={esAdmin || esAsignado}
               vehiculoPlacaDefault={row.vehiculoPlaca ?? null}
               numeroResolucionDefault={ordenResolucion?.numeroResolucion ?? null}
             />

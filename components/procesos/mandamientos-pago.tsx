@@ -43,6 +43,8 @@ type Props = {
   puedeGenerar: boolean;
   puedeFirmar: boolean;
   puedeEliminar: boolean;
+  /** Puede eliminar mandamientos que aún no han sido firmados */
+  puedeEliminarSinFirmar?: boolean;
   vehiculoPlacaDefault?: string | null;
   numeroResolucionDefault?: string | null;
 };
@@ -157,7 +159,7 @@ function FirmarMandamientoDialog({
   );
 }
 
-export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar, puedeEliminar, vehiculoPlacaDefault, numeroResolucionDefault }: Props) {
+export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar, puedeEliminar, puedeEliminarSinFirmar, vehiculoPlacaDefault, numeroResolucionDefault }: Props) {
   const [isGenerating, startGenerating] = useTransition();
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [showGenerarDialog, setShowGenerarDialog] = useState(false);
@@ -276,7 +278,7 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
                         Firmar
                       </Button>
                     )}
-                    {puedeEliminar && (
+                    {(puedeEliminar || (puedeEliminarSinFirmar && !m.firmadoEn)) && (
                       <Button
                         variant="ghost"
                         size="sm"

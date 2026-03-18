@@ -235,12 +235,29 @@ export async function eliminarMandamiento(
 ): Promise<{ error?: string }> {
   const session = await getSession();
   if (!session?.user) return { error: "No autorizado" };
-  if (session.user.rol !== "admin") return { error: "Solo administradores pueden eliminar mandamientos" };
 
   const [mandamiento] = await db
     .select()
     .from(mandamientosPago)
     .where(eq(mandamientosPago.id, mandamientoId));
+
+  if (!mandamiento) return { error: "Mandamiento no encontrado" };
+
+  const esAdmin = session.user.rol === "admin";
+
+  if (!esAdmin) {
+    // Empleados solo pueden eliminar mandamientos sin firmar de procesos asignados a ellos
+    if (mandamiento.firmadoEn) {
+      return { error: "Solo administradores pueden eliminar mandamientos firmados" };
+    }
+    const [proceso] = await db
+      .select({ asignadoAId: procesos.asignadoAId })
+      .from(procesos)
+      .where(eq(procesos.id, mandamiento.procesoId));
+    if (!proceso || proceso.asignadoAId !== session.user.id) {
+      return { error: "No autorizado" };
+    }
+  }
 
   if (!mandamiento) return { error: "Mandamiento no encontrado" };
 
