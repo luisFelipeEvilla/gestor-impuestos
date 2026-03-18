@@ -2,105 +2,125 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, Phone, Mail, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type FiltroBusquedaContribuyentesProps = {
   valorActual: string;
-  telefonoActual: string;
-  correoActual: string;
-  direccionActual: string;
+  conTelefono: boolean;
+  conCorreo: boolean;
+  conDireccion: boolean;
 };
 
 export function FiltroBusquedaContribuyentes({
   valorActual,
-  telefonoActual,
-  correoActual,
-  direccionActual,
+  conTelefono,
+  conCorreo,
+  conDireccion,
 }: FiltroBusquedaContribuyentesProps) {
   const router = useRouter();
   const [valor, setValor] = useState(valorActual);
-  const [telefono, setTelefono] = useState(telefonoActual);
-  const [correo, setCorreo] = useState(correoActual);
-  const [direccion, setDireccion] = useState(direccionActual);
 
   useEffect(() => { setValor(valorActual); }, [valorActual]);
-  useEffect(() => { setTelefono(telefonoActual); }, [telefonoActual]);
-  useEffect(() => { setCorreo(correoActual); }, [correoActual]);
-  useEffect(() => { setDireccion(direccionActual); }, [direccionActual]);
+
+  function buildUrl(overrides: {
+    q?: string;
+    conTelefono?: boolean;
+    conCorreo?: boolean;
+    conDireccion?: boolean;
+  }) {
+    const params = new URLSearchParams();
+    const q = (overrides.q !== undefined ? overrides.q : valorActual).trim();
+    const tel = overrides.conTelefono !== undefined ? overrides.conTelefono : conTelefono;
+    const correo = overrides.conCorreo !== undefined ? overrides.conCorreo : conCorreo;
+    const dir = overrides.conDireccion !== undefined ? overrides.conDireccion : conDireccion;
+    if (q) params.set("q", q);
+    if (tel) params.set("con_telefono", "1");
+    if (correo) params.set("con_correo", "1");
+    if (dir) params.set("con_direccion", "1");
+    return `/contribuyentes${params.toString() ? `?${params.toString()}` : ""}`;
+  }
 
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      const params = new URLSearchParams();
-      if (valor.trim())     params.set("q",         valor.trim());
-      if (telefono.trim())  params.set("telefono",  telefono.trim());
-      if (correo.trim())    params.set("correo",    correo.trim());
-      if (direccion.trim()) params.set("direccion", direccion.trim());
-      router.push(`/contribuyentes${params.toString() ? `?${params.toString()}` : ""}`);
+      router.push(buildUrl({ q: valor }));
     },
-    [router, valor, telefono, correo, direccion]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [router, valor, conTelefono, conCorreo, conDireccion, valorActual]
   );
 
-  const hayFiltros = !!(valorActual || telefonoActual || correoActual || direccionActual);
+  const hayFiltros = !!(valorActual || conTelefono || conCorreo || conDireccion);
 
   const handleLimpiar = useCallback(() => {
-    setValor(""); setTelefono(""); setCorreo(""); setDireccion("");
+    setValor("");
     router.push("/contribuyentes");
   }, [router]);
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="contribuyentes-q" className="text-xs text-muted-foreground sr-only">
-          Buscar por nombre o NIT
-        </Label>
-        <div className="relative">
-          <Search
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            id="contribuyentes-q"
-            type="search"
-            placeholder="Nombre o NIT..."
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            className="w-[200px] pl-8"
-            aria-label="Buscar por nombre o NIT"
-          />
+    <div className="flex flex-wrap items-center gap-2">
+      <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="contribuyentes-q" className="text-xs text-muted-foreground sr-only">
+            Buscar por nombre o NIT
+          </Label>
+          <div className="relative">
+            <Search
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              id="contribuyentes-q"
+              type="search"
+              placeholder="Nombre o NIT..."
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              className="w-[200px] pl-8"
+              aria-label="Buscar por nombre o NIT"
+            />
+          </div>
         </div>
-      </div>
-      <Input
-        type="search"
-        placeholder="Teléfono..."
-        value={telefono}
-        onChange={(e) => setTelefono(e.target.value)}
-        className="w-36"
-        aria-label="Filtrar por teléfono"
-      />
-      <Input
-        type="search"
-        placeholder="Correo..."
-        value={correo}
-        onChange={(e) => setCorreo(e.target.value)}
-        className="w-44"
-        aria-label="Filtrar por correo"
-      />
-      <Input
-        type="search"
-        placeholder="Dirección..."
-        value={direccion}
-        onChange={(e) => setDireccion(e.target.value)}
-        className="w-44"
-        aria-label="Filtrar por dirección"
-      />
-      <Button type="submit" variant="secondary" size="sm" className="gap-1.5">
-        <Search className="size-4" aria-hidden />
-        Buscar
+        <Button type="submit" variant="secondary" size="sm" className="gap-1.5">
+          <Search className="size-4" aria-hidden />
+          Buscar
+        </Button>
+      </form>
+
+      <Button
+        type="button"
+        variant={conTelefono ? "default" : "outline"}
+        size="sm"
+        className="gap-1.5"
+        onClick={() => router.push(buildUrl({ conTelefono: !conTelefono }))}
+      >
+        <Phone className="size-3.5" aria-hidden />
+        Con teléfono
       </Button>
+
+      <Button
+        type="button"
+        variant={conCorreo ? "default" : "outline"}
+        size="sm"
+        className="gap-1.5"
+        onClick={() => router.push(buildUrl({ conCorreo: !conCorreo }))}
+      >
+        <Mail className="size-3.5" aria-hidden />
+        Con correo
+      </Button>
+
+      <Button
+        type="button"
+        variant={conDireccion ? "default" : "outline"}
+        size="sm"
+        className="gap-1.5"
+        onClick={() => router.push(buildUrl({ conDireccion: !conDireccion }))}
+      >
+        <MapPin className="size-3.5" aria-hidden />
+        Con dirección
+      </Button>
+
       {hayFiltros && (
         <Button
           type="button"
@@ -112,6 +132,6 @@ export function FiltroBusquedaContribuyentes({
           <X className="size-4" aria-hidden />
         </Button>
       )}
-    </form>
+    </div>
   );
 }

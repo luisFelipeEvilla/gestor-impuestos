@@ -651,7 +651,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
           />
         }
         cobroContent={
-          <>
+          <div className="space-y-6">
             <MandamientosPagoSection
               procesoId={row.id}
               mandamientos={mandamientosRows}
@@ -667,7 +667,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
               cobrosCoactivos={cobrosCoactivosList}
               sessionUser={sessionUser}
             />
-          </>
+          </div>
         }
       />}
     </div>
