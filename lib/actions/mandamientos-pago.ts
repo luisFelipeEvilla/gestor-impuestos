@@ -100,7 +100,9 @@ function buildPdfData(
 }
 
 export async function generarMandamiento(
-  procesoId: number
+  procesoId: number,
+  vehiculoPlaca: string,
+  numeroResolucion: string
 ): Promise<{ error?: string }> {
   const session = await getSession();
   if (!session?.user) return { error: "No autorizado" };
@@ -117,7 +119,13 @@ export async function generarMandamiento(
     }
   }
 
-  const data = buildPdfData(row, ordenResolucion, session.user.name ?? null, null);
+  // Usar los valores ingresados por el usuario
+  const rowConPlaca = { ...row, vehiculoPlaca: vehiculoPlaca.trim() || null };
+  const ordenResolucionConNumero = numeroResolucion.trim()
+    ? { ...(ordenResolucion ?? { fechaResolucion: null, codigoInfraccion: null }), numeroResolucion: numeroResolucion.trim() }
+    : ordenResolucion;
+
+  const data = buildPdfData(rowConPlaca, ordenResolucionConNumero, session.user.name ?? null, null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = React.createElement(MandamientoPagoPdfDocument, { data });
   const buffer = await renderToBuffer(doc as React.ReactElement<any>);
@@ -135,6 +143,8 @@ export async function generarMandamiento(
   await db.insert(mandamientosPago).values({
     procesoId,
     generadoPorId: session.user.id ?? null,
+    vehiculoPlaca: vehiculoPlaca.trim() || null,
+    numeroResolucion: numeroResolucion.trim() || null,
     rutaArchivo,
     nombreOriginal,
     tamano: buffer.byteLength,
@@ -185,7 +195,13 @@ export async function firmarMandamiento(
   const firmaBuffer = Buffer.from(await firmaFile.arrayBuffer());
   const signatureImageBase64 = `data:${firmaFile.type};base64,${firmaBuffer.toString("base64")}`;
 
-  const data = buildPdfData(row, ordenResolucion, session.user.name ?? null, session.user.name ?? null, signatureImageBase64);
+  // Usar los valores guardados al generar el mandamiento original
+  const rowConPlaca = { ...row, vehiculoPlaca: mandamiento.vehiculoPlaca ?? row.vehiculoPlaca };
+  const ordenResolucionParaFirma = mandamiento.numeroResolucion
+    ? { ...(ordenResolucion ?? { fechaResolucion: null, codigoInfraccion: null }), numeroResolucion: mandamiento.numeroResolucion }
+    : ordenResolucion;
+
+  const data = buildPdfData(rowConPlaca, ordenResolucionParaFirma, session.user.name ?? null, session.user.name ?? null, signatureImageBase64);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = React.createElement(MandamientoPagoPdfDocument, { data });
   const buffer = await renderToBuffer(doc as React.ReactElement<any>);

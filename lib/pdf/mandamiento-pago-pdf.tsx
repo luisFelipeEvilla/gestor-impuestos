@@ -86,6 +86,87 @@ function labelTipoDoc(tipo: string): string {
   return map[tipo] ?? tipo.toUpperCase();
 }
 
+/** Convierte un entero positivo a su representación en palabras en español (Colombia). */
+function numberToWords(input: number): string {
+  const n = Math.round(input);
+  if (n === 0) return "CERO";
+
+  const ONES = [
+    "", "UN", "DOS", "TRES", "CUATRO", "CINCO", "SEIS", "SIETE", "OCHO", "NUEVE",
+    "DIEZ", "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE", "DIECISÉIS",
+    "DIECISIETE", "DIECIOCHO", "DIECINUEVE",
+  ];
+  const TENS = [
+    "", "", "VEINTE", "TREINTA", "CUARENTA", "CINCUENTA",
+    "SESENTA", "SETENTA", "OCHENTA", "NOVENTA",
+  ];
+  const HUNDREDS = [
+    "", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS", "QUINIENTOS",
+    "SEISCIENTOS", "SETECIENTOS", "OCHOCIENTOS", "NOVECIENTOS",
+  ];
+  const VEINTI = [
+    "", "VEINTIÚN", "VEINTIDÓS", "VEINTITRÉS", "VEINTICUATRO",
+    "VEINTICINCO", "VEINTISÉIS", "VEINTISIETE", "VEINTIOCHO", "VEINTINUEVE",
+  ];
+
+  const below100 = (num: number): string => {
+    if (num < 20) return ONES[num]!;
+    const t = Math.floor(num / 10);
+    const o = num % 10;
+    if (num <= 29) return VEINTI[o]!;
+    return TENS[t]! + (o > 0 ? " Y " + ONES[o]! : "");
+  };
+
+  const below1000 = (num: number): string => {
+    if (num === 0) return "";
+    if (num === 100) return "CIEN";
+    const h = Math.floor(num / 100);
+    const rest = num % 100;
+    return [h > 0 ? HUNDREDS[h]! : "", rest > 0 ? below100(rest) : ""]
+      .filter(Boolean)
+      .join(" ");
+  };
+
+  const billions  = Math.floor(n / 1_000_000_000);
+  const millions  = Math.floor((n % 1_000_000_000) / 1_000_000);
+  const thousands = Math.floor((n % 1_000_000) / 1_000);
+  const remainder = n % 1_000;
+  const hasHigherThanThousands = billions > 0 || millions > 0;
+
+  const parts: string[] = [];
+  if (billions > 0)
+    parts.push(below1000(billions) + (billions === 1 ? " MIL MILLÓN" : " MIL MILLONES"));
+  if (millions > 0)
+    parts.push(millions === 1 ? "UN MILLÓN" : below1000(millions) + " MILLONES");
+  if (thousands > 0)
+    parts.push(
+      thousands === 1
+        ? hasHigherThanThousands ? "UN MIL" : "MIL"
+        : below1000(thousands) + " MIL",
+    );
+  if (remainder > 0) parts.push(below1000(remainder));
+
+  return parts.join(" ");
+}
+
+/**
+ * Devuelve el monto en letras más el valor numérico entre paréntesis.
+ * Ej: "UN MILLÓN CUARENTA Y CINCO MIL QUINIENTOS NOVENTA PESOS ($1.045.590)"
+ */
+function formatMontoEnLetras(value: string | null | undefined): string {
+  if (!value) return "CERO PESOS ($0)";
+  const num = parseFloat(value);
+  if (isNaN(num) || num < 0) return "CERO PESOS ($0)";
+  const rounded = Math.round(num);
+  const enLetras = numberToWords(rounded);
+  const numerico = new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  }).format(rounded);
+  return `${enLetras} PESOS (${numerico})`;
+}
+
 // ─── Colors ─────────────────────────────────────────────────────────────────
 
 const C = {
@@ -106,6 +187,9 @@ const FOOTER_H = 36;
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
+  underline: {
+    textDecoration: "underline",
+  },
   page: {
     paddingBottom: FOOTER_H + 10,
     paddingLeft: H_PAD,
@@ -272,12 +356,12 @@ const s = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: C.border,
   },
-  colNo: { width: 93 },
+  colNo: { width: 130 },
   colFecha: { width: 52 },
   colNoRes: { width: 115 },
-  colFechaRes: { width: 80 },
+  colFechaRes: { width: 60 },
   colValor: { width: 78 },
-  colCodigo: { width: 72, borderRightWidth: 0 },
+  colCodigo: { width: 55, borderRightWidth: 0 },
 
   // ── Resuelve ──
   resuelveTitle: {
@@ -298,10 +382,12 @@ const s = StyleSheet.create({
   // ── Signature ──
   signBlock: {
     marginTop: 16,
+    alignItems: "center",
   },
   signLine: {
     fontSize: 10,
     lineHeight: 1.6,
+    textAlign: "center",
   },
 
   // ── Author block ──
@@ -323,12 +409,12 @@ function PageHeader({
   logoPath,
   expediente,
   resolucion,
-  fechaResolucion,
+  fechaGeneracion,
 }: {
   logoPath: string;
   expediente: string;
   resolucion: string;
-  fechaResolucion: string;
+  fechaGeneracion: string;
 }) {
   return (
     <View style={s.header} fixed>
@@ -355,7 +441,7 @@ function PageHeader({
       <View style={s.docInfoBlock}>
         <Text style={s.docInfoLine}>Expediente No. {expediente}</Text>
         <Text style={s.docInfoLine}>Resolución No. {resolucion}</Text>
-        <Text style={s.docInfoLine}>Fecha Resolución {fechaResolucion}</Text>
+        <Text style={s.docInfoLine}>{fechaGeneracion}</Text>
       </View>
 
       {/* Subtitle */}
@@ -399,15 +485,12 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
   const fechaResolucionStr = ordenResolucion?.fechaResolucion
     ? formatFechaCorta(ordenResolucion.fechaResolucion)
     : proceso.fechaAplicacionImpuesto
-    ? formatFechaCorta(proceso.fechaAplicacionImpuesto)
-    : "—";
-  const fechaResolucionLargaStr = ordenResolucion?.fechaResolucion
-    ? formatFechaLarga(ordenResolucion.fechaResolucion)
-    : proceso.fechaAplicacionImpuesto
+      ? formatFechaCorta(proceso.fechaAplicacionImpuesto)
+      : "—";
+  const fechaAplicacionImpuestoStr = proceso.fechaAplicacionImpuesto
     ? formatFechaLarga(proceso.fechaAplicacionImpuesto)
     : "—";
-
-  const ciudadFecha = `${contribuyente.ciudad ?? "SANTA MARTA"}, ${formatFechaLarga(fechaGeneracion)}`;
+  const ciudadFecha = `${"SANTA MARTA"}, ${formatFechaLarga(fechaGeneracion)}`;
   const tipoDocLabel = labelTipoDoc(contribuyente.tipoDocumento);
   const identificacion = `${tipoDocLabel} ${contribuyente.nit}`;
   const montoFormateado = formatMonto(proceso.montoMultaCop);
@@ -422,7 +505,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
           logoPath={logoPath}
           expediente={expedienteNo}
           resolucion={resolucionNo}
-          fechaResolucion={fechaResolucionStr}
+          fechaGeneracion={formatFechaLarga(fechaGeneracion)}
         />
 
         {/* ── Fixed footer (every page) ── */}
@@ -471,7 +554,9 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
           </Text>
           <Text style={s.bold}>{resolucionNo}</Text>
           <Text>{" de fecha "}</Text>
-          <Text style={s.bold}>{fechaResolucionStr}</Text>
+          <Text style={s.bold}>
+            {ordenResolucion?.fechaResolucion ? formatFechaLarga(ordenResolucion.fechaResolucion) : "—"}
+          </Text>
           <Text>{", "}</Text>
           <Text style={s.italic}>{'"Por medio de la cual se impone una medida correctiva de una Multa a un conductor infractor"'}</Text>
           <Text>{", contra el señor(a) "}</Text>
@@ -500,7 +585,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
         <Text style={s.para}>
           <Text style={s.bold}>TERCERO.- </Text>
           <Text>
-            {"Que según el acervo probatorio y la base de datos que reposa en la Oficina de (-) del Magdalena, se encuentran registradas como obligaciones impagadas por el ciudadano "}
+            {"Que según el acervo probatorio y la base de datos que reposa en la Oficina de Tránsito y Transporte del Departamento del Magdalena, se encuentran registradas como obligaciones impagadas por el ciudadano "}
           </Text>
           <Text style={s.bold}>{contribuyente.nombreRazonSocial}</Text>
           <Text>{", identificado(a) con cédula de ciudadanía y/o Nit No. "}</Text>
@@ -511,11 +596,11 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
         {/* Table */}
         <View style={s.table} wrap={false}>
           <View style={s.tHRow}>
-            <Text style={[s.tHCell, s.colNo]}>No. (-)</Text>
-            <Text style={[s.tHCell, s.colFecha]}>FECHA{"\n"}(-)</Text>
+            <Text style={[s.tHCell, s.colNo]}>No. Comparendo</Text>
+            <Text style={[s.tHCell, s.colFecha]}>FECHA{"\n"} Comparendo</Text>
             <Text style={[s.tHCell, s.colNoRes]}>No. RESOLUCIÓN{"\n"}SANCIÓN</Text>
             <Text style={[s.tHCell, s.colFechaRes]}>FECHA DE RESOLUCIÓN{"\n"}SANCIÓN</Text>
-            <Text style={[s.tHCell, s.colValor]}>VALOR PRINCIPAL</Text>
+            <Text style={[s.tHCell, s.colValor]}>VALOR INFRACCIÓN</Text>
             <Text style={[s.tHCell, s.colCodigo]}>CÓDIGO DE{"\n"}INFRACCIÓN</Text>
           </View>
           <View style={s.tRow}>
@@ -536,7 +621,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
         <Text style={s.para}>
           <Text style={s.bold}>CUARTO.- </Text>
           <Text>
-            Que la multa impuesta al infractor {contribuyente.nombreRazonSocial} fue notificada {fechaResolucionLargaStr}, sin que dentro del término de
+            Que la multa impuesta al infractor {contribuyente.nombreRazonSocial} fue notificada {fechaAplicacionImpuestoStr}, sin que dentro del término de
             Ley se presentara recurso alguno por el deudor, razón por la cual el acto administrativo
             se encuentra debidamente ejecutoriado. Que la obligación contenida en el acto
             administrativo en referencia no ha sido cancelada por el deudor debiéndose liquidar la
@@ -585,17 +670,27 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
         <Text style={s.para}>
           <Text style={s.bold}>PRIMERO: </Text>
           <Text style={s.bold}>LÍBRESE MANDAMIENTO DE PAGO</Text>
-          <Text>{" en favor del "}</Text>
-          <Text style={s.bold}>DEPARTAMENTO DEL MAGDALENA</Text>
+          <Text>{" en favor de la  "}</Text>
+          <Text style={s.bold}>GOBERNACIÓN DEL DEPARTAMENTO DEL MAGDALENA</Text>
+          <Text>{", identificada con Nit No. "}</Text>
+          <Text style={s.bold}>800.103.920-6 </Text>
           <Text>{" y en contra de "}</Text>
           <Text style={s.bold}>{contribuyente.nombreRazonSocial}</Text>
           <Text>{", identificado(a) con cédula de ciudadanía y/o Nit No. "}</Text>
           <Text style={s.bold}>{contribuyente.nit}</Text>
           <Text>{", por la suma de "}</Text>
-          <Text style={s.bold}>{montoFormateado} M/L</Text>
+          <Text style={s.bold}>{formatMontoEnLetras(proceso.montoMultaCop)} M/L</Text>
           <Text>
+            {", por concepto de multas impuestas por la Oficina de Tránsito, según consta en los documentos relacionados en el (3) TERCER considerando de este acto administrativo que obran en la actuación, "}
           </Text>
-            {", por concepto de multas impuestas por la Oficina de Tránsito, según consta en los documentos relacionados en el (3) TERCER considerando de este acto administrativo que obran en la actuación, más los intereses moratorios que se causen desde la fecha de vencimiento de la obligación y hasta su pago total, liquidados conforme al "}
+
+          <Text style={s.underline}>
+             {"más los intereses moratorios que se causen desde la fecha de vencimiento de la obligación y hasta su pago total,"}
+          </Text>
+
+          <Text>
+            {", liquidados conforme al "}
+          </Text>
           <Text style={s.bold}>artículo 836-1 del Estatuto Tributario Nacional</Text>
           <Text>
             {", más los gastos que ha demandado el trámite pertinente para hacer efectiva la deuda y las costas del presente proceso."}
@@ -642,12 +737,13 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
         {/* Signature */}
         <View style={s.signBlock}>
           {signatureImageBase64 ? (
-            <Image src={signatureImageBase64} style={{ width: 160, height: 60, objectFit: "contain" }} />
+            <Image src={signatureImageBase64} style={{ width: 160, height: 60, objectFit: "contain", alignSelf: "center" }} />
           ) : (
             <Text style={s.signLine}>(-)</Text>
           )}
+          <Text style={[s.signLine, s.bold]}>VIRNA LIZI JOHNSON SALCEDO</Text>
           <Text style={[s.signLine, s.bold]}>
-            SECRETARIO(A) DE HACIENDA DEL DEPARTAMENTO DEL MAGDALENA
+            SECRETARIA DE HACIENDA DEL DEPARTAMENTO DEL MAGDALENA
           </Text>
         </View>
 
@@ -661,7 +757,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
           logoPath={logoPath}
           expediente={expedienteNo}
           resolucion={resolucionNo}
-          fechaResolucion={fechaResolucionStr}
+          fechaGeneracion={formatFechaLarga(fechaGeneracion)}
         />
         <PageFooter />
         <View style={s.authorBlock}>

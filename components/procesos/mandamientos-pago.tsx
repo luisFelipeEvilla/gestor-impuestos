@@ -2,6 +2,8 @@
 
 import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +43,8 @@ type Props = {
   puedeGenerar: boolean;
   puedeFirmar: boolean;
   puedeEliminar: boolean;
+  vehiculoPlacaDefault?: string | null;
+  numeroResolucionDefault?: string | null;
 };
 
 function formatDateTime(value: Date | string | null | undefined): string {
@@ -153,9 +157,12 @@ function FirmarMandamientoDialog({
   );
 }
 
-export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar, puedeEliminar }: Props) {
+export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar, puedeEliminar, vehiculoPlacaDefault, numeroResolucionDefault }: Props) {
   const [isGenerating, startGenerating] = useTransition();
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [showGenerarDialog, setShowGenerarDialog] = useState(false);
+  const [placaInput, setPlacaInput] = useState("");
+  const [noResolucionInput, setNoResolucionInput] = useState("");
   const [firmarId, setFirmarId] = useState<number | null>(null);
   const [eliminarId, setEliminarId] = useState<number | null>(null);
   const [isDeleting, startDeleting] = useTransition();
@@ -174,11 +181,22 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
     });
   };
 
-  const handleGenerar = () => {
+  const handleAbrirDialogGenerar = () => {
+    setPlacaInput(vehiculoPlacaDefault ?? "");
+    setNoResolucionInput(numeroResolucionDefault ?? "");
+    setGenerateError(null);
+    setShowGenerarDialog(true);
+  };
+
+  const handleConfirmarGenerar = () => {
     setGenerateError(null);
     startGenerating(async () => {
-      const result = await generarMandamiento(procesoId);
-      if (result.error) setGenerateError(result.error);
+      const result = await generarMandamiento(procesoId, placaInput, noResolucionInput);
+      if (result.error) {
+        setGenerateError(result.error);
+      } else {
+        setShowGenerarDialog(false);
+      }
     });
   };
 
@@ -196,15 +214,11 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
             <Button
               size="sm"
               variant="outline"
-              onClick={handleGenerar}
-              disabled={isGenerating || mandamientos.length > 0}
+              onClick={handleAbrirDialogGenerar}
+              disabled={mandamientos.length > 0}
               title={mandamientos.length > 0 ? "Ya existe un mandamiento de pago para este proceso" : undefined}
             >
-              {isGenerating ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : (
-                <FileText className="mr-2 size-4" />
-              )}
+              <FileText className="mr-2 size-4" />
               Generar mandamiento
             </Button>
           )}
@@ -280,6 +294,46 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={showGenerarDialog} onOpenChange={(v) => { if (!v && !isGenerating) setShowGenerarDialog(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Generar mandamiento de pago</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="mp-placa">Placa del vehículo</Label>
+              <Input
+                id="mp-placa"
+                value={placaInput}
+                onChange={(e) => setPlacaInput(e.target.value.toUpperCase())}
+                placeholder="Ej. ABC123"
+                disabled={isGenerating}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="mp-resolucion">Nº de resolución</Label>
+              <Input
+                id="mp-resolucion"
+                value={noResolucionInput}
+                onChange={(e) => setNoResolucionInput(e.target.value)}
+                placeholder="Ej. 0001-2025"
+                disabled={isGenerating}
+              />
+            </div>
+            {generateError && <p className="text-destructive text-sm">{generateError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGenerarDialog(false)} disabled={isGenerating}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmarGenerar} disabled={isGenerating}>
+              {isGenerating && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Generar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {firmarId !== null && (
         <FirmarMandamientoDialog

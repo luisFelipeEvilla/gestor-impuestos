@@ -10,6 +10,10 @@ export const mandamientosPago = pgTable("mandamientos_pago", {
   generadoPorId: integer("generado_por_id").references(() => usuarios.id, {
     onDelete: "set null",
   }),
+  /** Placa del vehículo ingresada al generar el mandamiento */
+  vehiculoPlaca: text("vehiculo_placa"),
+  /** Número de resolución ingresado al generar el mandamiento */
+  numeroResolucion: text("numero_resolucion"),
   /** Ruta relativa al archivo PDF, ej: procesos/123/uuid.pdf */
   rutaArchivo: text("ruta_archivo").notNull(),
   nombreOriginal: text("nombre_original").notNull(),
