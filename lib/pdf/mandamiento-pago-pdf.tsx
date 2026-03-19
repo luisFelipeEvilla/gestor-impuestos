@@ -42,6 +42,8 @@ export type MandamientoPagoData = {
   } | null;
   logoPath: string;
   fechaGeneracion: Date;
+  /** Fecha real de firma. Si es null/undefined, se muestra un placeholder en encabezado y CIUDAD Y FECHA. */
+  fechaFirma?: Date | null;
   /** Imagen de firma en base64 data URL (ej: data:image/png;base64,...) para embeber en el PDF */
   signatureImageBase64?: string | null;
 };
@@ -495,8 +497,10 @@ function PageFooter() {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
+const PLACEHOLDER_FECHA = "(La fecha se asignará a la fecha de firma del documento)";
+
 export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData }) {
-  const { proceso, contribuyente, ordenResolucion, logoPath, fechaGeneracion, proyectorNombre, firmadorNombre, signatureImageBase64, numeroResolucionEncabezado } = data;
+  const { proceso, contribuyente, ordenResolucion, logoPath, fechaGeneracion, fechaFirma, proyectorNombre, firmadorNombre, signatureImageBase64, numeroResolucionEncabezado } = data;
 
   const expedienteNo = proceso.noComparendo ?? "—";
   const resolucionNo = numeroResolucionEncabezado;
@@ -509,7 +513,8 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
   const fechaAplicacionImpuestoStr = proceso.fechaAplicacionImpuesto
     ? formatFechaLarga(proceso.fechaAplicacionImpuesto)
     : "—";
-  const ciudadFecha = `${"SANTA MARTA"}, ${formatFechaLarga(fechaGeneracion)}`;
+  const fechaDocStr = fechaFirma ? formatFechaLarga(fechaFirma) : PLACEHOLDER_FECHA;
+  const ciudadFecha = `SANTA MARTA, ${fechaDocStr}`;
   const tipoDocLabel = labelTipoDoc(contribuyente.tipoDocumento);
   const identificacion = `${tipoDocLabel} ${contribuyente.nit}`;
   const montoFormateado = formatMonto(proceso.montoMultaCop);
@@ -524,7 +529,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
           logoPath={logoPath}
           expediente={expedienteNo}
           resolucion={resolucionNo}
-          fechaGeneracion={formatFechaLarga(fechaGeneracion)}
+          fechaGeneracion={fechaDocStr}
         />
 
         {/* ── Fixed footer (every page) ── */}
@@ -778,7 +783,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
           logoPath={logoPath}
           expediente={expedienteNo}
           resolucion={resolucionNo}
-          fechaGeneracion={formatFechaLarga(fechaGeneracion)}
+          fechaGeneracion={fechaDocStr}
         />
         <PageFooter />
         <View style={s.authorBlock}>

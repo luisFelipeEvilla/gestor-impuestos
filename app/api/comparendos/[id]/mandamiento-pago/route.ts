@@ -98,6 +98,7 @@ export async function GET(_request: Request, context: RouteContext) {
     ordenResolucion,
     logoPath,
     fechaGeneracion: new Date(),
+    fechaFirma: null,
   };
 
   const doc = React.createElement(MandamientoPagoPdfDocument, { data });

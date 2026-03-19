@@ -70,7 +70,8 @@ function buildPdfData(
   proyectorNombre: string | null,
   firmadorNombre: string | null,
   numeroResolucionEncabezado: string,
-  signatureImageBase64?: string | null
+  signatureImageBase64?: string | null,
+  fechaFirma?: Date | null
 ): MandamientoPagoData {
   const logoPath = path.join(process.cwd(), "public", "logo_magdalena.png");
   return {
@@ -99,6 +100,7 @@ function buildPdfData(
     ordenResolucion,
     logoPath,
     fechaGeneracion: new Date(),
+    fechaFirma: fechaFirma ?? null,
     signatureImageBase64,
   };
 }
@@ -241,7 +243,8 @@ export async function firmarMandamiento(
   // Usar placa guardada; el encabezado muestra el consecutivo formateado
   const rowConPlaca = { ...row, vehiculoPlaca: mandamiento.vehiculoPlaca ?? row.vehiculoPlaca };
 
-  const data = buildPdfData(rowConPlaca, ordenResolucion, session.user.name ?? null, session.user.name ?? null, resolucionFormateada, signatureImageBase64);
+  const fechaFirma = new Date();
+  const data = buildPdfData(rowConPlaca, ordenResolucion, session.user.name ?? null, session.user.name ?? null, resolucionFormateada, signatureImageBase64, fechaFirma);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = React.createElement(MandamientoPagoPdfDocument, { data });
   const buffer = await renderToBuffer(doc as React.ReactElement<any>);
