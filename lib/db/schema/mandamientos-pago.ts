@@ -20,6 +20,11 @@ export const mandamientosPago = pgTable("mandamientos_pago", {
   tamano: integer("tamano").notNull(),
   /** Consecutivo asignado al momento de firmar, usado como Nº de Resolución */
   consecutivo: integer("consecutivo"),
+  /** Usuario (empleado o admin) que autorizó la firma del mandamiento */
+  autorizadoPorId: integer("autorizado_por_id").references(() => usuarios.id, {
+    onDelete: "set null",
+  }),
+  autorizadoEn: timestamp("autorizado_en", { withTimezone: true }),
   firmadoPorId: integer("firmado_por_id").references(() => usuarios.id, {
     onDelete: "set null",
   }),

@@ -1,0 +1,3 @@
+ALTER TABLE "mandamientos_pago" ADD COLUMN "autorizado_por_id" integer;--> statement-breakpoint
+ALTER TABLE "mandamientos_pago" ADD COLUMN "autorizado_en" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "mandamientos_pago" ADD CONSTRAINT "mandamientos_pago_autorizado_por_id_usuarios_id_fk" FOREIGN KEY ("autorizado_por_id") REFERENCES "public"."usuarios"("id") ON DELETE set null ON UPDATE no action;

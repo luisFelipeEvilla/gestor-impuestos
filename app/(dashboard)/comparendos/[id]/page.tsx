@@ -158,6 +158,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
 
   const usuariosGeneradoPor = alias(usuarios, "generado_por");
   const usuariosFirmadoPor = alias(usuarios, "firmado_por");
+  const usuariosAutorizadoPor = alias(usuarios, "autorizado_por");
 
   const [historialRows, usuariosList, documentosRows, ordenResolucion, ordenesComparendoList, acuerdosPagoList, cobrosCoactivosList, mandamientosRows] = await Promise.all([
     db
@@ -220,6 +221,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
         procesoId: mandamientosPago.procesoId,
         generadoPorId: mandamientosPago.generadoPorId,
         firmadoPorId: mandamientosPago.firmadoPorId,
+        autorizadoPorId: mandamientosPago.autorizadoPorId,
         vehiculoPlaca: mandamientosPago.vehiculoPlaca,
         numeroResolucion: mandamientosPago.numeroResolucion,
         consecutivo: mandamientosPago.consecutivo,
@@ -227,13 +229,16 @@ export default async function DetalleProcesoPage({ params }: Props) {
         nombreOriginal: mandamientosPago.nombreOriginal,
         tamano: mandamientosPago.tamano,
         firmadoEn: mandamientosPago.firmadoEn,
+        autorizadoEn: mandamientosPago.autorizadoEn,
         creadoEn: mandamientosPago.creadoEn,
         generadoPorNombre: usuariosGeneradoPor.nombre,
         firmadoPorNombre: usuariosFirmadoPor.nombre,
+        autorizadoPorNombre: usuariosAutorizadoPor.nombre,
       })
       .from(mandamientosPago)
       .leftJoin(usuariosGeneradoPor, eq(mandamientosPago.generadoPorId, usuariosGeneradoPor.id))
       .leftJoin(usuariosFirmadoPor, eq(mandamientosPago.firmadoPorId, usuariosFirmadoPor.id))
+      .leftJoin(usuariosAutorizadoPor, eq(mandamientosPago.autorizadoPorId, usuariosAutorizadoPor.id))
       .where(eq(mandamientosPago.procesoId, id))
       .orderBy(desc(mandamientosPago.creadoEn)),
   ]);
@@ -332,6 +337,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
   const esAdmin = session?.user?.rol === "admin";
   const esAsignado = !!session?.user?.id && row.asignadoAId === session.user.id;
   const puedeGenerar = esAdmin || esAsignado;
+  const puedeAutorizar = esAdmin || esAsignado;
   const puedeFirmar = esAdmin || esUsuarioCliente;
 
   return (
@@ -670,6 +676,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
               procesoId={row.id}
               mandamientos={mandamientosRows}
               puedeGenerar={puedeGenerar}
+              puedeAutorizar={puedeAutorizar}
               puedeFirmar={puedeFirmar}
               puedeEliminar={esAdmin}
               puedeEliminarSinFirmar={esAdmin || esAsignado}

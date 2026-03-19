@@ -28,13 +28,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { generarMandamiento, firmarMandamiento, eliminarMandamiento } from "@/lib/actions/mandamientos-pago";
+import { generarMandamiento, firmarMandamiento, eliminarMandamiento, autorizarMandamiento } from "@/lib/actions/mandamientos-pago";
 import type { MandamientoPago } from "@/lib/db/schema";
-import { AlertTriangle, FileText, Loader2, PenLine, Download, Trash2, Info } from "lucide-react";
+import { AlertTriangle, FileText, Loader2, PenLine, Download, Trash2, Info, ShieldCheck } from "lucide-react";
 
 type MandamientoConUsuarios = MandamientoPago & {
   generadoPorNombre: string | null;
   firmadoPorNombre: string | null;
+  autorizadoPorNombre: string | null;
 };
 
 type Props = {
@@ -42,6 +43,7 @@ type Props = {
   mandamientos: MandamientoConUsuarios[];
   puedeGenerar: boolean;
   puedeFirmar: boolean;
+  puedeAutorizar?: boolean;
   puedeEliminar: boolean;
   /** Puede eliminar mandamientos que aún no han sido firmados */
   puedeEliminarSinFirmar?: boolean;
@@ -160,7 +162,7 @@ function FirmarMandamientoDialog({
   );
 }
 
-export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar, puedeEliminar, puedeEliminarSinFirmar, vehiculoPlacaDefault, camposFaltantes }: Props) {
+export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar, puedeAutorizar, puedeEliminar, puedeEliminarSinFirmar, vehiculoPlacaDefault, camposFaltantes }: Props) {
   const [isGenerating, startGenerating] = useTransition();
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [showGenerarDialog, setShowGenerarDialog] = useState(false);
@@ -169,8 +171,24 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
   const [eliminarId, setEliminarId] = useState<number | null>(null);
   const [isDeleting, startDeleting] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [autorizandoId, setAutorizandoId] = useState<number | null>(null);
+  const [isAutorizando, startAutorizando] = useTransition();
+  const [autorizarError, setAutorizarError] = useState<string | null>(null);
 
   const tieneVehiculo = !!vehiculoPlacaDefault;
+
+  const handleAutorizarConfirm = () => {
+    if (autorizandoId === null) return;
+    setAutorizarError(null);
+    startAutorizando(async () => {
+      const result = await autorizarMandamiento(autorizandoId);
+      if (result.error) {
+        setAutorizarError(result.error);
+      } else {
+        setAutorizandoId(null);
+      }
+    });
+  };
 
   const handleEliminarConfirm = () => {
     if (eliminarId === null) return;
@@ -273,6 +291,12 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
                     </p>
                     {m.firmadoEn ? (
                       <>
+                        {m.autorizadoEn && (
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                            Autorizado {formatDateTime(m.autorizadoEn)}
+                            {m.autorizadoPorNombre ? ` por ${m.autorizadoPorNombre}` : ""}
+                          </p>
+                        )}
                         <p className="text-xs text-green-600 dark:text-green-400 font-medium mt-0.5">
                           Firmado {formatDateTime(m.firmadoEn)}
                           {m.firmadoPorNombre ? ` por ${m.firmadoPorNombre}` : ""}
@@ -283,9 +307,19 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
                           </p>
                         )}
                       </>
+                    ) : m.autorizadoEn ? (
+                      <>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                          Autorizado {formatDateTime(m.autorizadoEn)}
+                          {m.autorizadoPorNombre ? ` por ${m.autorizadoPorNombre}` : ""}
+                        </p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                          Pendiente de firma — Nº Resolución se asignará al firmar
+                        </p>
+                      </>
                     ) : (
                       <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                        Pendiente de firma — Nº Resolución se asignará al firmar
+                        Pendiente de autorización
                       </p>
                     )}
                   </div>
@@ -300,7 +334,17 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
                         <span className="sr-only">Descargar</span>
                       </a>
                     </Button>
-                    {puedeFirmar && !m.firmadoEn && (
+                    {puedeAutorizar && !m.autorizadoEn && !m.firmadoEn && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setAutorizarError(null); setAutorizandoId(m.id); }}
+                      >
+                        <ShieldCheck className="mr-1.5 size-4" />
+                        Autorizar
+                      </Button>
+                    )}
+                    {puedeFirmar && !m.firmadoEn && m.autorizadoEn && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -399,6 +443,27 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
           onClose={() => setFirmarId(null)}
         />
       )}
+
+      <AlertDialog open={autorizandoId !== null} onOpenChange={(v) => { if (!v) setAutorizandoId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Autorizar mandamiento de pago?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Al autorizar, habilitarás que el mandamiento pueda ser firmado. Esta acción queda registrada.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {autorizarError && (
+            <p className="text-destructive text-sm px-1">{autorizarError}</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isAutorizando}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleAutorizarConfirm} disabled={isAutorizando}>
+              {isAutorizando && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Autorizar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={eliminarId !== null} onOpenChange={(v) => { if (!v) setEliminarId(null); }}>
         <AlertDialogContent>

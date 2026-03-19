@@ -153,6 +153,40 @@ export async function generarMandamiento(
   return {};
 }
 
+export async function autorizarMandamiento(
+  mandamientoId: number
+): Promise<{ error?: string }> {
+  const session = await getSession();
+  if (!session?.user) return { error: "No autorizado" };
+
+  const [mandamiento] = await db
+    .select()
+    .from(mandamientosPago)
+    .where(eq(mandamientosPago.id, mandamientoId));
+
+  if (!mandamiento) return { error: "Mandamiento no encontrado" };
+  if (mandamiento.autorizadoEn) return { error: "El mandamiento ya fue autorizado" };
+  if (mandamiento.firmadoEn) return { error: "El mandamiento ya fue firmado" };
+
+  // Pueden autorizar: admin o empleado
+  const esAdmin = session.user.rol === "admin";
+  const esEmpleado = session.user.rol === "empleado";
+  if (!esAdmin && !esEmpleado) {
+    return { error: "No autorizado" };
+  }
+
+  await db
+    .update(mandamientosPago)
+    .set({
+      autorizadoPorId: session.user.id ?? null,
+      autorizadoEn: new Date(),
+    })
+    .where(eq(mandamientosPago.id, mandamientoId));
+
+  revalidatePath(`/comparendos/${mandamiento.procesoId}`);
+  return {};
+}
+
 export async function firmarMandamiento(
   mandamientoId: number,
   formData: FormData
@@ -167,6 +201,7 @@ export async function firmarMandamiento(
 
   if (!mandamiento) return { error: "Mandamiento no encontrado" };
   if (mandamiento.firmadoEn) return { error: "El mandamiento ya fue firmado" };
+  if (!mandamiento.autorizadoEn) return { error: "El mandamiento debe ser autorizado antes de firmarse" };
 
   const queryResult = await queryProcesoData(mandamiento.procesoId);
   if (!queryResult) return { error: "Proceso no encontrado" };
