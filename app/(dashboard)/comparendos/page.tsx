@@ -87,6 +87,9 @@ function buildProcesosUrl(filtros: {
   comprobante?: Presencia | null;
   ordenResolucion?: Presencia | null;
   mandamientoPago?: Presencia | null;
+  direccion?: Presencia | null;
+  correo?: Presencia | null;
+  telefono?: Presencia | null;
   page?: number;
   perPage?: number;
   orderBy?: (typeof ORDER_BY_VALIDOS)[number];
@@ -106,6 +109,9 @@ function buildProcesosUrl(filtros: {
   if (filtros.comprobante) search.set("comprobante", filtros.comprobante);
   if (filtros.ordenResolucion) search.set("ordenResolucion", filtros.ordenResolucion);
   if (filtros.mandamientoPago) search.set("mandamientoPago", filtros.mandamientoPago);
+  if (filtros.direccion) search.set("direccion", filtros.direccion);
+  if (filtros.correo) search.set("correo", filtros.correo);
+  if (filtros.telefono) search.set("telefono", filtros.telefono);
   if (filtros.perPage != null) search.set("perPage", String(filtros.perPage));
   if (filtros.page != null && filtros.page > 1) search.set("page", String(filtros.page));
   if (filtros.orderBy && ORDER_BY_VALIDOS.includes(filtros.orderBy)) search.set("orderBy", filtros.orderBy);
@@ -128,6 +134,9 @@ type Props = {
     comprobante?: string;
     ordenResolucion?: string;
     mandamientoPago?: string;
+    direccion?: string;
+    correo?: string;
+    telefono?: string;
     page?: string;
     perPage?: string;
     orderBy?: string;
@@ -182,6 +191,12 @@ export default async function ProcesosPage({ searchParams }: Props) {
     PRESENCIA_VALIDOS.includes(params.ordenResolucion as Presencia) ? (params.ordenResolucion as Presencia) : null;
   const mandamientoPagoActual: Presencia | null =
     PRESENCIA_VALIDOS.includes(params.mandamientoPago as Presencia) ? (params.mandamientoPago as Presencia) : null;
+  const direccionActual: Presencia | null =
+    PRESENCIA_VALIDOS.includes(params.direccion as Presencia) ? (params.direccion as Presencia) : null;
+  const correoActual: Presencia | null =
+    PRESENCIA_VALIDOS.includes(params.correo as Presencia) ? (params.correo as Presencia) : null;
+  const telefonoActual: Presencia | null =
+    PRESENCIA_VALIDOS.includes(params.telefono as Presencia) ? (params.telefono as Presencia) : null;
 
   const orderByParam = params.orderBy;
   const orderByActual: (typeof ORDER_BY_VALIDOS)[number] =
@@ -308,6 +323,21 @@ export default async function ProcesosPage({ searchParams }: Props) {
       NOT EXISTS (SELECT 1 FROM mandamientos_pago WHERE proceso_id = ${procesos.id})
       AND NOT EXISTS (SELECT 1 FROM documentos_proceso WHERE proceso_id = ${procesos.id} AND tipo_documento = 'mandamiento_pago')
     )`);
+  }
+  if (direccionActual === "con") {
+    condiciones.push(sql`(${contribuyentes.direccion} IS NOT NULL AND ${contribuyentes.direccion} != '')`);
+  } else if (direccionActual === "sin") {
+    condiciones.push(sql`(${contribuyentes.direccion} IS NULL OR ${contribuyentes.direccion} = '')`);
+  }
+  if (correoActual === "con") {
+    condiciones.push(sql`(${contribuyentes.email} IS NOT NULL AND ${contribuyentes.email} != '')`);
+  } else if (correoActual === "sin") {
+    condiciones.push(sql`(${contribuyentes.email} IS NULL OR ${contribuyentes.email} = '')`);
+  }
+  if (telefonoActual === "con") {
+    condiciones.push(sql`(${contribuyentes.telefono} IS NOT NULL AND ${contribuyentes.telefono} != '')`);
+  } else if (telefonoActual === "sin") {
+    condiciones.push(sql`(${contribuyentes.telefono} IS NULL OR ${contribuyentes.telefono} = '')`);
   }
   if (session?.user?.rol === "empleado") {
     if (!session?.user?.id) {
@@ -448,7 +478,10 @@ export default async function ProcesosPage({ searchParams }: Props) {
     acuerdoPagoActual != null ||
     comprobanteActual != null ||
     ordenResolucionActual != null ||
-    mandamientoPagoActual != null;
+    mandamientoPagoActual != null ||
+    direccionActual != null ||
+    correoActual != null ||
+    telefonoActual != null;
 
   const descripcionOrden =
     orderByActual === "fechaLimite"
@@ -476,6 +509,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
     ...(comprobanteActual ? { comprobante: comprobanteActual } : {}),
     ...(ordenResolucionActual ? { ordenResolucion: ordenResolucionActual } : {}),
     ...(mandamientoPagoActual ? { mandamientoPago: mandamientoPagoActual } : {}),
+    ...(direccionActual ? { direccion: direccionActual } : {}),
+    ...(correoActual ? { correo: correoActual } : {}),
+    ...(telefonoActual ? { telefono: telefonoActual } : {}),
     orderBy: orderByActual,
     order: orderActual,
   };
@@ -504,6 +540,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
                   comprobanteActual={comprobanteActual}
                   ordenResolucionActual={ordenResolucionActual}
                   mandamientoPagoActual={mandamientoPagoActual}
+                  direccionActual={direccionActual}
+                  correoActual={correoActual}
+                  telefonoActual={telefonoActual}
                 />
               </Suspense>
             </div>
@@ -522,6 +561,9 @@ export default async function ProcesosPage({ searchParams }: Props) {
                 comprobante={comprobanteActual}
                 ordenResolucion={ordenResolucionActual}
                 mandamientoPago={mandamientoPagoActual}
+                direccion={direccionActual}
+                correo={correoActual}
+                telefono={telefonoActual}
                 orderBy={orderByActual}
                 order={orderActual}
                 perPage={pageSize}

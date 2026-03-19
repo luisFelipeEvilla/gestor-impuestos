@@ -60,6 +60,9 @@ type FiltrosProcesosProps = {
   comprobanteActual: "con" | "sin" | null;
   ordenResolucionActual: "con" | "sin" | null;
   mandamientoPagoActual: "con" | "sin" | null;
+  direccionActual: "con" | "sin" | null;
+  correoActual: "con" | "sin" | null;
+  telefonoActual: "con" | "sin" | null;
 };
 
 export function FiltrosProcesos({
@@ -73,6 +76,9 @@ export function FiltrosProcesos({
   comprobanteActual,
   ordenResolucionActual,
   mandamientoPagoActual,
+  direccionActual,
+  correoActual,
+  telefonoActual,
 }: FiltrosProcesosProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -88,6 +94,9 @@ export function FiltrosProcesos({
       comprobante?: string | null;
       ordenResolucion?: string | null;
       mandamientoPago?: string | null;
+      direccion?: string | null;
+      correo?: string | null;
+      telefono?: string | null;
     }) => {
       const params = new URLSearchParams(searchParams.toString());
       const estado =
@@ -112,6 +121,12 @@ export function FiltrosProcesos({
         updates.ordenResolucion !== undefined ? updates.ordenResolucion : ordenResolucionActual;
       const mandPago =
         updates.mandamientoPago !== undefined ? updates.mandamientoPago : mandamientoPagoActual;
+      const dir =
+        updates.direccion !== undefined ? updates.direccion : direccionActual;
+      const correo =
+        updates.correo !== undefined ? updates.correo : correoActual;
+      const tel =
+        updates.telefono !== undefined ? updates.telefono : telefonoActual;
 
       params.delete("estado");
       params.delete("vigencia");
@@ -122,6 +137,9 @@ export function FiltrosProcesos({
       params.delete("comprobante");
       params.delete("ordenResolucion");
       params.delete("mandamientoPago");
+      params.delete("direccion");
+      params.delete("correo");
+      params.delete("telefono");
       if (estado != null && estado !== "todos") params.set("estado", estado);
       if (vigencia != null) params.set("vigencia", String(vigencia));
       if (antig != null && antig !== "todos") params.set("antiguedad", antig);
@@ -132,6 +150,9 @@ export function FiltrosProcesos({
       if (comprobante != null && comprobante !== "todos") params.set("comprobante", comprobante);
       if (ordenRes != null && ordenRes !== "todos") params.set("ordenResolucion", ordenRes);
       if (mandPago != null && mandPago !== "todos") params.set("mandamientoPago", mandPago);
+      if (dir != null && dir !== "todos") params.set("direccion", dir);
+      if (correo != null && correo !== "todos") params.set("correo", correo);
+      if (tel != null && tel !== "todos") params.set("telefono", tel);
       return params;
     },
     [
@@ -145,6 +166,9 @@ export function FiltrosProcesos({
       comprobanteActual,
       ordenResolucionActual,
       mandamientoPagoActual,
+      direccionActual,
+      correoActual,
+      telefonoActual,
     ]
   );
 
@@ -229,6 +253,30 @@ export function FiltrosProcesos({
     [router, buildParams]
   );
 
+  const handleDireccionChange = useCallback(
+    (value: string) => {
+      const params = buildParams({ direccion: value === "todos" ? null : value });
+      router.push(`/comparendos?${params.toString()}`);
+    },
+    [router, buildParams]
+  );
+
+  const handleCorreoChange = useCallback(
+    (value: string) => {
+      const params = buildParams({ correo: value === "todos" ? null : value });
+      router.push(`/comparendos?${params.toString()}`);
+    },
+    [router, buildParams]
+  );
+
+  const handleTelefonoChange = useCallback(
+    (value: string) => {
+      const params = buildParams({ telefono: value === "todos" ? null : value });
+      router.push(`/comparendos?${params.toString()}`);
+    },
+    [router, buildParams]
+  );
+
   const handleLimpiar = useCallback(() => {
     router.push("/comparendos");
   }, [router]);
@@ -242,7 +290,10 @@ export function FiltrosProcesos({
     acuerdoPagoActual != null ||
     comprobanteActual != null ||
     ordenResolucionActual != null ||
-    mandamientoPagoActual != null;
+    mandamientoPagoActual != null ||
+    direccionActual != null ||
+    correoActual != null ||
+    telefonoActual != null;
 
   const fieldClass = "min-w-0 w-full h-10";
 
@@ -427,6 +478,66 @@ export function FiltrosProcesos({
           onValueChange={handleMandamientoPagoChange}
         >
           <SelectTrigger id="filtro-mandamiento-pago" className={fieldClass}>
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            {OPCIONES_PRESENCIA.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="filtro-direccion" className="text-xs text-muted-foreground">
+          Dirección
+        </Label>
+        <Select
+          value={direccionActual ?? "todos"}
+          onValueChange={handleDireccionChange}
+        >
+          <SelectTrigger id="filtro-direccion" className={fieldClass}>
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            {OPCIONES_PRESENCIA.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="filtro-correo" className="text-xs text-muted-foreground">
+          Correo electrónico
+        </Label>
+        <Select
+          value={correoActual ?? "todos"}
+          onValueChange={handleCorreoChange}
+        >
+          <SelectTrigger id="filtro-correo" className={fieldClass}>
+            <SelectValue placeholder="Todos" />
+          </SelectTrigger>
+          <SelectContent>
+            {OPCIONES_PRESENCIA.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="filtro-telefono" className="text-xs text-muted-foreground">
+          Teléfono
+        </Label>
+        <Select
+          value={telefonoActual ?? "todos"}
+          onValueChange={handleTelefonoChange}
+        >
+          <SelectTrigger id="filtro-telefono" className={fieldClass}>
             <SelectValue placeholder="Todos" />
           </SelectTrigger>
           <SelectContent>
