@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { generarMandamiento, firmarMandamiento, eliminarMandamiento } from "@/lib/actions/mandamientos-pago";
 import type { MandamientoPago } from "@/lib/db/schema";
-import { AlertTriangle, FileText, Loader2, PenLine, Download, Trash2 } from "lucide-react";
+import { AlertTriangle, FileText, Loader2, PenLine, Download, Trash2, Info } from "lucide-react";
 
 type MandamientoConUsuarios = MandamientoPago & {
   generadoPorNombre: string | null;
@@ -46,6 +46,8 @@ type Props = {
   /** Puede eliminar mandamientos que aún no han sido firmados */
   puedeEliminarSinFirmar?: boolean;
   vehiculoPlacaDefault?: string | null;
+  /** Campos del contribuyente que faltan y aparecerán vacíos en el documento */
+  camposFaltantes?: string[];
 };
 
 function formatDateTime(value: Date | string | null | undefined): string {
@@ -158,10 +160,11 @@ function FirmarMandamientoDialog({
   );
 }
 
-export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar, puedeEliminar, puedeEliminarSinFirmar, vehiculoPlacaDefault }: Props) {
+export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar, puedeEliminar, puedeEliminarSinFirmar, vehiculoPlacaDefault, camposFaltantes }: Props) {
   const [isGenerating, startGenerating] = useTransition();
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [showGenerarDialog, setShowGenerarDialog] = useState(false);
+  const [confirmarConFaltantes, setConfirmarConFaltantes] = useState(false);
   const [firmarId, setFirmarId] = useState<number | null>(null);
   const [eliminarId, setEliminarId] = useState<number | null>(null);
   const [isDeleting, startDeleting] = useTransition();
@@ -182,8 +185,11 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
     });
   };
 
+  const tieneCamposFaltantes = (camposFaltantes?.length ?? 0) > 0;
+
   const handleAbrirDialogGenerar = () => {
     setGenerateError(null);
+    setConfirmarConFaltantes(false);
     setShowGenerarDialog(true);
   };
 
@@ -335,16 +341,49 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
                 {vehiculoPlacaDefault}
               </div>
             </div>
-            <p className="text-muted-foreground text-sm">
-              El Nº de Resolución (consecutivo) se asignará automáticamente al momento de firmar el mandamiento.
-            </p>
+            <div className="flex items-start gap-2 rounded-md border border-muted bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+              <Info className="size-3.5 shrink-0 mt-0.5" />
+              <span>El Nº de Resolución (consecutivo) se asignará automáticamente al momento de firmar.</span>
+            </div>
+            {tieneCamposFaltantes && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                  <div className="text-sm">
+                    <p className="font-medium text-amber-800 dark:text-amber-300">Datos incompletos del contribuyente</p>
+                    <p className="mt-0.5 text-amber-700 dark:text-amber-400">
+                      Los siguientes campos no están registrados y quedarán vacíos en el documento:
+                    </p>
+                    <ul className="mt-1 list-disc list-inside text-amber-700 dark:text-amber-400">
+                      {camposFaltantes!.map((campo) => (
+                        <li key={campo}>{campo}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none pl-6">
+                  <input
+                    type="checkbox"
+                    checked={confirmarConFaltantes}
+                    onChange={(e) => setConfirmarConFaltantes(e.target.checked)}
+                    className="accent-amber-600"
+                  />
+                  <span className="text-sm text-amber-800 dark:text-amber-300">
+                    Entiendo y deseo continuar de todas formas
+                  </span>
+                </label>
+              </div>
+            )}
             {generateError && <p className="text-destructive text-sm">{generateError}</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowGenerarDialog(false)} disabled={isGenerating}>
               Cancelar
             </Button>
-            <Button onClick={handleConfirmarGenerar} disabled={isGenerating}>
+            <Button
+              onClick={handleConfirmarGenerar}
+              disabled={isGenerating || (tieneCamposFaltantes && !confirmarConFaltantes)}
+            >
               {isGenerating && <Loader2 className="mr-2 size-4 animate-spin" />}
               Generar
             </Button>

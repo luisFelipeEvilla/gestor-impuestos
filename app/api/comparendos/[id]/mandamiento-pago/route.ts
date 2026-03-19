@@ -41,6 +41,7 @@ export async function GET(_request: Request, context: RouteContext) {
       contribuyenteDireccion: contribuyentes.direccion,
       contribuyenteEmail: contribuyentes.email,
       contribuyenteCiudad: contribuyentes.ciudad,
+      contribuyenteDepartamento: contribuyentes.departamento,
       vehiculoPlaca: vehiculos.placa,
     })
     .from(procesos)
@@ -91,6 +92,7 @@ export async function GET(_request: Request, context: RouteContext) {
       direccion: row.contribuyenteDireccion,
       email: row.contribuyenteEmail,
       ciudad: row.contribuyenteCiudad,
+      departamento: row.contribuyenteDepartamento,
     },
     ordenResolucion,
     logoPath,

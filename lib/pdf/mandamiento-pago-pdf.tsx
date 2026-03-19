@@ -31,6 +31,7 @@ export type MandamientoPagoData = {
     direccion: string | null;
     email: string | null;
     ciudad: string | null;
+    departamento: string | null;
   };
   ordenResolucion: {
     numeroResolucion: string;
@@ -84,6 +85,21 @@ function labelTipoDoc(tipo: string): string {
     tarjeta_identidad: "T.I.",
   };
   return map[tipo] ?? tipo.toUpperCase();
+}
+
+/**
+ * Construye la dirección completa en el formato:
+ * {direccion}, {ciudad} - {departamento}
+ * Omite las partes que no existan.
+ */
+function formatDireccionCompleta(
+  direccion: string | null | undefined,
+  ciudad: string | null | undefined,
+  departamento: string | null | undefined
+): string {
+  const ubicacion = [ciudad, departamento].filter(Boolean).join(" - ");
+  const partes = [direccion, ubicacion].filter(Boolean).join(", ");
+  return partes || "—";
 }
 
 /** Convierte un entero positivo a su representación en palabras en español (Colombia). */
@@ -482,6 +498,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
 
   const expedienteNo = proceso.noComparendo ?? "—";
   const resolucionNo = ordenResolucion?.numeroResolucion ?? proceso.noComparendo ?? "—";
+  const direccionCompleta = formatDireccionCompleta(contribuyente.direccion, contribuyente.ciudad, contribuyente.departamento);
   const fechaResolucionStr = ordenResolucion?.fechaResolucion
     ? formatFechaCorta(ordenResolucion.fechaResolucion)
     : proceso.fechaAplicacionImpuesto
@@ -531,12 +548,14 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
           </View>
           <View style={s.dataRow}>
             <Text style={s.dataLabel}>DIRECCIÓN</Text>
-            <Text style={s.dataValue}> : {contribuyente.direccion ?? "—"}</Text>
+            <Text style={s.dataValue}> : {direccionCompleta}</Text>
           </View>
-          <View style={s.dataRow}>
-            <Text style={s.dataLabel}>CORREO ELECTRÓNICO:</Text>
-            <Text style={s.dataValue}> {contribuyente.email ?? "—"}</Text>
-          </View>
+          {contribuyente.email ? (
+            <View style={s.dataRow}>
+              <Text style={s.dataLabel}>CORREO ELECTRÓNICO:</Text>
+              <Text style={s.dataValue}> {contribuyente.email}</Text>
+            </View>
+          ) : null}
           <View style={s.dataRow}>
             <Text style={s.dataLabel}>VEHÍCULO DE PLACAS</Text>
             <Text style={s.dataValue}> : {placa}</Text>

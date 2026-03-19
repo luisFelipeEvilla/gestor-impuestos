@@ -130,6 +130,10 @@ export default async function DetalleProcesoPage({ params }: Props) {
       vehiculoId: procesos.vehiculoId,
       contribuyenteNit: contribuyentes.nit,
       contribuyenteNombre: contribuyentes.nombreRazonSocial,
+      contribuyenteDireccion: contribuyentes.direccion,
+      contribuyenteEmail: contribuyentes.email,
+      contribuyenteCiudad: contribuyentes.ciudad,
+      contribuyenteDepartamento: contribuyentes.departamento,
       asignadoNombre: usuarios.nombre,
       vehiculoPlaca: vehiculos.placa,
     })
@@ -248,6 +252,13 @@ export default async function DetalleProcesoPage({ params }: Props) {
     if (!cuotasPorAcuerdo[c.acuerdoPagoId]) cuotasPorAcuerdo[c.acuerdoPagoId] = [];
     cuotasPorAcuerdo[c.acuerdoPagoId].push(c);
   }
+
+  // Campos del contribuyente relevantes para el mandamiento de pago
+  const camposFaltantesMandamiento: string[] = [];
+  if (!row.contribuyenteDireccion) camposFaltantesMandamiento.push("Dirección");
+  if (!row.contribuyenteCiudad) camposFaltantesMandamiento.push("Ciudad");
+  if (!row.contribuyenteDepartamento) camposFaltantesMandamiento.push("Departamento");
+  if (!row.contribuyenteEmail) camposFaltantesMandamiento.push("Correo electrónico");
 
   const notificacionEvent = historialRows.find((h) => h.tipoEvento === "notificacion");
   const yaNotificado = !!notificacionEvent;
@@ -663,6 +674,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
               puedeEliminar={esAdmin}
               puedeEliminarSinFirmar={esAdmin || esAsignado}
               vehiculoPlacaDefault={row.vehiculoPlaca ?? null}
+              camposFaltantes={camposFaltantesMandamiento}
             />
             <CardCobroCoactivo
               procesoId={row.id}

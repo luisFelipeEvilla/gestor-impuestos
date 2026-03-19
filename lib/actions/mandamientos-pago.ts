@@ -38,6 +38,7 @@ async function queryProcesoData(procesoId: number) {
       contribuyenteDireccion: contribuyentes.direccion,
       contribuyenteEmail: contribuyentes.email,
       contribuyenteCiudad: contribuyentes.ciudad,
+      contribuyenteDepartamento: contribuyentes.departamento,
       vehiculoPlaca: vehiculos.placa,
     })
     .from(procesos)
@@ -91,6 +92,7 @@ function buildPdfData(
       direccion: row.contribuyenteDireccion,
       email: row.contribuyenteEmail,
       ciudad: row.contribuyenteCiudad,
+      departamento: row.contribuyenteDepartamento,
     },
     ordenResolucion,
     logoPath,
