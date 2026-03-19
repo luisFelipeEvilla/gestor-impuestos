@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition, useRef } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { generarMandamiento, firmarMandamiento, eliminarMandamiento } from "@/lib/actions/mandamientos-pago";
 import type { MandamientoPago } from "@/lib/db/schema";
-import { FileText, Loader2, PenLine, Download, Trash2 } from "lucide-react";
+import { AlertTriangle, FileText, Loader2, PenLine, Download, Trash2 } from "lucide-react";
 
 type MandamientoConUsuarios = MandamientoPago & {
   generadoPorNombre: string | null;
@@ -46,7 +46,6 @@ type Props = {
   /** Puede eliminar mandamientos que aún no han sido firmados */
   puedeEliminarSinFirmar?: boolean;
   vehiculoPlacaDefault?: string | null;
-  numeroResolucionDefault?: string | null;
 };
 
 function formatDateTime(value: Date | string | null | undefined): string {
@@ -159,16 +158,16 @@ function FirmarMandamientoDialog({
   );
 }
 
-export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar, puedeEliminar, puedeEliminarSinFirmar, vehiculoPlacaDefault, numeroResolucionDefault }: Props) {
+export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar, puedeFirmar, puedeEliminar, puedeEliminarSinFirmar, vehiculoPlacaDefault }: Props) {
   const [isGenerating, startGenerating] = useTransition();
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [showGenerarDialog, setShowGenerarDialog] = useState(false);
-  const [placaInput, setPlacaInput] = useState("");
-  const [noResolucionInput, setNoResolucionInput] = useState("");
   const [firmarId, setFirmarId] = useState<number | null>(null);
   const [eliminarId, setEliminarId] = useState<number | null>(null);
   const [isDeleting, startDeleting] = useTransition();
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const tieneVehiculo = !!vehiculoPlacaDefault;
 
   const handleEliminarConfirm = () => {
     if (eliminarId === null) return;
@@ -184,8 +183,6 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
   };
 
   const handleAbrirDialogGenerar = () => {
-    setPlacaInput(vehiculoPlacaDefault ?? "");
-    setNoResolucionInput(numeroResolucionDefault ?? "");
     setGenerateError(null);
     setShowGenerarDialog(true);
   };
@@ -193,7 +190,7 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
   const handleConfirmarGenerar = () => {
     setGenerateError(null);
     startGenerating(async () => {
-      const result = await generarMandamiento(procesoId, placaInput, noResolucionInput);
+      const result = await generarMandamiento(procesoId, vehiculoPlacaDefault ?? "");
       if (result.error) {
         setGenerateError(result.error);
       } else {
@@ -217,8 +214,14 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
               size="sm"
               variant="outline"
               onClick={handleAbrirDialogGenerar}
-              disabled={mandamientos.length > 0}
-              title={mandamientos.length > 0 ? "Ya existe un mandamiento de pago para este proceso" : undefined}
+              disabled={mandamientos.length > 0 || !tieneVehiculo}
+              title={
+                mandamientos.length > 0
+                  ? "Ya existe un mandamiento de pago para este proceso"
+                  : !tieneVehiculo
+                  ? "Asigna un vehículo al comparendo antes de generar"
+                  : undefined
+              }
             >
               <FileText className="mr-2 size-4" />
               Generar mandamiento
@@ -228,6 +231,22 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
         <CardContent>
           {generateError && (
             <p className="text-destructive text-sm mb-3">{generateError}</p>
+          )}
+          {puedeGenerar && !tieneVehiculo && (
+            <div className="flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-3 mb-4">
+              <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+              <div className="flex-1 text-sm">
+                <p className="font-medium text-amber-800 dark:text-amber-300">Sin vehículo asignado</p>
+                <p className="mt-0.5 text-amber-700 dark:text-amber-400">
+                  Este comparendo no tiene un vehículo registrado. Asigna uno para poder generar el mandamiento de pago.
+                </p>
+                <Button asChild size="sm" variant="outline" className="mt-2">
+                  <Link href={`/comparendos/${procesoId}/editar`}>
+                    Asignar vehículo
+                  </Link>
+                </Button>
+              </div>
+            </div>
           )}
           {mandamientos.length === 0 ? (
             <p className="text-muted-foreground text-sm">
@@ -247,13 +266,20 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
                       {m.generadoPorNombre ? ` por ${m.generadoPorNombre}` : ""}
                     </p>
                     {m.firmadoEn ? (
-                      <p className="text-xs text-green-600 dark:text-green-400 font-medium mt-0.5">
-                        Firmado {formatDateTime(m.firmadoEn)}
-                        {m.firmadoPorNombre ? ` por ${m.firmadoPorNombre}` : ""}
-                      </p>
+                      <>
+                        <p className="text-xs text-green-600 dark:text-green-400 font-medium mt-0.5">
+                          Firmado {formatDateTime(m.firmadoEn)}
+                          {m.firmadoPorNombre ? ` por ${m.firmadoPorNombre}` : ""}
+                        </p>
+                        {m.consecutivo != null && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Nº Resolución: <span className="font-medium">{m.consecutivo}</span>
+                          </p>
+                        )}
+                      </>
                     ) : (
                       <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                        Pendiente de firma
+                        Pendiente de firma — Nº Resolución se asignará al firmar
                       </p>
                     )}
                   </div>
@@ -304,25 +330,14 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="mp-placa">Placa del vehículo</Label>
-              <Input
-                id="mp-placa"
-                value={placaInput}
-                onChange={(e) => setPlacaInput(e.target.value.toUpperCase())}
-                placeholder="Ej. ABC123"
-                disabled={isGenerating}
-              />
+              <Label>Placa del vehículo</Label>
+              <div className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm font-mono">
+                {vehiculoPlacaDefault}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="mp-resolucion">Nº de resolución</Label>
-              <Input
-                id="mp-resolucion"
-                value={noResolucionInput}
-                onChange={(e) => setNoResolucionInput(e.target.value)}
-                placeholder="Ej. 0001-2025"
-                disabled={isGenerating}
-              />
-            </div>
+            <p className="text-muted-foreground text-sm">
+              El Nº de Resolución (consecutivo) se asignará automáticamente al momento de firmar el mandamiento.
+            </p>
             {generateError && <p className="text-destructive text-sm">{generateError}</p>}
           </div>
           <DialogFooter>

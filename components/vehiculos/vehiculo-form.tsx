@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ContribuyenteSelector } from "@/components/procesos/contribuyente-selector";
 import type { EstadoFormVehiculo } from "@/lib/actions/vehiculos";
 import type { Vehiculo } from "@/lib/db/schema";
 
@@ -42,6 +43,8 @@ export function VehiculoForm({
 }: VehiculoFormProps) {
   const [state, formAction] = useActionState(action, null);
   const isEdit = initialData != null;
+  const [contribuyenteId, setContribuyenteId] = useState<number | null>(null);
+  const [contribuyenteLabel, setContribuyenteLabel] = useState<string | null>(null);
 
   return (
     <form action={formAction} key={initialData?.id ?? "nuevo"}>
@@ -81,25 +84,18 @@ export function VehiculoForm({
             </div>
           ) : (
             <div className="grid gap-2">
-              <Label htmlFor="contribuyenteId">
-                ID del contribuyente <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="contribuyenteId"
-                name="contribuyenteId"
-                type="number"
-                placeholder="Ej. 42"
-                aria-invalid={!!state?.errores?.contribuyenteId}
+              <Label>Propietario (contribuyente)</Label>
+              <ContribuyenteSelector
+                value={contribuyenteId}
+                initialLabel={contribuyenteLabel}
+                onChange={(id, label) => {
+                  setContribuyenteId(id);
+                  setContribuyenteLabel(label);
+                }}
               />
               {state?.errores?.contribuyenteId && (
                 <p className="text-destructive text-xs">{state.errores.contribuyenteId[0]}</p>
               )}
-              <p className="text-xs text-muted-foreground">
-                Puedes encontrar el ID en el{" "}
-                <Link href="/contribuyentes" target="_blank" className="text-primary hover:underline">
-                  listado de contribuyentes
-                </Link>.
-              </p>
             </div>
           )}
 

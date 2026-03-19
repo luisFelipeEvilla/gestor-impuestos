@@ -13,7 +13,10 @@ export type EstadoFormVehiculo = {
 };
 
 const schemaVehiculo = z.object({
-  contribuyenteId: z.coerce.number().int().positive("Selecciona un contribuyente"),
+  contribuyenteId: z.preprocess(
+    (v) => (v === "" || v == null ? null : v),
+    z.coerce.number().int().positive().nullable()
+  ),
   placa: z
     .string()
     .min(1, "La placa es obligatoria")
@@ -132,6 +135,34 @@ export async function actualizarVehiculo(
     }
     console.error(err);
     return { error: "Error al actualizar el vehículo. Intenta de nuevo." };
+  }
+}
+
+/** Crea un vehículo con solo la placa (para registro rápido desde selectores).
+ *  Devuelve el vehículo creado o un error; sin redirect. */
+export async function crearVehiculoRapido(
+  placa: string
+): Promise<{ vehiculo?: { id: number; placa: string }; error?: string }> {
+  const placaNorm = placa.toUpperCase().trim();
+  if (!placaNorm || placaNorm.length > 20) {
+    return { error: "Placa inválida." };
+  }
+  try {
+    const [inserted] = await db
+      .insert(vehiculos)
+      .values({ placa: placaNorm })
+      .returning({ id: vehiculos.id, placa: vehiculos.placa });
+
+    if (!inserted) return { error: "No se pudo crear el vehículo." };
+    revalidatePath("/vehiculos");
+    return { vehiculo: inserted };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("vehiculos_placa_unique") || msg.includes("unique")) {
+      return { error: "Ya existe un vehículo con esa placa." };
+    }
+    console.error(err);
+    return { error: "Error al crear el vehículo." };
   }
 }
 

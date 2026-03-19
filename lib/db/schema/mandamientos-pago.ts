@@ -18,6 +18,8 @@ export const mandamientosPago = pgTable("mandamientos_pago", {
   rutaArchivo: text("ruta_archivo").notNull(),
   nombreOriginal: text("nombre_original").notNull(),
   tamano: integer("tamano").notNull(),
+  /** Consecutivo asignado al momento de firmar, usado como Nº de Resolución */
+  consecutivo: integer("consecutivo"),
   firmadoPorId: integer("firmado_por_id").references(() => usuarios.id, {
     onDelete: "set null",
   }),

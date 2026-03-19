@@ -1,0 +1,1 @@
+ALTER TABLE "vehiculos" ALTER COLUMN "contribuyente_id" DROP NOT NULL;

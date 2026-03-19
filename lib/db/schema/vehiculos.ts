@@ -7,7 +7,6 @@ export const vehiculos = pgTable(
   {
     id: serial("id").primaryKey(),
     contribuyenteId: integer("contribuyente_id")
-      .notNull()
       .references(() => contribuyentes.id, { onDelete: "restrict", onUpdate: "cascade" }),
     placa: text("placa").notNull(),
     /** Año modelo del vehículo. */

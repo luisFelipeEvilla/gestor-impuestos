@@ -1,0 +1,1 @@
+ALTER TABLE "mandamientos_pago" ADD COLUMN "consecutivo" integer;

@@ -12,7 +12,7 @@ import {
   vehiculos,
   mandamientosPago,
 } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, max } from "drizzle-orm";
 import { getSession } from "@/lib/auth-server";
 import { MandamientoPagoPdfDocument } from "@/lib/pdf/mandamiento-pago-pdf";
 import type { MandamientoPagoData } from "@/lib/pdf/mandamiento-pago-pdf";
@@ -101,8 +101,7 @@ function buildPdfData(
 
 export async function generarMandamiento(
   procesoId: number,
-  vehiculoPlaca: string,
-  numeroResolucion: string
+  vehiculoPlaca: string
 ): Promise<{ error?: string }> {
   const session = await getSession();
   if (!session?.user) return { error: "No autorizado" };
@@ -119,13 +118,9 @@ export async function generarMandamiento(
     }
   }
 
-  // Usar los valores ingresados por el usuario
   const rowConPlaca = { ...row, vehiculoPlaca: vehiculoPlaca.trim() || null };
-  const ordenResolucionConNumero = numeroResolucion.trim()
-    ? { ...(ordenResolucion ?? { fechaResolucion: null, codigoInfraccion: null }), numeroResolucion: numeroResolucion.trim() }
-    : ordenResolucion;
 
-  const data = buildPdfData(rowConPlaca, ordenResolucionConNumero, session.user.name ?? null, null);
+  const data = buildPdfData(rowConPlaca, ordenResolucion, session.user.name ?? null, null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = React.createElement(MandamientoPagoPdfDocument, { data });
   const buffer = await renderToBuffer(doc as React.ReactElement<any>);
@@ -144,7 +139,6 @@ export async function generarMandamiento(
     procesoId,
     generadoPorId: session.user.id ?? null,
     vehiculoPlaca: vehiculoPlaca.trim() || null,
-    numeroResolucion: numeroResolucion.trim() || null,
     rutaArchivo,
     nombreOriginal,
     tamano: buffer.byteLength,
@@ -195,11 +189,18 @@ export async function firmarMandamiento(
   const firmaBuffer = Buffer.from(await firmaFile.arrayBuffer());
   const signatureImageBase64 = `data:${firmaFile.type};base64,${firmaBuffer.toString("base64")}`;
 
-  // Usar los valores guardados al generar el mandamiento original
+  // Asignar el siguiente consecutivo (número de resolución oficial)
+  const [maxResult] = await db
+    .select({ maxConsecutivo: max(mandamientosPago.consecutivo) })
+    .from(mandamientosPago);
+  const nextConsecutivo = (maxResult?.maxConsecutivo ?? 0) + 1;
+
+  // Usar placa guardada y consecutivo como Nº de Resolución
   const rowConPlaca = { ...row, vehiculoPlaca: mandamiento.vehiculoPlaca ?? row.vehiculoPlaca };
-  const ordenResolucionParaFirma = mandamiento.numeroResolucion
-    ? { ...(ordenResolucion ?? { fechaResolucion: null, codigoInfraccion: null }), numeroResolucion: mandamiento.numeroResolucion }
-    : ordenResolucion;
+  const ordenResolucionParaFirma = {
+    ...(ordenResolucion ?? { fechaResolucion: null, codigoInfraccion: null }),
+    numeroResolucion: String(nextConsecutivo),
+  };
 
   const data = buildPdfData(rowConPlaca, ordenResolucionParaFirma, session.user.name ?? null, session.user.name ?? null, signatureImageBase64);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -221,6 +222,7 @@ export async function firmarMandamiento(
       rutaArchivo,
       nombreOriginal,
       tamano: buffer.byteLength,
+      consecutivo: nextConsecutivo,
       firmadoPorId: session.user.id ?? null,
       firmadoEn: new Date(),
     })

@@ -218,6 +218,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
         firmadoPorId: mandamientosPago.firmadoPorId,
         vehiculoPlaca: mandamientosPago.vehiculoPlaca,
         numeroResolucion: mandamientosPago.numeroResolucion,
+        consecutivo: mandamientosPago.consecutivo,
         rutaArchivo: mandamientosPago.rutaArchivo,
         nombreOriginal: mandamientosPago.nombreOriginal,
         tamano: mandamientosPago.tamano,
@@ -662,7 +663,6 @@ export default async function DetalleProcesoPage({ params }: Props) {
               puedeEliminar={esAdmin}
               puedeEliminarSinFirmar={esAdmin || esAsignado}
               vehiculoPlacaDefault={row.vehiculoPlaca ?? null}
-              numeroResolucionDefault={ordenResolucion?.numeroResolucion ?? null}
             />
             <CardCobroCoactivo
               procesoId={row.id}
