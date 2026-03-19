@@ -32,6 +32,7 @@ export type MandamientoPagoData = {
     tipoDocumento: string;
     direccion: string | null;
     email: string | null;
+    telefono: string | null;
     ciudad: string | null;
     departamento: string | null;
   };
@@ -567,6 +568,12 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
             <Text style={s.dataLabel}>VEHÍCULO DE PLACAS</Text>
             <Text style={s.dataValue}> : {placa}</Text>
           </View>
+          {contribuyente.telefono ? (
+            <View style={s.dataRow}>
+              <Text style={s.dataLabel}>TELÉFONO</Text>
+              <Text style={s.dataValue}> : {contribuyente.telefono}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* CONSIDERANDO */}
