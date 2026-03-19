@@ -41,6 +41,9 @@ interface ChipsFiltrosProcesosProps {
   comprobante: "con" | "sin" | null;
   ordenResolucion: "con" | "sin" | null;
   mandamientoPago: "con" | "sin" | null;
+  direccion: "con" | "sin" | null;
+  correo: "con" | "sin" | null;
+  telefono: "con" | "sin" | null;
   orderBy?: string;
   order?: string;
   perPage?: number;
@@ -61,6 +64,9 @@ export function ChipsFiltrosProcesos({
   comprobante,
   ordenResolucion,
   mandamientoPago,
+  direccion,
+  correo,
+  telefono,
   orderBy,
   order,
   perPage,
@@ -79,6 +85,9 @@ export function ChipsFiltrosProcesos({
   if (comprobante) params.set("comprobante", comprobante);
   if (ordenResolucion) params.set("ordenResolucion", ordenResolucion);
   if (mandamientoPago) params.set("mandamientoPago", mandamientoPago);
+  if (direccion) params.set("direccion", direccion);
+  if (correo) params.set("correo", correo);
+  if (telefono) params.set("telefono", telefono);
   if (orderBy) params.set("orderBy", orderBy);
   if (order) params.set("order", order);
   if (perPage != null) params.set("perPage", String(perPage));
@@ -155,6 +164,24 @@ export function ChipsFiltrosProcesos({
     chips.push({
       label: `Mandamiento de pago: ${mandamientoPago === "con" ? "Con" : "Sin"}`,
       href: buildUrl(params, { key: "mandamientoPago" }),
+    });
+  }
+  if (direccion) {
+    chips.push({
+      label: `Dirección (contrib.): ${direccion === "con" ? "Con" : "Sin"}`,
+      href: buildUrl(params, { key: "direccion" }),
+    });
+  }
+  if (correo) {
+    chips.push({
+      label: `Correo (contrib.): ${correo === "con" ? "Con" : "Sin"}`,
+      href: buildUrl(params, { key: "correo" }),
+    });
+  }
+  if (telefono) {
+    chips.push({
+      label: `Teléfono (contrib.): ${telefono === "con" ? "Con" : "Sin"}`,
+      href: buildUrl(params, { key: "telefono" }),
     });
   }
 
