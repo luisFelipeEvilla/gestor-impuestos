@@ -14,6 +14,8 @@ Font.registerHyphenationCallback((word: string) => [word]);
 export type MandamientoPagoData = {
   proyectorNombre: string | null;
   firmadorNombre: string | null;
+  /** Número que aparece en el encabezado (consecutivo formateado o placeholder). No afecta el cuerpo del documento. */
+  numeroResolucionEncabezado: string;
   proceso: {
     id: number;
     noComparendo: string | null;
@@ -494,10 +496,10 @@ function PageFooter() {
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData }) {
-  const { proceso, contribuyente, ordenResolucion, logoPath, fechaGeneracion, proyectorNombre, firmadorNombre, signatureImageBase64 } = data;
+  const { proceso, contribuyente, ordenResolucion, logoPath, fechaGeneracion, proyectorNombre, firmadorNombre, signatureImageBase64, numeroResolucionEncabezado } = data;
 
   const expedienteNo = proceso.noComparendo ?? "—";
-  const resolucionNo = ordenResolucion?.numeroResolucion ?? "—";
+  const resolucionNo = numeroResolucionEncabezado;
   const direccionCompleta = formatDireccionCompleta(contribuyente.direccion, contribuyente.ciudad, contribuyente.departamento);
   const fechaResolucionStr = ordenResolucion?.fechaResolucion
     ? formatFechaCorta(ordenResolucion.fechaResolucion)

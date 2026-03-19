@@ -75,6 +75,7 @@ export async function GET(_request: Request, context: RouteContext) {
   const data: MandamientoPagoData = {
     proyectorNombre: session.user.name ?? null,
     firmadorNombre: null,
+    numeroResolucionEncabezado: `400.03.81-${new Date().getFullYear()}{{consecutivo}}`,
     proceso: {
       id: row.id,
       noComparendo: row.noComparendo,
@@ -94,10 +95,7 @@ export async function GET(_request: Request, context: RouteContext) {
       ciudad: row.contribuyenteCiudad,
       departamento: row.contribuyenteDepartamento,
     },
-    ordenResolucion: {
-      ...(ordenResolucion ?? { fechaResolucion: null, codigoInfraccion: null }),
-      numeroResolucion: `400.03.81-${new Date().getFullYear()}{{consecutivo}}`,
-    },
+    ordenResolucion,
     logoPath,
     fechaGeneracion: new Date(),
   };

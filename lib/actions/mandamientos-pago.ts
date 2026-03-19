@@ -69,12 +69,14 @@ function buildPdfData(
   ordenResolucion: OrdenResolucionRow,
   proyectorNombre: string | null,
   firmadorNombre: string | null,
+  numeroResolucionEncabezado: string,
   signatureImageBase64?: string | null
 ): MandamientoPagoData {
   const logoPath = path.join(process.cwd(), "public", "logo_magdalena.png");
   return {
     proyectorNombre,
     firmadorNombre,
+    numeroResolucionEncabezado,
     proceso: {
       id: row.id,
       noComparendo: row.noComparendo,
@@ -122,14 +124,8 @@ export async function generarMandamiento(
 
   const rowConPlaca = { ...row, vehiculoPlaca: vehiculoPlaca.trim() || null };
 
-  // Mostrar placeholder hasta que se firme y se asigne el consecutivo real
-  const anioActual = new Date().getFullYear();
-  const ordenResolucionConPlaceholder = {
-    ...(ordenResolucion ?? { fechaResolucion: null, codigoInfraccion: null }),
-    numeroResolucion: `400.03.81-${anioActual}{{consecutivo}}`,
-  };
-
-  const data = buildPdfData(rowConPlaca, ordenResolucionConPlaceholder, session.user.name ?? null, null);
+  const encabezadoPlaceholder = `400.03.81-${new Date().getFullYear()}{{consecutivo}}`;
+  const data = buildPdfData(rowConPlaca, ordenResolucion, session.user.name ?? null, null, encabezadoPlaceholder);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = React.createElement(MandamientoPagoPdfDocument, { data });
   const buffer = await renderToBuffer(doc as React.ReactElement<any>);
@@ -207,14 +203,10 @@ export async function firmarMandamiento(
   const anioFirma = new Date().getFullYear();
   const resolucionFormateada = `400.03.81-${anioFirma}${String(nextConsecutivo).padStart(5, "0")}`;
 
-  // Usar placa guardada y resolución formateada
+  // Usar placa guardada; el encabezado muestra el consecutivo formateado
   const rowConPlaca = { ...row, vehiculoPlaca: mandamiento.vehiculoPlaca ?? row.vehiculoPlaca };
-  const ordenResolucionParaFirma = {
-    ...(ordenResolucion ?? { fechaResolucion: null, codigoInfraccion: null }),
-    numeroResolucion: resolucionFormateada,
-  };
 
-  const data = buildPdfData(rowConPlaca, ordenResolucionParaFirma, session.user.name ?? null, session.user.name ?? null, signatureImageBase64);
+  const data = buildPdfData(rowConPlaca, ordenResolucion, session.user.name ?? null, session.user.name ?? null, resolucionFormateada, signatureImageBase64);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = React.createElement(MandamientoPagoPdfDocument, { data });
   const buffer = await renderToBuffer(doc as React.ReactElement<any>);
