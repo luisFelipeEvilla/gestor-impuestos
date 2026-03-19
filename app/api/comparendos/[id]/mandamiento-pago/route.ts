@@ -94,7 +94,10 @@ export async function GET(_request: Request, context: RouteContext) {
       ciudad: row.contribuyenteCiudad,
       departamento: row.contribuyenteDepartamento,
     },
-    ordenResolucion,
+    ordenResolucion: {
+      ...(ordenResolucion ?? { fechaResolucion: null, codigoInfraccion: null }),
+      numeroResolucion: `400.03.81-${new Date().getFullYear()}{{consecutivo}}`,
+    },
     logoPath,
     fechaGeneracion: new Date(),
   };

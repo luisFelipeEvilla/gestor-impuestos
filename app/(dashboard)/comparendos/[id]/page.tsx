@@ -332,7 +332,7 @@ export default async function DetalleProcesoPage({ params }: Props) {
   const esAdmin = session?.user?.rol === "admin";
   const esAsignado = !!session?.user?.id && row.asignadoAId === session.user.id;
   const puedeGenerar = esAdmin || esAsignado;
-  const puedeFirmar = puedeGenerar || esUsuarioCliente;
+  const puedeFirmar = esAdmin || esUsuarioCliente;
 
   return (
     <div className="p-6 space-y-6">

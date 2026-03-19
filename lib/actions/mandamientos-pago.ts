@@ -122,7 +122,14 @@ export async function generarMandamiento(
 
   const rowConPlaca = { ...row, vehiculoPlaca: vehiculoPlaca.trim() || null };
 
-  const data = buildPdfData(rowConPlaca, ordenResolucion, session.user.name ?? null, null);
+  // Mostrar placeholder hasta que se firme y se asigne el consecutivo real
+  const anioActual = new Date().getFullYear();
+  const ordenResolucionConPlaceholder = {
+    ...(ordenResolucion ?? { fechaResolucion: null, codigoInfraccion: null }),
+    numeroResolucion: `400.03.81-${anioActual}{{consecutivo}}`,
+  };
+
+  const data = buildPdfData(rowConPlaca, ordenResolucionConPlaceholder, session.user.name ?? null, null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = React.createElement(MandamientoPagoPdfDocument, { data });
   const buffer = await renderToBuffer(doc as React.ReactElement<any>);
@@ -170,11 +177,10 @@ export async function firmarMandamiento(
 
   const { row, ordenResolucion } = queryResult;
 
-  // Verificar permisos: admin, asignado al proceso o usuario_cliente
+  // Verificar permisos: solo admin y usuario_cliente pueden firmar
   const esAdmin = session.user.rol === "admin";
-  const esAsignado = !!session.user.id && row.asignadoAId === session.user.id;
   const esUsuarioCliente = session.user.rol === "usuario_cliente";
-  if (!esAdmin && !esAsignado && !esUsuarioCliente) {
+  if (!esAdmin && !esUsuarioCliente) {
     return { error: "No autorizado" };
   }
 
@@ -197,11 +203,15 @@ export async function firmarMandamiento(
     .from(mandamientosPago);
   const nextConsecutivo = (maxResult?.maxConsecutivo ?? 0) + 1;
 
-  // Usar placa guardada y consecutivo como Nº de Resolución
+  // Formatear número de resolución: 400.03.81-{año}{consecutivo 5 dígitos}
+  const anioFirma = new Date().getFullYear();
+  const resolucionFormateada = `400.03.81-${anioFirma}${String(nextConsecutivo).padStart(5, "0")}`;
+
+  // Usar placa guardada y resolución formateada
   const rowConPlaca = { ...row, vehiculoPlaca: mandamiento.vehiculoPlaca ?? row.vehiculoPlaca };
   const ordenResolucionParaFirma = {
     ...(ordenResolucion ?? { fechaResolucion: null, codigoInfraccion: null }),
-    numeroResolucion: String(nextConsecutivo),
+    numeroResolucion: resolucionFormateada,
   };
 
   const data = buildPdfData(rowConPlaca, ordenResolucionParaFirma, session.user.name ?? null, session.user.name ?? null, signatureImageBase64);
@@ -225,6 +235,7 @@ export async function firmarMandamiento(
       nombreOriginal,
       tamano: buffer.byteLength,
       consecutivo: nextConsecutivo,
+      numeroResolucion: resolucionFormateada,
       firmadoPorId: session.user.id ?? null,
       firmadoEn: new Date(),
     })

@@ -497,7 +497,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
   const { proceso, contribuyente, ordenResolucion, logoPath, fechaGeneracion, proyectorNombre, firmadorNombre, signatureImageBase64 } = data;
 
   const expedienteNo = proceso.noComparendo ?? "—";
-  const resolucionNo = ordenResolucion?.numeroResolucion ?? proceso.noComparendo ?? "—";
+  const resolucionNo = ordenResolucion?.numeroResolucion ?? "—";
   const direccionCompleta = formatDireccionCompleta(contribuyente.direccion, contribuyente.ciudad, contribuyente.departamento);
   const fechaResolucionStr = ordenResolucion?.fechaResolucion
     ? formatFechaCorta(ordenResolucion.fechaResolucion)
@@ -569,9 +569,9 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
         <Text style={s.para}>
           <Text style={s.bold}>PRIMERO.- </Text>
           <Text>
-            {"Que la Oficina de Gestión Tributaria y Cobro Coactivo del Magdalena, con fundamento en las facultades conferidas en el artículo 136 de la Ley 769 de 2002 modificada por el artículo 24 de la Ley 1383 de 2010, modificado por el artículo 205 del Decreto 019 de 2002 expidió la resolución Sanción No. "}
+            {"Que la Oficina de Tránsito y Transporte del Departamento del Magdalena, con fundamento en las facultades conferidas en el artículo 136 de la Ley 769 de 2002 modificada por el artículo 24 de la Ley 1383 de 2010, modificado por el artículo 205 del Decreto 019 de 2002 expidió la resolución Sanción No. "}
           </Text>
-          <Text style={s.bold}>{resolucionNo}</Text>
+          <Text style={s.bold}>{ordenResolucion?.numeroResolucion ?? "—"}</Text>
           <Text>{" de fecha "}</Text>
           <Text style={s.bold}>
             {ordenResolucion?.fechaResolucion ? formatFechaLarga(ordenResolucion.fechaResolucion) : "—"}
@@ -629,7 +629,7 @@ export function MandamientoPagoPdfDocument({ data }: { data: MandamientoPagoData
                 ? formatFechaCorta(proceso.fechaAplicacionImpuesto)
                 : "—"}
             </Text>
-            <Text style={[s.tCell, s.colNoRes]}>{proceso.noComparendo ?? "—"}</Text>
+            <Text style={[s.tCell, s.colNoRes]}>{ordenResolucion?.numeroResolucion ?? "—"}</Text>
             <Text style={[s.tCell, s.colFechaRes]}>{fechaResolucionStr}</Text>
             <Text style={[s.tCell, s.colValor]}>{montoFormateado}</Text>
             <Text style={[s.tCell, s.colCodigo]}>{codigoInfraccion}</Text>

@@ -277,9 +277,9 @@ export function MandamientosPagoSection({ procesoId, mandamientos, puedeGenerar,
                           Firmado {formatDateTime(m.firmadoEn)}
                           {m.firmadoPorNombre ? ` por ${m.firmadoPorNombre}` : ""}
                         </p>
-                        {m.consecutivo != null && (
+                        {m.numeroResolucion && (
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            Nº Resolución: <span className="font-medium">{m.consecutivo}</span>
+                            Nº Resolución: <span className="font-medium font-mono">{m.numeroResolucion}</span>
                           </p>
                         )}
                       </>
